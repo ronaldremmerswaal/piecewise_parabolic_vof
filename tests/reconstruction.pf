@@ -1,0 +1,14 @@
+module reconstruction
+
+contains
+  @Test
+  subroutine dummy()
+    use funit
+
+    print*, "Hello"
+
+    @assertEqual(1., 1.)
+
+  end subroutine dummy
+
+end module
