@@ -1,0 +1,6 @@
+[submodule "external/Optimization_f90"]
+	path = external/Optimization_f90
+	url = https://github.com/ronaldremmerswaal/Optimization_f90.git
+[submodule "external/r3d"]
+	path = external/r3d
+	url = https://github.com/devonmpowell/r3d.git
