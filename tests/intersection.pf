@@ -3,13 +3,67 @@ module intersection
 contains
   
   @Test
-  subroutine dummy()
+  subroutine test_moments2d()
     use funit
+    use m_plic_util
+    use m_r2d_parabolic
 
-    print*, "Hello"
+    implicit none
 
-    @assertEqual(1., 1.)
+    ! Local variables
+    real*8, parameter      :: TOLERANCE = 1E-8
+    integer, parameter     :: nrBoxes = 8, nrPlics = 100
 
-  end subroutine dummy
+    type(r2d_poly_f)       :: poly, cutPoly
+    real*8                 :: dx(2), x(2), mom_util(3), mom_r2d(3), normal(2), pc, shift
+    integer                :: bdx, pdx, SEED(33)
+
+    SEED = 1
+    call random_seed(put=SEED)
+
+    x = 0.0D0
+    dx = 1.0D0
+    call init_box(cutPoly, [x - dx/2, x + dx/2])
+    shift = 0.0D0
+    normal = [0.0D0, 1.0D0]
+
+    call intersect_by_plane(cutPoly, normal, shift + dot_product(normal, x))
+    call moments_01(mom_r2d, cutPoly)
+
+    mom_util = cmpMoments2d(normal, dx, shift)
+
+    @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
+
+    do bdx=1,nrBoxes
+      call random_number(x)
+      call random_number(dx)
+
+      ! Consider boxes of any size
+      dx = dx * (10.0D0**(3-bdx))
+
+      call init_box(poly, [x - dx/2, x + dx/2])
+      do pdx=1,nrPlics
+        call copy(to=cutPoly, from=poly)
+
+        call random_number(normal)
+        normal = normal - 0.5
+        normal = normal / norm2(normal)
+
+        call random_number(pc)
+        pc = pc * dot_product(abs(normal), dx)
+        shift = pc - dot_product(abs(normal), dx) / 2.0
+
+        call intersect_by_plane(cutPoly, normal, shift + dot_product(normal, x))
+        call moments_01(mom_r2d, cutPoly)
+
+        mom_util = cmpMoments2d(normal, dx, shift)
+
+        print*, 'UTIL', mom_util
+        print*, ' R2D', mom_r2d
+
+        @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
+      enddo
+    enddo
+  endsubroutine test_moments2d
 
 end module

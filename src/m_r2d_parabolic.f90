@@ -65,14 +65,15 @@ module m_r2d_parabolic
   end interface
 
   interface
-    subroutine r2d_moments_01(poly, moments) bind(C, name="r2d_moments_01")
-      import r2d_poly_f, c_double
+    subroutine r2d_reduce(poly, moments, order) bind(C, name="r2d_reduce")
+      import r2d_poly_f, c_double, c_int32_t
 
       implicit none
 
       type(r2d_poly_f), intent(in):: poly
       real(c_double), intent(out) :: moments(3)
-    end subroutine r2d_moments_01
+      integer(c_int32_t), intent(in) :: order
+    end subroutine r2d_reduce
   end interface
 
   interface
@@ -148,7 +149,7 @@ contains
     type(r2d_poly_f), intent(in) :: poly
     real*8, intent(out)          :: mom(3)
 
-    call r2d_moments_01(poly, mom)
+    call r2d_reduce(poly, mom, %val(1))
   end subroutine
 
   subroutine intersect_with_cell(poly, x0, dx)
@@ -160,15 +161,15 @@ contains
     ! Local variables
     type(r2d_plane_f)     :: planes(2, 2)
     integer               :: dim, side
-    real                  :: sgn
+    real*8                :: sgn
 
     do dim=1,2
     do side=1,2
-      sgn = 2.0 * side - 3.0
+      sgn = 2 * side - 3.0D0
 
-      planes(dim, side)%n%xyz = 0.0
+      planes(dim, side)%n%xyz = 0.0D0
       planes(dim, side)%n%xyz(dim) = sgn
-      planes(dim, side)%d = -sgn * x0(dim) + dx(dim) / 2.0
+      planes(dim, side)%d = -sgn * x0(dim) + dx(dim) / 2
     enddo
     enddo
 
@@ -307,7 +308,6 @@ contains
 
     type(r2d_poly_f), intent(out) :: poly
     real*8, intent(in)    :: pos(1:, 1:)
-    ! integer, intent(in)   :: nverts
 
     ! Local variables
     type(r2d_rvec2_f)     :: vertices(size(pos, 2))

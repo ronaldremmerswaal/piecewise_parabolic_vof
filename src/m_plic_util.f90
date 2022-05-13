@@ -2,7 +2,7 @@ module m_plic_util
   real*8, parameter     :: NORMAL_TOL = 1E-12
 contains
 
-  pure function cmpMoments2d(normal, dx, shift) result(moments)
+   function cmpMoments2d(normal, dx, shift) result(moments)
     implicit none
 
     real*8, intent(in)  :: normal(2), dx(2), shift
@@ -10,21 +10,36 @@ contains
 
     ! Local variables:
     real*8              :: normal_(2), dx_(2), max_shift_plane
+    integer             :: perm(2)
 
     normal_ = abs(normal)
-    if (normal_(1) >= normal_(2)) then
+    if (dx(1) * normal_(1) < dx(2) * normal_(2)) then
       dx_ = dx
+      perm = [1, 2]
     else
       normal_ = [normal_(2), normal_(1)]
       dx_ = [dx(2), dx(1)]
+      perm = [2, 1]
     endif
 
-    max_shift_plane = dot_product(abs(normal), dx)/2
-    moments = cmpMoments2d_pc(normal_, dx_, shift + max_shift_plane, max_shift_plane)
+    max_shift_plane = dot_product(normal_, dx_)/2
+    if (normal_(1) < NORMAL_TOL) then
+      moments(1) = ((shift + max_shift_plane) / normal_(2)) * product(dx_)
+      moments(2) = 0.
+      moments(3) = 0.5 * (((shift + max_shift_plane) / normal_(2) - dx_(1) / 2.0)**2 - (dx_(1)/2.0)**2) * dx_(2)
+    else
+      moments = cmpMoments2d_pc_ordered(normal_, dx_, shift + max_shift_plane, max_shift_plane)
+    endif
+
+      if (normal(perm(1)) < 0.0) moments(2) = -moments(2)
+      if (normal(perm(2)) < 0.0) moments(3) = -moments(3)
+      if (perm(1) /= 1) then 
+        moments(2:3) = [moments(3), moments(2)]
+      endif
   end function
 
 
-  pure function cmpMoments2d_pc(normal, dx, pc, max_shift_plane) result(moments)
+  pure function cmpMoments2d_pc_ordered(normal, dx, pc, max_shift_plane) result(moments)
     implicit none
 
     real*8, intent(in)  :: normal(2), dx(2), pc, max_shift_plane
@@ -33,8 +48,6 @@ contains
     ! Local variables:
     real*8              :: pcMod
     logical             :: largerThanHalf
-
-    
 
     largerThanHalf = pc > max_shift_plane
     if (largerThanHalf) then
@@ -70,28 +83,32 @@ contains
     real*8              :: normal_(2), dx_(2), max_shift_plane
 
     normal_ = abs(normal)
-    if (normal_(1) >= normal_(2)) then
+    if (dx(1) * normal_(1) < dx(2) * normal_(2)) then
       dx_ = dx
     else
       normal_ = [normal_(2), normal_(1)]
       dx_ = [dx(2), dx(1)]
     endif
 
-    max_shift_plane = dot_product(abs(normal), dx)/2
-    shift = cmpShift2d_pc(normal_, dx_, volume, max_shift_plane) - max_shift_plane
+    if (normal_(1) < NORMAL_TOL) then
+      shift = volume / product(dx_) - max_shift_plane
+    else
+      max_shift_plane = dot_product(normal_, dx_)/2
+      shift = cmpShift2d_pc_ordered(normal_, dx_, volume, max_shift_plane) - max_shift_plane
+    endif
+
 
   end function
 
-  pure real*8 function cmpShift2d_pc(normal, dx, volume, max_shift_plane) result(pc)
+  pure real*8 function cmpShift2d_pc_ordered(normal, dx, volume, max_shift_plane) result(pc)
 
     implicit none
 
     real*8, intent(in)    :: normal(2), dx(2), volume, max_shift_plane
 
     ! Local variables:
-    real                  :: max_volume_plane              
-    real                  :: pc_max           
-    real                  :: v1, vMod
+    real*8                :: max_volume_plane        
+    real*8                :: v1, vMod
     logical               :: largerThanHalf
 
     max_volume_plane = product(dx)
@@ -105,7 +122,7 @@ contains
     endif
 
     if (vMod <= 0.0) then
-      pc = 0.0
+      pc = 0.0D0
     elseif (vMod < v1) then
       pc = sqrt(2*normal(1)*normal(2)*vMod)
     else ! if (vMod <= .5*max_volume_plane) then
