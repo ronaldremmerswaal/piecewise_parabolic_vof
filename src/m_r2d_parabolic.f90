@@ -1,4 +1,4 @@
-module m_r2d
+module m_r2d_parabolic
   use, intrinsic :: iso_c_binding
 
   implicit none

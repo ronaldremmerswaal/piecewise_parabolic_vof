@@ -2,7 +2,7 @@
 
 set(ppic_SOURCES
   r2d_parabolic.c
-  m_r2d.f90
+  m_r2d_parabolic.f90
   )
 
 target_sources(ppic PRIVATE ${ppic_SOURCES})

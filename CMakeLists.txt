@@ -4,9 +4,8 @@ project(ppic C Fortran)
 
 # Unit testing
 if (ENABLE_UNIT_TESTS)
-  enable_testing()
+  add_subdirectory(tests)
 endif ()
-
 add_library(ppic)
 
 # Alias (Daniel Pfeiffer, Effective CMake) - this allows other
@@ -16,28 +15,20 @@ add_library(ppic)
 add_library(ppic::ppic ALIAS ppic)
 set(ppic_LIBRARIES ppic::ppic CACHE STRING "ppic library target")
 
-find_package(Git QUIET)
-if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
-# Update submodules as needed
-    option(GIT_SUBMODULE "Check submodules during build" ON)
-    if(GIT_SUBMODULE)
-        message(STATUS "Submodule update")
-        execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
-                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                        RESULT_VARIABLE GIT_SUBMOD_RESULT)
-        if(NOT GIT_SUBMOD_RESULT EQUAL "0")
-            message(FATAL_ERROR "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
-        endif()
-    endif()
-endif()
-
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/external/Optimization_f90/CMakeLists.txt")
-  message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
-endif()
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/external/r3d/CMakeLists.txt")
-  message(FATAL_ERROR "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
-endif()
-
+# find_package(Git QUIET)
+# if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+# # Update submodules as needed
+#     option(GIT_SUBMODULE "Check submodules during build" ON)
+#     if(GIT_SUBMODULE)
+#         message(STATUS "Submodule update")
+#         execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+#                         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+#                         RESULT_VARIABLE GIT_SUBMOD_RESULT)
+#         if(NOT GIT_SUBMOD_RESULT EQUAL "0")
+#             message(FATAL_ERROR "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+#         endif()
+#     endif()
+# endif()
 
 # Add directiories
 add_subdirectory(external/Optimization_f90)
@@ -45,7 +36,6 @@ add_subdirectory(external/r3d)
 add_subdirectory(src)
 
 # Wonton targets
-
 install(TARGETS ppic
   EXPORT ppic_LIBRARIES
   ARCHIVE DESTINATION lib
