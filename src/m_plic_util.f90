@@ -31,11 +31,11 @@ contains
       moments = cmpMoments2d_pc_ordered(normal_, dx_, shift + max_shift_plane, max_shift_plane)
     endif
 
-      if (normal(perm(1)) < 0.0) moments(2) = -moments(2)
-      if (normal(perm(2)) < 0.0) moments(3) = -moments(3)
-      if (perm(1) /= 1) then 
-        moments(2:3) = [moments(3), moments(2)]
-      endif
+    if (normal(perm(1)) < 0.0) moments(2) = -moments(2)
+    if (normal(perm(2)) < 0.0) moments(3) = -moments(3)
+    if (perm(1) /= 1) then 
+      moments(2:3) = [moments(3), moments(2)]
+    endif
   end function
 
 
@@ -90,10 +90,10 @@ contains
       dx_ = [dx(2), dx(1)]
     endif
 
+    max_shift_plane = dot_product(normal_, dx_)/2
     if (normal_(1) < NORMAL_TOL) then
-      shift = volume / product(dx_) - max_shift_plane
+      shift = normal_(2) * volume / dx_(1) - max_shift_plane
     else
-      max_shift_plane = dot_product(normal_, dx_)/2
       shift = cmpShift2d_pc_ordered(normal_, dx_, volume, max_shift_plane) - max_shift_plane
     endif
 

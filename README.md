@@ -6,11 +6,7 @@ A FORTRAN wrapper is provided, where in particular the subroutine intersect_with
 
 ## TODO
 - Make tests
-  - Intersection
-    - Timing (compare to linear)
   - PPIC reconstruction
-    - Derivative approximations
-    - Shift-volume consistency
     - Exact parabolic reconstruction (n, s, kappa -[intersection]> moments -> [reconstruction] n, s, kappa)
     - (Approximate) parabolic reconstruction; validation using piecewise linear approximation of the exact domain
     - Timing (compare to PLIC)

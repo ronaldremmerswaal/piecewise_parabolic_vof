@@ -1,10 +1,68 @@
 module reconstruction
+  use funit
+  use m_plic_util
+  use m_ppic_util
 
+  real*8, parameter         :: TOLERANCE = 1E-12
 contains
   @Test
-  subroutine dummy()
-    use funit
+  subroutine test_shift_volume_consistency()
+    implicit none
+    
+    real*8                :: angle, normal(2), kappa0, shift, shift_recomputed, dx(2)
+    real*8                :: moments01(3), moments01_recomputed(3), pi, max_shift_plane
+    integer               :: adx, kdx, sdx
 
-  end subroutine dummy
+    integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_SHIFT = 30
+
+    pi = 4 * datan(1.0D0)
+
+    dx = [0.123D0, 0.3141592D0]
+
+    do adx=1,NR_ANGLE
+    do sdx=1,NR_SHIFT
+      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE
+      normal = [dcos(angle), dsin(angle)]
+      
+      max_shift_plane = dot_product(abs(normal), dx) / 2
+      shift = max_shift_plane * (-1.D0 + 2 * (sdx - 1.D0) / (NR_SHIFT - 1.D0))
+
+      moments01 = cmpMoments2d(normal, dx, shift)
+      shift_recomputed = cmpShift2d(normal, dx, moments01(1))
+
+      if (shift <= -max_shift_plane) then
+        @assertLessThanOrEqual(shift_recomputed, -max_shift_plane)
+        @assertEqual(0.D0, moments01(1), TOLERANCE)
+      elseif (shift >= max_shift_plane) then
+        @assertGreaterThanOrEqual(shift_recomputed, max_shift_plane)
+        @assertEqual(product(dx), moments01(1), TOLERANCE)
+      else
+        @assertEqual(shift, shift_recomputed, TOLERANCE)
+      endif
+
+      moments01_recomputed = cmpMoments2d(normal, dx, shift_recomputed)
+      @assertEqual(moments01, moments01_recomputed, TOLERANCE)
+      
+      do kdx=1,NR_KAPPA
+        kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
+
+        moments01 = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
+        shift_recomputed = cmpShift2d_parabolic(normal, dx, moments01(1), kappa0)
+
+        if (moments01(1) < TOLERANCE) then
+          
+        elseif (product(dx) - moments01(1) < TOLERANCE) then
+          
+        else
+          @assertEqual(shift, shift_recomputed, TOLERANCE)
+        endif
+
+        moments01_recomputed = cmpMoments2d_parabolic(normal, dx, shift_recomputed, kappa0)
+        @assertEqual(moments01, moments01_recomputed, TOLERANCE)
+      enddo
+    enddo
+    enddo
+
+  end subroutine
 
 end module

@@ -328,4 +328,60 @@ contains
       f = radius - norm2(x_in)
     end
   end
+
+  @Test
+  subroutine test_cmpmoments_time()
+    use funit
+    use m_plic_util
+    use m_ppic_util
+    use m_r2d_parabolic
+
+    implicit none
+
+    ! Local variables
+    integer, parameter      :: NR_REPETITIONS = 10000
+    type(r2d_poly_f)        :: poly
+    real*8                  :: dx(2), angle, normal(2), shift, kappa0, moments01(3)
+    real*8                  :: tmp, time_intersect_plane, time_intersect_r2d_plane, time_intersect_parabola
+    integer                 :: rep
+
+
+    dx = [0.123D0, 0.3141592D0]
+    angle = 0.4321D0
+    normal = [dcos(angle), dsin(angle)]
+    shift = 0.0123D0
+    kappa0 = 0.05D0
+
+    ! Test the time needed to intersect and compute the resulting 
+    ! intersection moments (zeroth and first)
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      moments01 = cmpMoments2d(normal, dx, shift)
+    enddo
+    call cpu_time(time_intersect_plane)
+    time_intersect_plane = time_intersect_plane - tmp
+
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call init_box(poly, [-dx/2, dx/2])
+      call moments_01(moments01, poly)
+    enddo
+    call cpu_time(time_intersect_r2d_plane)
+    time_intersect_r2d_plane = time_intersect_r2d_plane - tmp
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      moments01 = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
+    enddo
+    call cpu_time(time_intersect_parabola)
+    time_intersect_parabola = time_intersect_parabola - tmp
+
+    print*, 'INTERSECTION TIMING:'
+    print*, '... PLANE USING PPIC UTIL = ', time_intersect_plane / NR_REPETITIONS
+    print*, '... PLANE USING R2D       = ', time_intersect_r2d_plane / NR_REPETITIONS
+    print*, '... PARABOLA USING UTIL   = ', time_intersect_parabola / NR_REPETITIONS
+
+  end subroutine
 end module

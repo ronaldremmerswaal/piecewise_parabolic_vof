@@ -4,6 +4,7 @@ add_library(ppic
   r2d_parabolic.c
   m_ppic_util.f90
   m_plic_util.f90
+  m_common.f90
   )
 
 set_target_properties (ppic PROPERTIES

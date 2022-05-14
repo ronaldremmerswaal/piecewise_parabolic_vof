@@ -1,12 +1,9 @@
 module m_ppic_util
-  use, intrinsic          :: ieee_arithmetic
-  use, intrinsic          :: iso_fortran_env, only: real64, int64
+  use m_common
 
   implicit none
 
   integer(kind=2), parameter :: LIQUID_PHASE = 1, GAS_PHASE = 4
-
-  real(real64)            :: d_qnan = transfer(9221120237041090560_int64, 1._real64)
 
 contains
 
@@ -22,7 +19,17 @@ contains
     ! Local variables
     type(r2d_poly_f)      :: liquid
     real*8                :: x0_(2)
+    
+    if (shift == d_pos_inf) then
+      moments(1) = product(dx)
+      moments(2:3) = 0.D0
+      return
+    elseif (shift == d_neg_inf) then
+      moments = 0.D0
+      return
+    endif
 
+    
     x0_ = normal * shift
     if (present(x0)) then
       x0_ = x0_ + x0
@@ -32,7 +39,7 @@ contains
     call intersect_with_parabola(moments, liquid, normal, kappa0, x0_)
   end function
 
-  real function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments, grad_s) result(shift)
+  real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments, grad_s) result(shift)
     use m_plic_util,      only: cmpShift2d
     use m_r2d_parabolic
     use m_optimization,   only: brent
@@ -53,10 +60,10 @@ contains
 
     cellVol = product(dx)
     if (liqVol <= 0.0) then
-      shift = ieee_value(1.0_real64,  ieee_negative_inf)
+      shift = d_neg_inf
       if (present(moments)) moments = 0.0
     elseif (liqVol >= cellVol) then
-      shift = ieee_value(1.0_real64,  ieee_positive_inf)
+      shift = d_pos_inf
       if (present(moments)) moments = 0.0
     else
       call init_box(cell, [-dx/2.0, dx/2.0])

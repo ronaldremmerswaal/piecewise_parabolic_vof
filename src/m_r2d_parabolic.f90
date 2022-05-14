@@ -239,7 +239,7 @@ contains
   !                         If not, then it is assumed that the gradient of the shift s is given by grad_s
   !                         (This only affects the computation of the gradient)
   subroutine intersect_with_parabola(moments01, poly, normal, kappa0, x0, derivative, grad_s)
-    use, intrinsic :: iso_fortran_env, only: real64, int64
+    use m_common
 
     implicit none
 
@@ -253,7 +253,6 @@ contains
     real*8                :: moments01_poly(3)
     real*8                :: derivative_(4), grad_s_(2)
     logical*1             :: compute_derivative_
-    real(real64)          :: d_qnan = transfer(9221120237041090560_int64, 1._real64)
     integer               :: vdx
 
     ! The algorithm is implemented assuming that x0 = 0, so we must shift the positions of the polygon beforehand
