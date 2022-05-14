@@ -118,36 +118,30 @@ contains
   end function
 
 
-  real function cmpSymmetricDifference2d_parabolic(x, dx, normal, shift, kappa0, customFun) result(sd)
+  real function cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelSet) result(sd)
     use m_r2d_parabolic
     implicit none
 
     real*8, intent(in)     :: x(2), dx(2), normal(2), shift, kappa0
-    real*8, external, optional :: customFun
+    real*8, external       :: levelSet
 
     ! Local variables
-    real*8                :: sd_1(3), sd_2(3), normal_(2)
+    real*8                :: sd_1(3), sd_2(3)
     type(r2d_poly_f)      :: exact_gas, exact_liq
 
-    normal_ = -normal
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    if (present(customFun)) then
-      call get_polygonal_approximation_of_exact_domain(exact_gas, GAS_PHASE, x, dx, customFun)
-      call get_polygonal_approximation_of_exact_domain(exact_liq, LIQUID_PHASE, x, dx, customFun)
-    else
-      call get_polygonal_approximation_of_exact_domain(exact_gas, GAS_PHASE, x, dx)
-      call get_polygonal_approximation_of_exact_domain(exact_liq, LIQUID_PHASE, x, dx)
-    endif
+    call get_polygonal_approximation_of_exact_domain(exact_gas, GAS_PHASE, x, dx, levelSet)
+    call get_polygonal_approximation_of_exact_domain(exact_liq, LIQUID_PHASE, x, dx, levelSet)
 
     ! Compute symmetric difference
-    call intersect_with_parabola(sd_1, exact_gas, normal_, kappa0, x + normal_ * shift)
-    call intersect_with_parabola(sd_2, exact_liq, -normal_, -kappa0, x + normal_ * shift)
+    call intersect_with_parabola(sd_1, exact_gas, normal, kappa0, x + normal * shift)
+    call intersect_with_parabola(sd_2, exact_liq, -normal, -kappa0, x + normal * shift)
     sd = sd_1(1) + sd_2(1)
   end
 
-  subroutine get_polygonal_approximation_of_exact_domain(poly, phase, xc, dx, customFun)
+  subroutine get_polygonal_approximation_of_exact_domain(poly, phase, xc, dx, levelSet)
     use m_optimization,   only: brent
     use m_r2d_parabolic
     implicit none
@@ -155,7 +149,7 @@ contains
     type(r2d_poly_f), intent(out) :: poly
     integer*2, intent(in) :: phase
     real*8, intent(in)    :: xc(2), dx(2)
-    real*8, external, optional :: customFun
+    real*8, external      :: levelSet
 
     ! Local variables
     real*8                :: pos(2, R2D_MAX_VERTS), pos_skeleton(2, 8), corners(2, 4), funVals(4)
@@ -173,7 +167,7 @@ contains
     vdx_first_inside = 0
     do vdx=1,4
       funVals(vdx) = interfaceFun(corners(:,vdx))
-      if (funVals(vdx) >= 0.0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
+      if (funVals(vdx) >= 0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
     enddo
     if (vdx_first_inside == 0) then
       poly%nverts = 0
@@ -217,7 +211,10 @@ contains
       vdx_next = merge(1, vdx + 1, vdx == nrPos_skelelton)
 
       ! Add (refinement of) the half open interval (pos_skeleton(:,vdx),pos_skeleton(:,vdx_next)]
-      if (is_on_interface(vdx) .and. is_on_interface(vdx_next)) then
+      if (.not. is_on_interface(vdx) .or. .not. is_on_interface(vdx_next)) then
+        nrPos = nrPos + 1
+        pos(:,nrPos) = pos_skeleton(:,vdx_next)
+      else
 
         tDir = pos_skeleton(:,vdx_next) - pos_skeleton(:,vdx)
         if (norm2(tDir) < 1E-15 * dx(1)) then
@@ -238,9 +235,6 @@ contains
             pos(:,nrPos) = x0 + step * dir
           enddo
         endif
-      else
-        nrPos = nrPos + 1
-        pos(:,nrPos) = pos_skeleton(:,vdx_next)
       endif
 
       vdx = vdx_next
@@ -254,7 +248,7 @@ contains
 
       real*8, intent(in)  :: x(2)
 
-      f = customFun(x)
+      f = levelSet(x)
       if (phase == GAS_PHASE) f = -f
     end
 

@@ -262,8 +262,8 @@ contains
 
     implicit none
 
-    real*8, parameter       :: TOLERANCE = 2D-5 ! This is related to R2D_MAX_VERTS being relatively small
-    real*8                  :: radius, x(2), dx(2), normal(2), pc, kappa0, sd, pi, angle, shift
+    real*8, parameter       :: APPROX_TOLERANCE = 5D-5 ! This is related to R2D_MAX_VERTS being relatively small
+    real*8                  :: radius, x(2), dx(2), normal(2), kappa0, sd, pi, angle, shift
     real*8                  :: mom_gas(3), mom_liq(3), mom01(3), tmp
     integer, parameter      :: NR_STEPS = 100
     integer                 :: sdx
@@ -271,7 +271,7 @@ contains
 
     ! Results from MATLAB (very accurate)
     real*8, parameter       :: sd_MATLAB(NR_STEPS) = [&   
-#include "intersection_sd_data"
+#include "intersection_sd.dat"
     &]
 
     pi = 4 * datan(1.0D0)
@@ -280,20 +280,19 @@ contains
     x = 0.5D0
     dx = 1.D0
     normal = [1.0D0, 0.D0]
-    pc = 0.D0
+    shift = -dot_product(abs(normal), dx) / 2
     kappa0 = 0.D0
 
     ! Analytical:
-    sd = cmpSymmetricDifference2d_parabolic(x, dx, -normal, pc, kappa0, levelset)
-    @assertEqual(pi / 16, sd, TOLERANCE)
+    sd = cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelset)
+    @assertEqual(pi / 16, sd, APPROX_TOLERANCE)
 
     ! Computed in MATLAB:
     do sdx=1,NR_STEPS
       angle = (sdx - 1.0D0) * 2 * pi / (NR_STEPS - 1.0D0)
       shift = -0.25D0 + (sdx - 1.0D0) * 0.5D0 / (NR_STEPS - 1.0D0)
       kappa0 = -0.5D0 + (sdx - 1.0D0) / (NR_STEPS - 1.0D0)
-      normal = [cos(angle), sin(angle)] ! Outward pointing normal
-      pc = shift + dot_product(abs(normal), dx) / 2
+      normal = [dcos(angle), dsin(angle)] ! Outward pointing normal
 
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
@@ -303,30 +302,30 @@ contains
       call get_polygonal_approximation_of_exact_domain(poly_liq, LIQUID_PHASE, x, dx, levelset)
       call moments_01(mom_liq, poly_liq)
 
-      sd = cmpSymmetricDifference2d_parabolic(x, dx, -normal, pc, kappa0, levelset)
+      sd = cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelset)
 
       if (radius <= 1.) then
-        @assertEqual(pi * radius**2 / 4, mom_liq(1), TOLERANCE)
+        @assertEqual(pi * radius**2 / 4, mom_liq(1), APPROX_TOLERANCE)
       elseif (sdx == NR_STEPS) then
-        @assertEqual(1.0, mom_liq(1), TOLERANCE)
+        @assertEqual(1.0, mom_liq(1), APPROX_TOLERANCE)
 
-        mom01 = cmpMoments2d_parabolic(-normal, dx, pc, kappa0)
-        @assertEqual(1.0 - mom01(1), sd, TOLERANCE)
+        mom01 = cmpMoments2d_parabolic(-normal, dx, shift, kappa0)
+        @assertEqual(1.0 - mom01(1), sd, APPROX_TOLERANCE)
       endif
 
       @assertEqual(product(dx), mom_gas(1) + mom_liq(1), TOLERANCE)
 
-      @assertEqual(sd_MATLAB(sdx), sd, TOLERANCE)
+      @assertEqual(sd_MATLAB(sdx), sd, APPROX_TOLERANCE)
     enddo
 
 
   contains
-    real*8 function levelset(x) result(f)
+    real*8 function levelset(x_in) result(f)
       implicit none
 
-      real*8, intent(in)      :: x(2)
+      real*8, intent(in)      :: x_in(2)
 
-      f = radius - norm2(x)
+      f = radius - norm2(x_in)
     end
   end
 end module
