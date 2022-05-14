@@ -24,9 +24,9 @@ contains
 
     max_shift_plane = dot_product(normal_, dx_)/2
     if (normal_(1) < NORMAL_TOL) then
-      moments(1) = ((shift + max_shift_plane) / normal_(2)) * product(dx_)
+      moments(1) = ((shift + max_shift_plane) / normal_(2)) * dx_(1)
       moments(2) = 0.
-      moments(3) = 0.5 * (((shift + max_shift_plane) / normal_(2) - dx_(1) / 2.0)**2 - (dx_(1)/2.0)**2) * dx_(2)
+      moments(3) = 0.5 * (((shift + max_shift_plane) / normal_(2) - dx_(2) / 2.0)**2 - (dx_(2)/2.0)**2) * dx_(1)
     else
       moments = cmpMoments2d_pc_ordered(normal_, dx_, shift + max_shift_plane, max_shift_plane)
     endif

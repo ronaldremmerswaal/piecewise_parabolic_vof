@@ -62,4 +62,47 @@ contains
     enddo
   endsubroutine test_moments2d
 
+  ! Verify that the zeroth and first moment resulting from a parabolic cut equals that
+  ! of a planar cut if kappa0 = 0
+  @Test
+  subroutine test_moments2d_planeLimit()
+    use funit
+    use m_r2d_parabolic
+    use m_plic_util
+    use m_ppic_util
+
+    implicit none
+
+    real*8, parameter       :: TOLERANCE = 1E-8
+    integer, parameter      :: NR_ANGLE = 50, NR_SHIFT = 50
+    real*8                  :: dx(2), normal(2), moments_plane(3), moments_parabola(3), moments_plane_r2d(3)
+    real*8                  :: angle, shift, lengthScale, pi, cellVol
+    integer                 :: adx, sdx
+    type(r2d_poly_f)        :: poly
+
+    pi = 4.0 * atan(1.0)
+    dx = [0.1, 0.15]
+    cellVol = product(dx)
+
+    do adx = 1, NR_ANGLE
+    do sdx = 1, NR_SHIFT
+      angle = 2. * pi * (adx - 1.) / (NR_ANGLE - 1.)
+      normal = [cos(angle), sin(angle)]
+      lengthScale = dot_product(dx, abs(normal))
+
+      shift = lengthScale * (sdx - 1.) / (NR_SHIFT - 1.) - lengthScale/2
+
+      call init_box(poly, [-dx/2, dx/2])
+      call intersect_by_plane(poly, normal, shift)
+      call moments_01(moments_plane_r2d, poly)
+      
+      moments_parabola = cmpMoments2d_parabolic(normal, dx, shift, 0.0D0)
+      moments_plane = cmpMoments2d(normal, dx, shift)
+
+      @assertEqual(moments_plane, moments_parabola, TOLERANCE * cellVol)
+      @assertEqual(moments_plane_r2d, moments_parabola, TOLERANCE * cellVol)
+    enddo
+    enddo
+
+  end subroutine test_moments2d_planeLimit
 end module

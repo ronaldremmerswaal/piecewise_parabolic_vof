@@ -12,8 +12,8 @@
 #define dot_relative(va, vb, vr) ((va.x - vr.x)*vb.x + (va.y - vr.y)*vb.y)
 #define dot_relative_rotate(va, vb, vr) ((va.y - vr.y)*vb.x - (va.x - vr.x)*vb.y)
 #define wav(va, wa, vb, wb, vr) {			\
-	vr.x = (wa*va.x + wb*vb.x)/(wa + wb);	\
-	vr.y = (wa*va.y + wb*vb.y)/(wa + wb);	\
+	vr.x = ((wa)*va.x + (wb)*vb.x)/(wa + wb);	\
+	vr.y = ((wa)*va.y + (wb)*vb.y)/(wa + wb);	\
 }
 
 // Clip poly with parabola, and compute zeroth and first moment
@@ -80,7 +80,7 @@ void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_re
 			if(!clipped[vnext]) continue;
 			// Case 1) an edge has one node clipped: bisected edge
 			nr_roots = parabola_line_intersection(parabola, vertbuffer[vcur].pos, vertbuffer[vnext].pos, roots);
-			if (nr_roots==0) return;
+			if (nr_roots==0) continue;
 
 			// link new vertex with unclipped vertex (negative value of clipped vertex may be used for finding neighbors)
 			root = roots[0];

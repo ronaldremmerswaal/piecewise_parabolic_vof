@@ -10,18 +10,18 @@ module m_ppic_util
 
 contains
 
-  real*8 function cmpMoments2d_parabolic(firstMoment, normal, dx, shift, kappa0, x0) result(volume)
+  function cmpMoments2d_parabolic(normal, dx, shift, kappa0, x0) result(moments)
     use m_r2d_parabolic
 
     implicit none
 
     real*8, intent(in)    :: normal(2), dx(2), shift, kappa0
-    real*8, intent(out)   :: firstMoment(2)
     real*8, intent(in), optional :: x0(2)
+    real*8                :: moments(3)
 
     ! Local variables
     type(r2d_poly_f)      :: liquid
-    real*8                :: moments01(3), x0_(2)
+    real*8                :: x0_(2)
 
     x0_ = normal * shift
     if (present(x0)) then
@@ -29,13 +29,10 @@ contains
     endif
 
     call init_box(liquid, [-dx/2.0, dx/2.0])
-    call intersect_with_parabola(moments01, liquid, normal, kappa0, x0_)
-
-    volume = moments01(1)
-    firstMoment = moments01(2:3)
+    call intersect_with_parabola(moments, liquid, normal, kappa0, x0_)
   end function
 
-  real function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments01, grad_s) result(shift)
+  real function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments, grad_s) result(shift)
     use m_plic_util,      only: cmpShift2d
     use m_r2d_parabolic
     use m_optimization,   only: brent
@@ -44,11 +41,11 @@ contains
 
     real*8, intent(in)    :: normal(2), dx(2), liqVol, kappa0
     real*8, optional, intent(in) :: relTol
-    real*8, optional, intent(out) :: moments01(3), grad_s(2)
+    real*8, optional, intent(out) :: moments(3), grad_s(2)
 
     ! Local variables
     type(r2d_poly_f)      :: cell
-    real*8                :: moments01_(3), max_shift_plane, cellVol, shift_plane, plane_err
+    real*8                :: moments_(3), max_shift_plane, cellVol, shift_plane, plane_err
     real*8                :: shift_l, shift_r, err_l, err_r, normal3(3), dx3(3)
     real*8                :: relTol_, grad_s_(2)
 
@@ -57,10 +54,10 @@ contains
     cellVol = product(dx)
     if (liqVol <= 0.0) then
       shift = ieee_value(1.0_real64,  ieee_negative_inf)
-      if (present(moments01)) moments01 = 0.0
+      if (present(moments)) moments = 0.0
     elseif (liqVol >= cellVol) then
       shift = ieee_value(1.0_real64,  ieee_positive_inf)
-      if (present(moments01)) moments01 = 0.0
+      if (present(moments)) moments = 0.0
     else
       call init_box(cell, [-dx/2.0, dx/2.0])
 
@@ -71,7 +68,7 @@ contains
       ! Try to get a better bracket with an (educated) guess
       if (plane_err == 0.0) then
         ! iff kappa0 == 0.0
-        if (present(moments01)) moments01 = moments01_
+        if (present(moments)) moments = moments_
         if (present(grad_s)) grad_s = grad_s_
         return
       elseif (plane_err > 0.0) then
@@ -100,7 +97,7 @@ contains
       shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane * relTol_, 30, err_l, err_r)
     endif
 
-    if (present(moments01)) moments01 = moments01_
+    if (present(moments)) moments = moments_
     if (present(grad_s)) grad_s = grad_s_
   contains
 
@@ -115,8 +112,8 @@ contains
 
       grad_s_ = [d_qnan, d_qnan]
       call copy(to=liquid, from=cell)
-      call intersect_with_parabola(moments01_, liquid, normal, kappa0, normal * pc_tmp, grad_s=grad_s_)
-      err = moments01_(1) - liqVol
+      call intersect_with_parabola(moments_, liquid, normal, kappa0, normal * pc_tmp, grad_s=grad_s_)
+      err = moments_(1) - liqVol
     end function
   end function
 
@@ -165,7 +162,7 @@ contains
     real*8                :: x0(2), dir(2), step, tDir(2)
     integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
     integer, parameter    :: VERTS_PER_SEGMENT = R2D_MAX_VERTS / 3
-    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_parabola(8)
+    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(8)
 
     corners(:,1) = xc + [-dx(1), -dx(2)]/2
     corners(:,2) = xc + [dx(1), -dx(2)]/2
@@ -200,13 +197,13 @@ contains
         step = brent(interfaceFun_step, 0.0D0, 1.0D0, 1D-15, 30, funVals(vdx), funVals(vdx_next))
         nrPos_skelelton = nrPos_skelelton + 1
         pos_skeleton(:,nrPos_skelelton) = x0 + step * dir
-        is_on_parabola(nrPos_skelelton) = .true.
+        is_on_interface(nrPos_skelelton) = .true.
       endif
       if (vdx_next_is_inside) then
         ! And add next node (corner)
         nrPos_skelelton = nrPos_skelelton + 1
         pos_skeleton(:,nrPos_skelelton) = corners(:,vdx_next)
-        is_on_parabola(nrPos_skelelton) = .false.
+        is_on_interface(nrPos_skelelton) = .false.
       endif
 
       vdx = vdx_next
@@ -220,7 +217,7 @@ contains
       vdx_next = merge(1, vdx + 1, vdx == nrPos_skelelton)
 
       ! Add (refinement of) the half open interval (pos_skeleton(:,vdx),pos_skeleton(:,vdx_next)]
-      if (is_on_parabola(vdx) .and. is_on_parabola(vdx_next)) then
+      if (is_on_interface(vdx) .and. is_on_interface(vdx_next)) then
 
         tDir = pos_skeleton(:,vdx_next) - pos_skeleton(:,vdx)
         if (norm2(tDir) < 1E-15 * dx(1)) then

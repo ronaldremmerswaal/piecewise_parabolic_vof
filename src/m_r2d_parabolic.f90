@@ -246,7 +246,7 @@ contains
     logical*1             :: compute_derivative_
     real(real64)          :: d_qnan = transfer(9221120237041090560_int64, 1._real64)
 
-    if (kappa0 > 0.0) then
+    if (kappa0 > 0) then
       parabola(1)%n%xyz = -normal
       parabola(1)%x0%xyz = x0
       parabola(1)%kappa0 = -kappa0
@@ -262,7 +262,7 @@ contains
     compute_derivative_ = present(derivative) .or. present(grad_s)
     call r2d_clip_parabola_moments_01(poly, parabola, grad_s_, moments01, derivative_, compute_derivative_)
 
-    if (kappa0 > 0.0) then
+    if (kappa0 > 0) then
       moments01 = moments01_poly - moments01
       derivative_ = -derivative_
     endif
