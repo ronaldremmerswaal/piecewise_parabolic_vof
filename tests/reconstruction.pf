@@ -20,7 +20,7 @@ contains
 
     pi = 4 * datan(1.0D0)
 
-    dx = [0.123D0, 0.3141592D0]
+    dx = [0.123D0, pi/10]
 
     do adx=1,NR_ANGLE
     do sdx=1,NR_SHIFT
@@ -30,12 +30,16 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      refMoments = reference_moments(LIQUID_PHASE, [0.D0, 0.D0], dx, levelSet)
-
+      refMoments = reference_moments(LIQUID_PHASE, [0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+      
+      print*, ''
       mofNormal = plic_normal_mof2d(refMoments, dx, mofMoments)
       mofAngle = datan2(mofNormal(2), mofNormal(1))
 
-      print*, angle, mofAngle
+      print*, 'centroid = ', refMoments(2:3) / (.5*dx * refMoments(1))
+      print*, '   shift = ', shift
+      print*, '   angle = ', angle
+      print*, 'mofAngle = ', mofAngle
       @assertEqual(angle, mofAngle, TOLERANCE)
       @assertEqual(refMoments, mofMoments, TOLERANCE)
     enddo
@@ -53,8 +57,56 @@ contains
 
   @Test
   subroutine test_exact_ppic_reconstruction()
+    use m_ppic_util
+    use m_r2d_parabolic
+    use m_reconstruction
+
     implicit none
-    
+
+    real*8                :: angle, normal(2), tangent(2), shift, kappa0, max_shift_plane, dx(2)
+    real*8                :: refMoments(3), mofMoments(3), mofNormal(2), mofAngle, pi
+    integer               :: adx, sdx, kdx
+
+    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
+return
+    pi = 4 * datan(1.0D0)
+
+    dx = [0.123D0, 0.3141592D0]
+
+    do adx=1,NR_ANGLE
+    do sdx=1,NR_SHIFT
+    do kdx=1,NR_KAPPA
+      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE
+      normal = [dcos(angle), dsin(angle)]
+      tangent = [-normal(2), normal(1)]
+      
+      max_shift_plane = dot_product(abs(normal), dx) / 2
+      shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
+
+      kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
+
+      refMoments = reference_moments(LIQUID_PHASE, [0.D0, 0.D0], dx, levelSet)
+      
+      if (refMoments(1) > TOLERANCE .and. product(dx) - refMoments(1) > TOLERANCE) then
+        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, mofMoments, errTol=TOLERANCE/10)
+        mofAngle = datan2(mofNormal(2), mofNormal(1))
+
+        ! print*, angle, mofAngle
+        @assertEqual(angle, mofAngle, TOLERANCE)
+        @assertEqual(refMoments, mofMoments, TOLERANCE)
+      endif
+    enddo
+    enddo
+    enddo
+  contains
+    real*8 function levelSet(x) result(ans)
+      implicit none
+
+      real*8, intent(in)  :: x(2)
+
+      ans = shift - dot_product(x, normal) - (kappa0/2) * (dot_product(x, tangent))**2
+
+    end function
   end subroutine
 
   @Test

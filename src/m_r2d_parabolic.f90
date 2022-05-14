@@ -351,22 +351,23 @@ contains
     call r2d_print(poly)
   end
 
-  function reference_moments(phase, x, dx, levelSet) result(moments)
+  function reference_moments(phase, x, dx, levelSet, verts_per_segment) result(moments)
     implicit none
     
     integer*2, intent(in) :: phase
     real*8, intent(in)    :: x(2), dx(2)
     real*8, external      :: levelSet
     real*8                :: moments(3)
+    integer, intent(in), optional :: verts_per_segment
 
     ! Local variables
     type(r2d_poly_f)      :: poly
-
-    call get_polygonal_approximation_of_exact_domain(poly, phase, x, dx, levelSet)
+    
+    call get_polygonal_approximation_of_exact_domain(poly, phase, x, dx, levelSet, verts_per_segment)
     moments = moments_01(poly)
   end function
 
-  subroutine get_polygonal_approximation_of_exact_domain(poly, phase, x, dx, levelSet)
+  subroutine get_polygonal_approximation_of_exact_domain(poly, phase, x, dx, levelSet, verts_per_segment)
     use m_common
     use m_optimization,   only: brent
   
@@ -376,13 +377,17 @@ contains
     integer*2, intent(in) :: phase
     real*8, intent(in)    :: x(2), dx(2)
     real*8, external      :: levelSet
+    integer, intent(in), optional :: verts_per_segment
 
     ! Local variables
     real*8                :: pos(2, R2D_MAX_VERTS), pos_skeleton(2, 8), corners(2, 4), funVals(4)
     real*8                :: x0(2), dir(2), step, tDir(2)
     integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
-    integer, parameter    :: VERTS_PER_SEGMENT = R2D_MAX_VERTS / 3
+    integer               :: verts_per_segment_
     logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(8)
+
+    verts_per_segment_ = R2D_MAX_VERTS / 3
+    if (present(verts_per_segment)) verts_per_segment_ = min(verts_per_segment_, verts_per_segment)
 
     corners(:,1) = x + [-dx(1), -dx(2)]/2
     corners(:,2) = x + [dx(1), -dx(2)]/2
@@ -451,8 +456,8 @@ contains
 
           ! Make dir normal to the face
           dir = [-tDir(2), tDir(1)]
-          do rdx=1,VERTS_PER_SEGMENT
-            x0 = pos_skeleton(:,vdx) + rdx * tDir / VERTS_PER_SEGMENT
+          do rdx=1,verts_per_segment_
+            x0 = pos_skeleton(:,vdx) + rdx * tDir / verts_per_segment_
 
             ! We impose here that the radius of curvature of the interface is bounded from below by half (relative to the mesh spacing)
             step = brent(interfaceFun_step, -.5D0, .5D0, 1D-15, 30)

@@ -122,7 +122,7 @@ contains
     real*8                :: refFrac, refCentroid(2)
 
     mofNormal = 0.0
-    centroidError_ = norm2(dx) * 43.  ! Larger than diameter of cell
+    centroidError_ = norm2(dx) * 43  ! Larger than diameter of cell
 
     refFrac = refMoments(1) / product(dx)
     refCentroid = refMoments(2:3) / refMoments(1)
@@ -186,6 +186,7 @@ contains
       endif
     end do
 
+    print*, 'centroidError_ = ', centroidError_
     if (present(mofMoments)) mofMoments = [refMoments(1), refMoments(1) * mofCentroid_]
 
   end function plic_normal_mof2d
@@ -204,24 +205,24 @@ contains
     real*8                :: minVal, maxVal, aspectRatio, coeffs(5)
     real*8                :: roots_real(4), roots_imag(4)
 
-    aspectRatio = dx(2) / dx(1);
+    aspectRatio = dx(2) / dx(1)
 
     ! We solve for (centroid_x / dx(1) + 1/2)
-    coeffs = [1.0D0, -(refCentroid(1) / dx(1) + 0.5), 0.0D0, 2.0 * refFrac * aspectRatio * &
-      (refCentroid(2) / dx(1) + aspectRatio / 2.0) / 9.0, -((2.0 / 9.0) * refFrac * aspectRatio)**2]
+    coeffs = [1.0D0, -(refCentroid(1) / dx(1) + 0.5), 0.0D0, 2 * refFrac * aspectRatio * &
+      (refCentroid(2) / dx(1) + aspectRatio / 2) / 9, -((2.0D0 / 9.0D0) * refFrac * aspectRatio)**2]
     call polynomial_roots_deg4(coeffs, roots_real, roots_imag)
 
-    minVal = 2.0 * aspectRatio * refFrac / 3.0  ! TODO (why) is this wrong?
-    ! minVal = 2.0 * refFrac / 3.0
-    maxVal = 1.0D0 / 3.0
+    ! minVal = 2 * aspectRatio * refFrac / 3  ! TODO (why) is this wrong?
+    minVal = 2 * refFrac / 3
+    maxVal = 1.0D0 / 3.0D0
 
     ! Consider at most 4 roots
-    scaledAndShiftedCx = 0.0
-    mofError = norm2(dx) * 42.  ! Larger than diameter of cell
+    scaledAndShiftedCx = 0
+    mofError = norm2(dx) * 42  ! Larger than diameter of cell
     do rdx=1,4
-      if (.not. isnan(roots_real(rdx)) .and. roots_imag(rdx) == 0.0 .and. &
+      if (.not. isnan(roots_real(rdx)) .and. roots_imag(rdx) == 0 .and. &
         roots_real(rdx) >= minVal .and. roots_real(rdx) <= maxVal) then
-        tmpCentroid = [dx(1) * (roots_real(rdx) - 0.5), dx(2) * ((2.0 * refFrac / (9.0 * roots_real(rdx))) - 0.5)]
+        tmpCentroid = [dx(1) * (roots_real(rdx) - 0.5D0), dx(2) * ((2 * refFrac / (9 * roots_real(rdx))) - 0.5D0)]
         tmpError = norm2(tmpCentroid - refCentroid)
         if (tmpError < mofError) then
           scaledAndShiftedCx = roots_real(rdx)
@@ -230,17 +231,17 @@ contains
         endif
       endif
     enddo
-    if (mofError < norm2(dx) * 42.) then
-      mofNormal = [refFrac * aspectRatio, (9.0 / 2.0) * (scaledAndShiftedCx**2)]
+    if (mofError < norm2(dx) * 42) then
+      mofNormal = [refFrac * aspectRatio, (9.0D0 / 2.0D0) * (scaledAndShiftedCx**2)]
       mofNormal = mofNormal / norm2(mofNormal)
     else
-      mofNormal = 0.0
-      mofCentroid = 0.0
+      mofNormal = 0
+      mofCentroid = 0
     endif
   end subroutine
 
   subroutine solve_2dMoF_parabola(refFrac, refCentroid, dx, mofNormal, mofCentroid, mofError)
-    use m_poly_roots, only: polynomial_roots_deg4
+    use m_poly_roots, only: polynomial_roots_deg3
     implicit none
 
     real*8, intent(in)    :: refFrac, refCentroid(2), dx(2)
@@ -249,18 +250,15 @@ contains
     ! Local variables
     integer               :: rdx
     real*8                :: tmpCentroid(2), tmpError, scaledCx
-    real*8                :: minVal, maxVal, aspectRatio, coeffs(5)
-    real*8                :: roots_real(4), roots_imag(4), leadingCoeff
+    real*8                :: minVal, maxVal, aspectRatio, coeffs(4)
+    real*8                :: roots_real(3), roots_imag(3)
 
-    aspectRatio = dx(2) / dx(1);
+    aspectRatio = dx(2) / dx(1)
 
     ! We solve for (centroid_x / dx(1)) (this yields a dimensionless cubic equation)
-    leadingCoeff = 72.0 * (refFrac * aspectRatio)**2
-    ! if (leadingCoeff < plictol) leadingCoeff = 0.0 ! TODO is this OK?
-
-    coeffs = [0.0D0, leadingCoeff, 0.0D0, 1.0D0 + 6 * (refFrac * aspectRatio)**2 -& 
-      12.0 * aspectRatio * refFrac * (refCentroid(2) / dx(1) + aspectRatio / 2), -refCentroid(1) / dx(1)]
-    call polynomial_roots_deg4(coeffs, roots_real, roots_imag)
+    coeffs = [72 * (refFrac * aspectRatio)**2, 0.0D0, 1.0D0 + 6 * (refFrac * aspectRatio)**2 -& 
+      12 * aspectRatio * refFrac * (refCentroid(2) / dx(1) + aspectRatio / 2), -refCentroid(1) / dx(1)]
+    call polynomial_roots_deg3(coeffs, roots_real, roots_imag)
 
     minVal = -1.0D0 / 6.0D0
     maxVal = 1.0D0 / 6.0D0
@@ -270,7 +268,7 @@ contains
     scaledCx = 0.0
 
     do rdx=1,3
-      if (.not. isnan(roots_real(rdx)) .and. roots_imag(rdx) == 0.0 .and. &
+      if (.not. isnan(roots_real(rdx)) .and. roots_imag(rdx) == 0 .and. &
         roots_real(rdx) >= minVal .and. roots_real(rdx) <= maxVal) then
         tmpCentroid = [dx(1) * roots_real(rdx), dx(2) * (refFrac - 1) / 2 + &
           6 * refFrac * dx(2) * roots_real(rdx)**2]
@@ -287,8 +285,8 @@ contains
       mofNormal = [-aspectRatio * scaledCx * refFrac, 1.0D0 / 12]
       mofNormal = mofNormal / norm2(mofNormal)
     else
-      mofNormal = 0.0
-      mofCentroid = 0.0
+      mofNormal = 0
+      mofCentroid = 0
     endif
   end subroutine
 end module
