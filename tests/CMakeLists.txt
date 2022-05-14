@@ -3,6 +3,6 @@ enable_testing()
 
 # tests
 add_pfunit_ctest (ppic_tests
-  TEST_SOURCES reconstruction.pf intersection.pf
+  TEST_SOURCES reconstruction.pf linearisation.pf intersection.pf
   LINK_LIBRARIES ppic
   )

@@ -10,7 +10,6 @@
  */
 typedef struct {
 	r2d_rvec2 n; /*!< Unit-length normal vector. */
-	r2d_rvec2 x0; /*!< Signed perpendicular distance to the origin. */
 	r2d_real kappa0;
 } r2d_parabola;
 

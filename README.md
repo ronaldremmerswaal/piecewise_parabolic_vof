@@ -6,14 +6,12 @@ A FORTRAN wrapper is provided, where in particular the subroutine intersect_with
 
 ## TODO
 - Make tests
-  - Intersection (in C)
-    - Compare intersection moments to at least one analytical example
-    - Verify that intersection splits into two parts, whose moments add up to the original part
+  - Intersection
     - Timing (compare to linear)
-  - PPIC reconstruction (in Fortran)
+  - PPIC reconstruction
+    - Derivative approximations
+    - Shift-volume consistency
     - Exact parabolic reconstruction (n, s, kappa -[intersection]> moments -> [reconstruction] n, s, kappa)
     - (Approximate) parabolic reconstruction; validation using piecewise linear approximation of the exact domain
     - Timing (compare to PLIC)
-- Include computation of shift using Brent
-- Include PPIC reconstruction functions: PLVIRA, PROST, PMoF
-- Include linear (PLIC) module for comparison
+- Include reconstruction functions: PLVIRA, PROST, PMOF, LVIRA, MOF

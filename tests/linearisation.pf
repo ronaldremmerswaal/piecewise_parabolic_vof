@@ -1,0 +1,95 @@
+module linearisation
+  use funit
+  use m_r2d_parabolic
+
+  real*8, parameter       :: TOLERANCE = 1E-8, STEP_SIZE = 1E-7
+
+contains
+  
+  @Test
+  subroutine test_samecell_derivatives()
+    implicit none
+
+    type(r2d_poly_f)      :: poly, poly_tmp
+    real*8                :: angle, normal(2), kappa0, x0(2), x(2), pos(2, 7), radius
+    real*8                :: derivative_cmp(4), derivative_fd(4), moments01(3), pi, grad_s(2)
+    integer               :: adx, kdx, pdx, SEED(33)
+
+    integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_POS = 30
+    
+    pi = 4 * datan(1.0D0)
+
+    SEED = 1
+    call random_seed(put=SEED)
+
+    radius = 1.0D0
+    x = [0.5D0, 0.3D0]
+
+    ! We set the derivative of the shift to zero, such that the derivative of the first moment is computed
+    grad_s = 0.D0
+
+    ! Reconstruct in a polygonal approximation of a circle
+    do adx=1,size(pos,2)
+      angle = 2 * pi * (adx - 1.D0) / size(pos,2)
+      pos(1,adx) = x(1) + radius * dcos(angle)
+      pos(2,adx) = x(2) + radius * dsin(angle)
+    enddo
+    call init_from_pos(poly, pos)
+
+    do adx=1,NR_ANGLE
+    do kdx=1,NR_KAPPA
+    do pdx=1,NR_POS
+
+      call copy(from=poly, to=poly_tmp)
+      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE
+      normal = [dcos(angle), dsin(angle)]
+
+      kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
+
+      call random_number(x0)
+      x0 = x + (x0 - .5D0) * radius
+
+      call approximate_derivatives(poly_tmp, angle, kappa0, x0, derivative_fd, grad_s)
+      call intersect_with_parabola(moments01, poly_tmp, normal, kappa0, x0, derivative_cmp, grad_s)
+
+      @assertEqual(derivative_fd, derivative_cmp, TOLERANCE)
+
+    enddo
+    enddo
+    enddo
+
+  end subroutine
+
+  subroutine approximate_derivatives(poly, angle, kappa0, x0, derivative, grad_s)
+    implicit none
+    
+    type(r2d_poly_f), intent(in) :: poly
+    real*8, intent(in)     :: angle, kappa0, x0(2), grad_s(2)
+    real*8, intent(inout)  :: derivative(4)
+    
+    ! Local variables
+    type(r2d_poly_f)      :: tmp_poly
+    real*8                :: moments_pos(3), moments_neg(3), dummy(4), grad_s_(2)
+
+    call copy(to=tmp_poly, from=poly)
+    grad_s_ = grad_s
+    call intersect_with_parabola(moments_pos, tmp_poly, [dcos(angle + STEP_SIZE), dsin(angle + STEP_SIZE)]&
+    , kappa0, x0, dummy, grad_s_)
+    call copy(to=tmp_poly, from=poly)
+    grad_s_ = grad_s
+    call intersect_with_parabola(moments_neg, tmp_poly, [dcos(angle - STEP_SIZE), dsin(angle - STEP_SIZE)]&
+    , kappa0, x0, dummy, grad_s_)
+    
+    derivative(1:3) = (moments_pos - moments_neg) / (2 * STEP_SIZE)
+    
+    call copy(to=tmp_poly, from=poly)
+    grad_s_ = grad_s
+    call intersect_with_parabola(moments_pos, tmp_poly, [dcos(angle), dsin(angle)], kappa0 + STEP_SIZE, x0, dummy, grad_s_)
+    call copy(to=tmp_poly, from=poly)
+    grad_s_ = grad_s
+    call intersect_with_parabola(moments_neg, tmp_poly, [dcos(angle), dsin(angle)], kappa0 - STEP_SIZE, x0, dummy, grad_s_)
+    
+    derivative(4) = (moments_pos(1) - moments_neg(1)) / (2 * STEP_SIZE)
+
+  end
+end module

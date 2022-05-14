@@ -16,7 +16,6 @@ module m_r2d_parabolic
 
   type, bind(C) :: r2d_parabola_f
     type(r2d_rvec2_f)     :: n
-    type(r2d_rvec2_f)     :: x0
     real(c_double)        :: kappa0
   end type
 
@@ -255,15 +254,21 @@ contains
     real*8                :: derivative_(4), grad_s_(2)
     logical*1             :: compute_derivative_
     real(real64)          :: d_qnan = transfer(9221120237041090560_int64, 1._real64)
+    integer               :: vdx
 
+    ! The algorithm is implemented assuming that x0 = 0, so we must shift the positions of the polygon beforehand
+    do vdx=1,poly%nverts
+      poly%verts(vdx)%pos%xyz = poly%verts(vdx)%pos%xyz - x0
+    enddo
+
+    ! The algorithm is implemented for kappa0 <= 0, so we must compute the moments of the complement
+    ! (for which the sign of the curvature is swapped) if kappa0 > 0
     if (kappa0 > 0) then
       parabola(1)%n%xyz = -normal
-      parabola(1)%x0%xyz = x0
       parabola(1)%kappa0 = -kappa0
       call moments_01(moments01_poly, poly)
     else
       parabola(1)%n%xyz = normal
-      parabola(1)%x0%xyz = x0
       parabola(1)%kappa0 = kappa0
     endif
 
@@ -274,10 +279,16 @@ contains
 
     if (kappa0 > 0) then
       moments01 = moments01_poly - moments01
-      derivative_ = -derivative_
+      derivative_(1:3) = -derivative_(1:3)
     endif
 
-    if (present(derivative)) derivative = derivative_
+    ! Shift the position back relative to x0
+    moments01(2:3) = moments01(2:3) + moments01(1) * x0
+
+    if (present(derivative)) then 
+      derivative = derivative_
+      derivative(2:3) = derivative(2:3) + derivative(1) * x0
+    endif
     if (present(grad_s)) grad_s = grad_s_
   end subroutine
 
