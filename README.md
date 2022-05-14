@@ -7,7 +7,7 @@ A FORTRAN wrapper is provided, where in particular the subroutine intersect_with
 ## TODO
 - Make tests
   - PPIC reconstruction
-    - Exact parabolic reconstruction (n, s, kappa -[intersection]> moments -> [reconstruction] n, s, kappa)
-    - (Approximate) parabolic reconstruction; validation using piecewise linear approximation of the exact domain
+    - Exact reconstruction: (n, s, (kappa) -[intersection]> moments -> [reconstruction] n, s, (kappa))
+    - Approximate reconstruction: validation using symmetric difference with exact domain
     - Timing (compare to PLIC)
-- Include reconstruction functions: PLVIRA, PROST, PMOF, LVIRA, MOF
+- Include reconstruction functions: PLVIRA, PROST, LVIRA

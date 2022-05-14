@@ -2,8 +2,13 @@ module m_ppic_util
   use m_common
 
   implicit none
-
+  
   integer(kind=2), parameter :: LIQUID_PHASE = 1, GAS_PHASE = 4
+
+  private
+  public :: cmpMoments2d_parabolic, cmpShift2d_parabolic,& 
+    get_polygonal_approximation_of_exact_domain, cmpSymmDiff2d_parabolic,&
+    LIQUID_PHASE, GAS_PHASE
 
 contains
 

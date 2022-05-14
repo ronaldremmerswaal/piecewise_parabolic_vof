@@ -1,4 +1,5 @@
 add_library(ppic
+  m_reconstruction.f90
   m_r2d_parabolic.f90
   r2d_parabolic.h
   r2d_parabolic.c

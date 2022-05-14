@@ -1,5 +1,9 @@
 module m_plic_util
+  private
+  public :: cmpMoments2d, cmpShift2d
+
   real*8, parameter     :: NORMAL_TOL = 1E-12
+
 contains
 
    function cmpMoments2d(normal, dx, shift) result(moments)
