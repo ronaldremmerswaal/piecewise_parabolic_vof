@@ -1,4 +1,6 @@
 module intersection
+  use m_common
+  
   real*8, parameter       :: TOLERANCE = 1D-14
 contains
   
@@ -27,7 +29,7 @@ contains
     normal = [0.0D0, 1.0D0]
 
     call intersect_by_plane(cutPoly, normal, shift + dot_product(normal, x))
-    call moments_01(mom_r2d, cutPoly)
+    mom_r2d = moments_01(cutPoly)
 
     mom_util = cmpMoments2d(normal, dx, shift)
 
@@ -52,7 +54,7 @@ contains
         shift = pc - dot_product(abs(normal), dx) / 2.0
 
         call intersect_by_plane(cutPoly, normal, shift + dot_product(normal, x))
-        call moments_01(mom_r2d, cutPoly)
+        mom_r2d = moments_01(cutPoly)
 
         mom_util = cmpMoments2d(normal, dx, shift)
 
@@ -92,7 +94,7 @@ contains
 
       call init_box(poly, [-dx/2, dx/2])
       call intersect_by_plane(poly, normal, shift)
-      call moments_01(moments_plane_r2d, poly)
+      moments_plane_r2d = moments_01(poly)
       
       moments_parabola = cmpMoments2d_parabolic(normal, dx, shift, 0.0D0)
       moments_plane = cmpMoments2d(normal, dx, shift)
@@ -297,10 +299,10 @@ contains
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
       call get_polygonal_approximation_of_exact_domain(poly_gas, GAS_PHASE, x, dx, levelset)
-      call moments_01(mom_gas, poly_gas)
+      mom_gas = moments_01(poly_gas)
 
       call get_polygonal_approximation_of_exact_domain(poly_liq, LIQUID_PHASE, x, dx, levelset)
-      call moments_01(mom_liq, poly_liq)
+      mom_liq = moments_01(poly_liq)
 
       sd = cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelset)
 
@@ -366,7 +368,7 @@ contains
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
       call init_box(poly, [-dx/2, dx/2])
-      call moments_01(moments01, poly)
+      moments01 = moments_01(poly)
     enddo
     call cpu_time(time_intersect_r2d_plane)
     time_intersect_r2d_plane = time_intersect_r2d_plane - tmp

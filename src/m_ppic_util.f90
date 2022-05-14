@@ -2,14 +2,10 @@ module m_ppic_util
   use m_common
 
   implicit none
-  
-  integer(kind=2), parameter :: LIQUID_PHASE = 1, GAS_PHASE = 4
+
 
   private
-  public :: cmpMoments2d_parabolic, cmpShift2d_parabolic,& 
-    get_polygonal_approximation_of_exact_domain, cmpSymmDiff2d_parabolic,&
-    LIQUID_PHASE, GAS_PHASE
-
+  public :: cmpMoments2d_parabolic, cmpShift2d_parabolic, cmpSymmDiff2d_parabolic
 contains
 
   function cmpMoments2d_parabolic(normal, dx, shift, kappa0, x0) result(moments)
@@ -151,125 +147,5 @@ contains
     call intersect_with_parabola(sd_1, exact_gas, normal, kappa0, x + normal * shift)
     call intersect_with_parabola(sd_2, exact_liq, -normal, -kappa0, x + normal * shift)
     sd = sd_1(1) + sd_2(1)
-  end
-
-  subroutine get_polygonal_approximation_of_exact_domain(poly, phase, xc, dx, levelSet)
-    use m_optimization,   only: brent
-    use m_r2d_parabolic
-    implicit none
-
-    type(r2d_poly_f), intent(out) :: poly
-    integer*2, intent(in) :: phase
-    real*8, intent(in)    :: xc(2), dx(2)
-    real*8, external      :: levelSet
-
-    ! Local variables
-    real*8                :: pos(2, R2D_MAX_VERTS), pos_skeleton(2, 8), corners(2, 4), funVals(4)
-    real*8                :: x0(2), dir(2), step, tDir(2)
-    integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
-    integer, parameter    :: VERTS_PER_SEGMENT = R2D_MAX_VERTS / 3
-    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(8)
-
-    corners(:,1) = xc + [-dx(1), -dx(2)]/2
-    corners(:,2) = xc + [dx(1), -dx(2)]/2
-    corners(:,3) = xc + [dx(1), dx(2)]/2
-    corners(:,4) = xc + [-dx(1), dx(2)]/2
-
-    ! Find out which corners of the cell are inside the domain
-    vdx_first_inside = 0
-    do vdx=1,4
-      funVals(vdx) = interfaceFun(corners(:,vdx))
-      if (funVals(vdx) >= 0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
-    enddo
-    if (vdx_first_inside == 0) then
-      poly%nverts = 0
-      return
-    endif
-
-    ! Loop over the edges and construct the polygonal 'skeleton'
-    vdx = vdx_first_inside
-    vdx_is_inside = .true.
-    nrPos_skelelton = 0
-
-    do edx=1,4
-      vdx_next = merge(1, vdx + 1, vdx == 4)
-      vdx_next_is_inside = funVals(vdx_next) >= 0.0
-
-      ! TODO so far we assume that an edge has at most one intersection
-      if (vdx_is_inside .neqv. vdx_next_is_inside) then
-        ! Find and add new position
-        x0 = corners(:,vdx)
-        dir = corners(:,vdx_next) - corners(:,vdx)
-        step = brent(interfaceFun_step, 0.0D0, 1.0D0, 1D-15, 30, funVals(vdx), funVals(vdx_next))
-        nrPos_skelelton = nrPos_skelelton + 1
-        pos_skeleton(:,nrPos_skelelton) = x0 + step * dir
-        is_on_interface(nrPos_skelelton) = .true.
-      endif
-      if (vdx_next_is_inside) then
-        ! And add next node (corner)
-        nrPos_skelelton = nrPos_skelelton + 1
-        pos_skeleton(:,nrPos_skelelton) = corners(:,vdx_next)
-        is_on_interface(nrPos_skelelton) = .false.
-      endif
-
-      vdx = vdx_next
-      vdx_is_inside = vdx_next_is_inside
-    enddo
-
-    ! Now we add a refined approximation on edges that are on the interface
-    nrPos = 0
-    vdx = 1
-    do edx=1,nrPos_skelelton
-      vdx_next = merge(1, vdx + 1, vdx == nrPos_skelelton)
-
-      ! Add (refinement of) the half open interval (pos_skeleton(:,vdx),pos_skeleton(:,vdx_next)]
-      if (.not. is_on_interface(vdx) .or. .not. is_on_interface(vdx_next)) then
-        nrPos = nrPos + 1
-        pos(:,nrPos) = pos_skeleton(:,vdx_next)
-      else
-
-        tDir = pos_skeleton(:,vdx_next) - pos_skeleton(:,vdx)
-        if (norm2(tDir) < 1E-15 * dx(1)) then
-          nrPos = nrPos + 1
-          pos(:,nrPos) = pos_skeleton(:,vdx_next)
-        else
-          ! Refine the face
-
-          ! Make dir normal to the face
-          dir = [-tDir(2), tDir(1)]
-          do rdx=1,VERTS_PER_SEGMENT
-            x0 = pos_skeleton(:,vdx) + rdx * tDir / VERTS_PER_SEGMENT
-
-            ! We impose here that the radius of curvature of the interface is bounded from below by half (relative to the mesh spacing)
-            step = brent(interfaceFun_step, -.5D0, .5D0, 1D-15, 30)
-
-            nrPos = nrPos + 1
-            pos(:,nrPos) = x0 + step * dir
-          enddo
-        endif
-      endif
-
-      vdx = vdx_next
-    enddo
-    call init_from_pos(poly, pos(:,1:nrPos))
-  contains
-
-    real*8 function interfaceFun(x) result(f)
-  
-      implicit none
-
-      real*8, intent(in)  :: x(2)
-
-      f = levelSet(x)
-      if (phase == GAS_PHASE) f = -f
-    end
-
-    real*8 function interfaceFun_step(step_) result(f)
-      implicit none
-
-      real*8, intent(in)    :: step_
-
-      f = interfaceFun(x0 + step_ * dir)
-    end
   end
 end module
