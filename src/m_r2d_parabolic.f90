@@ -99,7 +99,7 @@ module m_r2d_parabolic
   end interface
 
   interface
-    subroutine r2d_split(polys, npolys, plane, out_pos, out_neg) bind(C, name="r2d_split")
+    subroutine r2d_split_ptr(polys, npolys, plane, out_pos, out_neg) bind(C, name="r2d_split_ptr")
       import r2d_poly_f, r2d_plane_f, c_int32_t
 
       implicit none
@@ -109,7 +109,7 @@ module m_r2d_parabolic
       type(r2d_plane_f), intent(in)   :: plane
       type(r2d_poly_f), intent(out)   :: out_pos(npolys)
       type(r2d_poly_f), intent(out)   :: out_neg(npolys)
-    end subroutine r2d_split
+    end subroutine r2d_split_ptr
   end interface
 
   interface
@@ -215,7 +215,7 @@ contains
     plane%d = shift
 
     ! r2d convention: remove part for which η . x + s < 0
-    call r2d_split(polys, %val(size(polys, 1)), plane, out_pos, out_neg)
+    call r2d_split_ptr(polys, %val(size(polys, 1)), plane, out_pos, out_neg)
   end subroutine
 
   ! Removes the part of poly for which 

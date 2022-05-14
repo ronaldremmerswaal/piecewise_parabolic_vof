@@ -46,3 +46,5 @@ void adjust_moments_for_parabola(r2d_parabola *parabola, r2d_rvec2 pos1, r2d_rve
 void compute_moment_derivatives(r2d_parabola *parabola, r2d_vertex *vertbuffer, r2d_int *nverts, bool *is_on_parabola, r2d_real *grad_s, r2d_real *derivative, bool compute_grad_s);
 
 void real_roots(r2d_real *coeff, r2d_real *roots);
+
+void r2d_split_ptr(r2d_poly* inpolys, r2d_int npolys, r2d_plane *plane, r2d_poly* out_pos, r2d_poly* out_neg);

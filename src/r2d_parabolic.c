@@ -388,3 +388,7 @@ void real_roots(r2d_real *coeff, r2d_real *roots){
 		}
 	}
 }
+
+void r2d_split_ptr(r2d_poly* inpolys, r2d_int npolys, r2d_plane *plane, r2d_poly* out_pos, r2d_poly* out_neg) {
+	r2d_split(inpolys, npolys, *plane, out_pos, out_neg);
+}
