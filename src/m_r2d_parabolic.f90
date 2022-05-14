@@ -398,7 +398,7 @@ contains
     vdx_first_inside = 0
     do vdx=1,4
       funVals(vdx) = interfaceFun(corners(:,vdx))
-      if (funVals(vdx) >= 0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
+      if (funVals(vdx) < 0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
     enddo
     if (vdx_first_inside == 0) then
       poly%nverts = 0
@@ -412,7 +412,7 @@ contains
 
     do edx=1,4
       vdx_next = merge(1, vdx + 1, vdx == 4)
-      vdx_next_is_inside = funVals(vdx_next) >= 0.0
+      vdx_next_is_inside = funVals(vdx_next) < 0.0
 
       ! TODO so far we assume that an edge has at most one intersection
       if (vdx_is_inside .neqv. vdx_next_is_inside) then

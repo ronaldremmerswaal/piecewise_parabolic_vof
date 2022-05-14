@@ -327,7 +327,7 @@ contains
 
       real*8, intent(in)      :: x_in(2)
 
-      f = radius - norm2(x_in)
+      f = norm2(x_in) - radius
     end
   end
 

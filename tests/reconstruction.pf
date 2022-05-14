@@ -45,12 +45,13 @@ contains
     enddo
     enddo
   contains
+    ! The liquid part coincides with levelSet(x) < 0 (normal points into gas)
     real*8 function levelSet(x) result(ans)
       implicit none
 
       real*8, intent(in)  :: x(2)
 
-      ans = shift - dot_product(x, normal)  
+      ans = dot_product(x, normal) - shift
 
     end function
   end subroutine
