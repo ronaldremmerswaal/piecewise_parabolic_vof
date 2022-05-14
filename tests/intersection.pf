@@ -73,24 +73,24 @@ contains
 
     implicit none
 
-    real*8, parameter       :: TOLERANCE = 1E-8
+    real*8, parameter       :: TOLERANCE = 1D-8
     integer, parameter      :: NR_ANGLE = 50, NR_SHIFT = 50
     real*8                  :: dx(2), normal(2), moments_plane(3), moments_parabola(3), moments_plane_r2d(3)
     real*8                  :: angle, shift, lengthScale, pi, cellVol
     integer                 :: adx, sdx
     type(r2d_poly_f)        :: poly
 
-    pi = 4.0 * atan(1.0)
-    dx = [0.1, 0.15]
+    pi = 4 * datan(1.0d0)
+    dx = [0.1D0, 0.15D0]
     cellVol = product(dx)
 
     do adx = 1, NR_ANGLE
     do sdx = 1, NR_SHIFT
-      angle = 2. * pi * (adx - 1.) / (NR_ANGLE - 1.)
-      normal = [cos(angle), sin(angle)]
+      angle = 2 * pi * (adx - 1.D0) / (NR_ANGLE - 1.D0)
+      normal = [dcos(angle), dsin(angle)]
       lengthScale = dot_product(dx, abs(normal))
 
-      shift = lengthScale * (sdx - 1.) / (NR_SHIFT - 1.) - lengthScale/2
+      shift = lengthScale * (sdx - 1.D0) / (NR_SHIFT - 1.D0) - lengthScale/2
 
       call init_box(poly, [-dx/2, dx/2])
       call intersect_by_plane(poly, normal, shift)
@@ -105,4 +105,221 @@ contains
     enddo
 
   end subroutine test_moments2d_planeLimit
+
+  ! Validate exact parabola intersection
+  @Test
+  subroutine test_moments2d_analytical
+    use funit
+    use m_r2d_parabolic
+    use m_ppic_util
+
+    implicit none
+
+    real*8, parameter       :: TOLERANCE = 1D-12
+    integer, parameter      :: NR_KAPPA = 100, NR_ANGLE = 100, NR_SHIFT = 100
+    real*8                  :: normal(2), dx(2), shift, pc, kappa0, pos(2,4), angle, lengthScale, volumes(8), pos5(2, 5), x0(2)
+    real*8                  :: moments01_plane(3), moments01_para(3), moments01_exact(3), tmp(3), moments01_parts(3), xStar
+    type(r2d_poly_f)        :: poly, polys1(1), polys2(2), polys4(4), polys8(8)
+    integer                 :: kdx, adx, sdx, ii
+
+    dx = 1.0D0
+
+    pos(1,1:4) = [0.0D0, dx(1), dx(1), 0.0D0] - dx(1)/2
+    pos(2,1:4) = [0.0D0, 0.0D0, dx(2), dx(2)] - dx(2)/2
+
+    ! Verify exactness for simple examples (which contain some interesting edge cases)
+    angle = 2 * datan(1.0D0)
+    normal = [dcos(angle), dsin(angle)]
+    
+    do sdx=1,NR_SHIFT
+    do kdx=1,NR_KAPPA
+      lengthScale = dot_product(dx, abs(normal))
+      pc = lengthScale * (sdx - 1.D0) / (NR_SHIFT - 1.D0)
+      shift = pc - dot_product(abs(normal), dx)/2
+
+      ! Ensure that |s - κ/8| < 1/2
+      kappa0 = -4.0D0 + 8 * (shift + (kdx - 1.D0) / (NR_KAPPA - 1.D0))
+
+      call init_from_pos(poly, pos)
+      call intersect_with_parabola(moments01_para, poly, normal, kappa0, normal * shift)
+
+      moments01_exact(1) = 0.5D0 + shift - kappa0 / 24
+      moments01_exact(2) = 0.0D0
+      moments01_exact(3) = ((kappa0**2/720) + moments01_exact(1) * (moments01_exact(1) - 1.0D0))/2
+
+      @assertEqual(moments01_exact, moments01_para, TOLERANCE)
+    enddo
+    enddo
+
+    ! Verify exactness for some complex cases
+    ! #1
+    shift = 0.75D0
+    kappa0 = 40.0D0
+    call init_from_pos(poly, pos)
+    call intersect_with_parabola(moments01_para, poly, normal, kappa0, normal * shift)
+
+    xStar = dsqrt(2 * (shift + dx(2)/2)/kappa0)
+    moments01_exact(1) = 2 * ((dx(2)/2 + shift) * xStar - (kappa0/6) * xStar**3)
+    xStar = dsqrt(2 * (shift - dx(2)/2)/kappa0)
+    moments01_exact(1) = moments01_exact(1) - 2 * ((-dx(2)/2 + shift) * xStar - (kappa0/6) * xStar**3)
+    moments01_exact(2) = 0.D0
+    @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
+    @assertEqual(moments01_exact(2), moments01_para(2), TOLERANCE)
+
+    ! And the complement... (this splits the polygon into three piececs, two of which contribute to the volume)
+    normal = -normal
+    shift = -shift
+    kappa0 = -kappa0
+    call init_from_pos(poly, pos)
+    call intersect_with_parabola(moments01_para, poly, normal, kappa0, normal * shift)
+
+    moments01_exact(1) = 1.0D0 - moments01_exact(1)
+    @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
+
+    ! #2
+    shift = 0.0D0
+    normal = [1.0D0, 1.0D0] / dsqrt(2.0D0)
+    kappa0 = 4 / dsqrt(2.0D0)
+    call init_from_pos(poly, pos)
+    call intersect_with_parabola(moments01_para, poly, normal, kappa0, normal * shift)
+
+    moments01_exact(1) = 0.348361657291579
+    @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
+
+    ! And the complement... (this splits the polygon into three piececs, two of which contribute to the volume)
+    normal = -normal
+    shift = -shift
+    kappa0 = -kappa0
+    call init_from_pos(poly, pos)
+    call intersect_with_parabola(moments01_para, poly, normal, kappa0, normal * shift)
+
+    moments01_exact(1) = 1.0 - moments01_exact(1)
+    @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
+
+    ! Split the box and intersect its parts
+    call init_from_pos(polys1(1), pos)
+    call split_by_plane(polys1, [2.0D0, 1.0D0] / dsqrt(5.D0), 0.1D0, polys2(1:1), polys2(2:2))
+    call split_by_plane(polys2, [-1.0D0, 3.0D0] / dsqrt(10.D0), -0.1D0, polys4(1:2), polys4(3:4))
+    call split_by_plane(polys4, [-1.0D0, -1.0D0] / dsqrt(2.D0), 0.3D0, polys8(1:4), polys8(5:8))
+
+    moments01_parts = 0.0
+    do ii=1,2
+      call intersect_with_parabola(tmp, polys2(ii), normal, kappa0, normal * shift)
+      moments01_parts = moments01_parts + tmp
+    enddo
+    @assertEqual(moments01_para, moments01_parts, TOLERANCE)
+
+    moments01_parts = 0.0
+    do ii=1,4
+      call intersect_with_parabola(tmp, polys4(ii), normal, kappa0, normal * shift)
+      moments01_parts = moments01_parts + tmp
+    enddo
+    @assertEqual(moments01_para, moments01_parts, TOLERANCE)
+
+    moments01_parts = 0.0
+    do ii=1,8
+      call intersect_with_parabola(tmp, polys8(ii), normal, kappa0, normal * shift)
+      moments01_parts = moments01_parts + tmp
+    enddo
+    @assertEqual(moments01_para, moments01_parts, TOLERANCE)
+
+    ! A special case which fails
+    pos(:, 1) = [0.0000000000000000D0     ,  -7.8125000000000000D-003]
+    pos(:, 2) = [0.0000000000000000D0     ,   7.8125000000000000D-003]
+    pos(:, 3) = [3.4458603408377459D-003,   6.7317744943550615D-003]
+    pos(:, 4) = [3.1726489965236038D-003,  -7.8125000000000017D-003]
+    ! pos5(:, 5) = [0.0000000000000000     ,  -7.8125000000000000E-003]
+
+    x0 =        [7.8125000000000000D-003,   0.0000000000000000D0]
+    normal =    [-0.99897516533599229D0   ,   4.5261672990808480D-002]
+    shift = 7.6984592557472181D-003
+    kappa0 = 13.746906323304344D0
+
+    ! Approximate with 1E5 points
+    moments01_exact = -[4.623807682389947D-05,  0.810186449104417D-07,  -0.200835995785912D-07]
+
+
+    call init_from_pos(poly, pos)
+    call intersect_with_parabola(moments01_para, poly, normal, kappa0, normal * shift + x0)
+
+    @assertEqual(moments01_para, moments01_exact, 10 * TOLERANCE / (64**2))
+
+  end subroutine
+
+
+!   @Test
+!   subroutine test_symmetricDifference
+!     use funit
+!     use m_ppic_util
+!     use m_r2d_parabolic
+
+!     implicit none
+
+!     real*8, parameter       :: TOLERANCE = 2D-5 ! This is related to R2D_MAX_VERTS being relatively small
+!     real*8                  :: radius, x(2), dx(2), normal(2), pc, kappa0, sd, pi, angle, shift
+!     real*8                  :: mom_gas(3), mom_liq(3), mom01(3), tmp
+!     integer, parameter      :: NR_STEPS = 100
+!     integer                 :: sdx
+!     type(r2d_poly_f)        :: poly_gas, poly_liq
+
+!     ! Results from MATLAB (very accurate)
+!     real*8, parameter       :: sd_MATLAB(NR_STEPS) = [&   
+! #include "intersection_sd_data"
+!     &]
+
+!     pi = 4 * datan(1.0D0)
+
+!     radius = 0.5D0
+!     x = 0.5D0
+!     dx = 1.D0
+!     normal = [1.0D0, 0.D0]
+!     pc = 0.D0
+!     kappa0 = 0.D0
+
+!     ! Analytical:
+!     sd = cmpSymmetricDifference2d_parabolic(x, dx, -normal, pc, kappa0, levelset)
+!     @assertEqual(pi / 16, sd, TOLERANCE)
+
+!     ! Computed in MATLAB:
+!     do sdx=1,NR_STEPS
+!       angle = (sdx - 1) * 2 * pi / (NR_STEPS - 1)
+!       shift = -0.25D0 + (sdx - 1) * 0.5D0 / (NR_STEPS - 1)
+!       kappa0 = -0.5D0 + (sdx - 1) / (NR_STEPS - 1)
+!       normal = [cos(angle), sin(angle)] ! Outward pointing normal
+!       pc = shift + dot_product(abs(normal), dx) / 2
+
+!       radius = 0.5D0 + (sdx - 1) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1)
+
+!       call get_polygonal_approximation_of_exact_domain(poly_gas, GAS_PHASE, x, dx, levelset)
+!       call moments_01(mom_gas, poly_gas)
+
+!       call get_polygonal_approximation_of_exact_domain(poly_liq, LIQUID_PHASE, x, dx, levelset)
+!       call moments_01(mom_liq, poly_liq)
+
+!       sd = cmpSymmetricDifference2d_parabolic(x, dx, -normal, pc, kappa0, levelset)
+
+!       if (radius <= 1.) then
+!         @assertEqual(pi * radius**2 / 4, mom_liq(1), TOLERANCE)
+!       elseif (sdx == NR_STEPS) then
+!         @assertEqual(1.0, mom_liq(1), 1E-14)
+
+!         mom01 = cmpMoments2d_parabolic(-normal, dx, pc, kappa0)
+!         @assertEqual(1.0 - mom01(1), sd, 1E-14)
+!       endif
+
+!       @assertEqual(product(dx), mom_gas(1) + mom_liq(1), TOLERANCE)
+
+!       @assertEqual(sd_MATLAB(sdx), sd, TOLERANCE)
+!     enddo
+
+
+!   contains
+!     real*8 function levelset(x) result(f)
+!       implicit none
+
+!       real*8, intent(in)      :: x(2)
+
+!       f = radius - norm2(x)
+!     end
+!   end
 end module

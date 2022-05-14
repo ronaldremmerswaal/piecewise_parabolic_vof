@@ -54,6 +54,16 @@ module m_r2d_parabolic
   end interface
 
   interface
+    subroutine r2d_print(poly) bind(C, name="r2d_print")
+      import r2d_poly_f
+
+      implicit none
+
+      type(r2d_poly_f), intent(in):: poly
+    end subroutine r2d_print
+  end interface
+
+  interface
     subroutine r2d_volume(poly, volume) bind(C, name="r2d_volume")
       import r2d_poly_f, c_double, c_int32_t
 
@@ -328,14 +338,6 @@ contains
 
     type(r2d_poly_f), intent(in) :: poly
 
-    ! Local variables
-    integer               :: cdx, vdx
-
-    cdx = 1
-    print*, 'Printing polygon nodes'
-    do vdx=1,poly%nverts
-      print*, 'idx, coord = ', cdx, poly%verts(cdx)%pos%xyz
-      cdx = poly%verts(cdx)%pnbrs(1) + 1
-    enddo
+    call r2d_print(poly)
   end
 end module

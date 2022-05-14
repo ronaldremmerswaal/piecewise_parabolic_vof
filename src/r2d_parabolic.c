@@ -52,7 +52,7 @@ void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_re
 	// signed distance to the clipping plane
 	r2d_real sdist;
 
-	// for marking clipped vertices
+	// for marking clipped (removed) vertices
 	r2d_int clipped[R2D_MAX_VERTS];
 
 	// for marking parabola vertices
@@ -69,6 +69,7 @@ void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_re
 		tau = dot_relative_rotate(vertbuffer[v].pos, parabola->n, parabola->x0);
 		sdist = dot_relative(vertbuffer[v].pos, parabola->n, parabola->x0) + (parabola->kappa0 / 2.0) * tau * tau;
 		if(sdist >= 0.0) clipped[v] = 1;
+		// printf("v, clipped, sdist = %d, %d, %e\n", v, clipped[v], sdist);
 	}
 
 	memset(&is_on_parabola, false, sizeof(is_on_parabola));
@@ -80,7 +81,11 @@ void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_re
 			if(!clipped[vnext]) continue;
 			// Case 1) an edge has one node clipped: bisected edge
 			nr_roots = parabola_line_intersection(parabola, vertbuffer[vcur].pos, vertbuffer[vnext].pos, roots);
-			if (nr_roots==0) continue;
+			// if (nr_roots==0) {
+			// 	clipped[vnext] = 0;
+			// 	printf("r2d_clip_parabola_moments_01: zero roots\n");
+			// 	continue;
+			// }
 
 			// link new vertex with unclipped vertex (negative value of clipped vertex may be used for finding neighbors)
 			root = roots[0];
@@ -116,20 +121,22 @@ void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_re
 					  vertbuffer[vnext].pos, roots[0],
 					  vertbuffer[*nverts].pos);
 				is_on_parabola[*nverts] = true;
-				// printf("Case 3: pos1 = (%e, %e)\n", vertbuffer[vcur].pos.x, vertbuffer[vcur].pos.y);
-				// printf("        pos2 = (%e, %e)\n", vertbuffer[vnext].pos.x, vertbuffer[vnext].pos.y);
-				// printf("        root, new pos = %e, (%e, %e)\n", roots[0], vertbuffer[*nverts].pos.x, vertbuffer[*nverts].pos.y);
+				// printf("Case 3: v1, pos1 = %d (%e, %e)\n", vcur, vertbuffer[vcur].pos.x, vertbuffer[vcur].pos.y);
+				// printf("        v2, pos2 = %d (%e, %e)\n", vnext, vertbuffer[vnext].pos.x, vertbuffer[vnext].pos.y);
+				// printf("        root, vnew, new pos = %e, %d, (%e, %e)\n", roots[0], *nverts, vertbuffer[*nverts].pos.x, vertbuffer[*nverts].pos.y);
 
-				vertbuffer[(*nverts)+1].pnbrs[0] = vnext;
-				vertbuffer[(*nverts)+1].pnbrs[1] = -1;
-				vertbuffer[vnext].pnbrs[1] = (*nverts)+1;
+				(*nverts) += 1;
+
+				vertbuffer[*nverts].pnbrs[0] = vnext;
+				vertbuffer[*nverts].pnbrs[1] = -1;
+				vertbuffer[vnext].pnbrs[1] = *nverts;
 				wav(vertbuffer[vcur].pos, 1.0 - roots[1],
 					  vertbuffer[vnext].pos, roots[1],
-					  vertbuffer[(*nverts)+1].pos);
-				is_on_parabola[(*nverts)+1] = true;
-				// printf("        root, new pos = %e, (%e, %e)\n", roots[1], vertbuffer[(*nverts)+1].pos.x, vertbuffer[(*nverts)+1].pos.y);
+					  vertbuffer[*nverts].pos);
+				is_on_parabola[*nverts] = true;
+				// printf("        root, vnew, new pos = %e, %d, (%e, %e)\n", roots[1], *nverts, vertbuffer[*nverts].pos.x, vertbuffer[*nverts].pos.y);
 
-				(*nverts) += 2;
+				(*nverts) += 1;
 			}
 		}
 	}
