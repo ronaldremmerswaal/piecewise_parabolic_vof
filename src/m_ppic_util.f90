@@ -8,29 +8,28 @@ module m_ppic_util
 
   real(real64)            :: d_qnan = transfer(9221120237041090560_int64, 1._real64)
 
-  ! NB All functions here assume the normal to be outward pointing, but the normal is stored (yn(:,)) inward pointing
 contains
 
-  real*8 function cmpMoments2d_parabolic(firstMoment, normal, dx, shift, kappa0, relativeTo) result(volume)
+  real*8 function cmpMoments2d_parabolic(firstMoment, normal, dx, shift, kappa0, x0) result(volume)
     use m_r2d_parabolic
 
     implicit none
 
     real*8, intent(in)    :: normal(2), dx(2), shift, kappa0
     real*8, intent(out)   :: firstMoment(2)
-    real*8, intent(in), optional :: relativeTo(2)
+    real*8, intent(in), optional :: x0(2)
 
     ! Local variables
     type(r2d_poly_f)      :: liquid
-    real*8                :: moments01(3), relativeTo_(2)
+    real*8                :: moments01(3), x0_(2)
 
-    relativeTo_ = normal * shift
-    if (present(relativeTo)) then
-      relativeTo_ = relativeTo_ + relativeTo
+    x0_ = normal * shift
+    if (present(x0)) then
+      x0_ = x0_ + x0
     endif
 
     call init_box(liquid, [-dx/2.0, dx/2.0])
-    call intersect_with_parabola(moments01, liquid, normal, kappa0, relativeTo_)
+    call intersect_with_parabola(moments01, liquid, normal, kappa0, x0_)
 
     volume = moments01(1)
     firstMoment = moments01(2:3)
@@ -194,12 +193,7 @@ contains
       vdx_next_is_inside = funVals(vdx_next) >= 0.0
 
       ! TODO so far we assume that an edge has at most one intersection
-      if (vdx_is_inside .and. vdx_next_is_inside) then
-        ! Add next node (corner)
-        nrPos_skelelton = nrPos_skelelton + 1
-        pos_skeleton(:,nrPos_skelelton) = corners(:,vdx_next)
-        is_on_parabola(nrPos_skelelton) = .false.
-      elseif (vdx_is_inside .and. .not. vdx_next_is_inside) then
+      if (vdx_is_inside .neqv. vdx_next_is_inside) then
         ! Find and add new position
         x0 = corners(:,vdx)
         dir = corners(:,vdx_next) - corners(:,vdx)
@@ -207,15 +201,8 @@ contains
         nrPos_skelelton = nrPos_skelelton + 1
         pos_skeleton(:,nrPos_skelelton) = x0 + step * dir
         is_on_parabola(nrPos_skelelton) = .true.
-      elseif (.not. vdx_is_inside .and. vdx_next_is_inside) then
-        ! Find and add new position
-        x0 = corners(:,vdx)
-        dir = corners(:,vdx_next) - corners(:,vdx)
-        step = brent(interfaceFun_step, 0.0D0, 1.0D0, 1D-15, 30, funVals(vdx), funVals(vdx_next))
-        nrPos_skelelton = nrPos_skelelton + 1
-        pos_skeleton(:,nrPos_skelelton) = x0 + step * dir
-        is_on_parabola(nrPos_skelelton) = .true.
-
+      endif
+      if (vdx_next_is_inside) then
         ! And add next node (corner)
         nrPos_skelelton = nrPos_skelelton + 1
         pos_skeleton(:,nrPos_skelelton) = corners(:,vdx_next)

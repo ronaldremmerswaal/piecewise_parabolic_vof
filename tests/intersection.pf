@@ -35,7 +35,6 @@ contains
     @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
 
     do bdx=1,nrBoxes
-      call random_number(x)
       call random_number(dx)
 
       ! Consider boxes of any size
@@ -57,9 +56,6 @@ contains
         call moments_01(mom_r2d, cutPoly)
 
         mom_util = cmpMoments2d(normal, dx, shift)
-
-        print*, 'UTIL', mom_util
-        print*, ' R2D', mom_r2d
 
         @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
       enddo
