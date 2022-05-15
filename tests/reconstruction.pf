@@ -38,7 +38,7 @@ contains
       @assertEqual(normal, mofNormal, TOLERANCE)
       @assertEqual(refMoments, mofMoments, TOLERANCE)
       
-      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.false.)
+      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.true.)
   
       @assertEqual(normal, mofNormal, TOLERANCE)
     enddo

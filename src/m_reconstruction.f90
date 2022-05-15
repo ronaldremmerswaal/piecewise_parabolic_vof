@@ -46,8 +46,11 @@ contains
     else
       mofAngle = 0
     endif
+    mofNormal = [dcos(mofAngle(1)), dsin(mofAngle(1))]
     
-    call optimize(mofAngle, cost, LBFGS_OPTIONS, info, fun_and_grad=cost_fun_and_grad, ls_opts=MT_OPTIONS)
+    ! call optimize(mofAngle, cost, LBFGS_OPTIONS, info, fun_and_grad=cost_fun_and_grad, ls_opts=MT_OPTIONS)
+    mofAngle(1) =  brent_min(cost_1d, dcost_1d, mofAngle(1), LBFGS_OPTIONS%errTol, &
+     LBFGS_OPTIONS%maxFEval, verbose=LBFGS_OPTIONS%verbose)
 
     mofNormal = [dcos(mofAngle(1)), dsin(mofAngle(1))]
     if (largerThanHalf) then
@@ -55,6 +58,49 @@ contains
     endif
 
   contains 
+
+    real*8 function cost_1d(angle) result(err)
+      use m_ppic_util
+      implicit none
+
+      real*8, intent(in)    :: angle
+      real*8                :: difference(2)
+
+      ! Local variables
+      real*8                :: normal(2), shift
+
+      normal = [dcos(angle), dsin(angle)]
+      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0, moments=mofMoments_)
+
+      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
+
+      err = norm2(difference)**2
+    end function
+
+    real*8 function dcost_1d(angle) result(derr)
+      use m_ppic_util
+      use m_r2d_parabolic
+      implicit none
+
+      real*8, intent(in)  :: angle
+
+      ! Local variables:
+      type(r2d_poly_f)    :: poly
+      real*8              :: difference(2), derivative(4), normal(2), shift, err
+
+      normal = [dcos(angle), dsin(angle)]
+
+      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0)
+      
+      call init_box(poly, [-dx/2, dx/2])
+      call intersect_with_parabola(mofMoments_, poly, normal, kappa0, normal * shift, derivative)
+      
+      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
+      derivative(2:3) = derivative(2:3) / cost_fun_scaling
+      
+      err = norm2(difference)**2
+      derr = dot_product(derivative(2:3), difference)*2
+    end function
 
     real*8 function cost(angle) result(err)
       use m_ppic_util
