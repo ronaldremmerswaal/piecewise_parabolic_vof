@@ -1,6 +1,8 @@
 module m_plic_util
+  use m_common
+
   private
-  public :: cmpMoments2d, cmpShift2d
+  public :: cmpMoments2d, cmpShift2d, cmpSymmDiff2d
 
   real*8, parameter     :: NORMAL_TOL = 1E-12
 
@@ -136,4 +138,31 @@ contains
     if (largerThanHalf) pc = 2*max_shift_plane - pc
 
   end function
+
+  real function cmpSymmDiff2d(x, dx, normal, shift, levelSet) result(sd)
+    use m_r2d_parabolic
+    implicit none
+
+    real*8, intent(in)     :: x(2), dx(2), normal(2), shift
+    real*8, external       :: levelSet
+
+    ! Local variables
+    real*8                :: sd_1(3), sd_2(3)
+    type(r2d_poly_f)      :: exact_gas, exact_liq
+
+
+    ! Construct polygonal approximation of exact gas & liquid domains
+    ! (relative to the cell centroid)
+    call get_polygonal_approximation_of_exact_domain(exact_gas, x, dx, levelSet, GAS_PHASE)
+    call get_polygonal_approximation_of_exact_domain(exact_liq, x, dx, levelSet, LIQUID_PHASE)
+    call shift_by(exact_gas, -x)
+    call shift_by(exact_liq, -x)
+
+    ! Compute symmetric difference
+    call intersect_by_plane(exact_gas, normal, shift)
+    sd_1 = moments_01(exact_gas)
+    call intersect_by_plane(exact_liq, -normal, -shift)
+    sd_2 = moments_01(exact_liq)
+    sd = sd_1(1) + sd_2(1)
+  end
 end module

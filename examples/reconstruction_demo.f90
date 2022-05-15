@@ -1,6 +1,6 @@
 program reconstruction_demo
   ! Computation of moments / shift (PLIC)
-  use m_plic_util,        only: cmpMoments2d, cmpShift2d
+  use m_plic_util,        only: cmpMoments2d, cmpShift2d, cmpSymmDiff2d
 
   ! Computation of moments / shift (PPIC)
   use m_ppic_util,        only: cmpMoments2d_parabolic, cmpSymmDiff2d_parabolic, cmpShift2d_parabolic
@@ -46,7 +46,7 @@ program reconstruction_demo
   errMoments = abs(cmpMoments2d(normal, dx, shift) - refMoments)
 
   ! The symmetric difference between the exact and approximate liquid domain can be approximated as follows
-  errSD = cmpSymmDiff2d_parabolic(xc, dx, normal, shift, 0.0D0, exact_interface)
+  errSD = cmpSymmDiff2d(xc, dx, normal, shift, exact_interface)
 
   write(*, '(A,1PD9.3,A,1PD9.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
   write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &

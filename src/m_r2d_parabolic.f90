@@ -342,6 +342,20 @@ contains
     call r2d_init_poly_f(poly, vertices, %val(nverts))
   end subroutine
 
+  subroutine shift_by(poly, dpos)
+    implicit none
+
+    type(r2d_poly_f), intent(inout) :: poly
+    real*8, intent(in)    :: dpos(2)
+
+    ! Local variables
+    integer               :: vdx
+
+    do vdx=1,poly%nverts
+      poly%verts(vdx)%pos%xyz = poly%verts(vdx)%pos%xyz + dpos
+    enddo
+  end subroutine
+
 
   subroutine print(poly)
     implicit none
