@@ -21,8 +21,8 @@ contains
     type(lsOpts)          :: MT_OPTIONS = lsOpts()
     type(optimInfo)       :: info
 
-    real*8                :: cost_fun_scaling, mofMoments_(3), centNorm, mofAngle(1), tmp(1)
-    real*8                :: refMoments_(3), cellVol
+    real*8                :: cost_fun_scaling, centNorm, mofAngle(1), tmp(1)
+    real*8                :: refMoments_(3), cellVol, mofMoments_(3)
     logical               :: largerThanHalf
 
     if (present(verbose)) LBFGS_OPTIONS%verbose = verbose
@@ -42,13 +42,11 @@ contains
     ! Initial guess based on the reference centroid
     centNorm = norm2(refMoments_(2:3))
     if (centNorm > 0.0) then
-      mofNormal = -refMoments_(2:3) / centNorm
+      mofAngle = datan2(-refMoments_(3), -refMoments_(2))
     else
-      mofNormal = [1.0, 0.0]
+      mofAngle = 0
     endif
     
-    mofAngle = datan2(mofNormal(2), mofNormal(1))
-
     call optimize(mofAngle, cost, LBFGS_OPTIONS, info, fun_and_grad=cost_fun_and_grad, ls_opts=MT_OPTIONS)
 
     mofNormal = [dcos(mofAngle(1)), dsin(mofAngle(1))]
@@ -68,7 +66,7 @@ contains
       ! Local variables
       real*8                :: normal(2), shift
 
-      normal = [cos(angle(1)), sin(angle(1))]
+      normal = [dcos(angle(1)), dsin(angle(1))]
       shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0, moments=mofMoments_)
 
       difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
@@ -88,14 +86,16 @@ contains
       type(r2d_poly_f)    :: poly
       real*8              :: difference(2), derivative(4), normal(2), shift
 
-      normal = [cos(angle(1)), sin(angle(1))]
-      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0)
+      normal = [dcos(angle(1)), dsin(angle(1))]
 
+      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0)
+      
       call init_box(poly, [-dx/2, dx/2])
       call intersect_with_parabola(mofMoments_, poly, normal, kappa0, normal * shift, derivative)
+      
       difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
       derivative(2:3) = derivative(2:3) / cost_fun_scaling
-
+      
       err = norm2(difference)
       grad = dot_product(derivative(2:3), difference) / err
     end function

@@ -26,6 +26,7 @@ contains
     x = [0.5D0, 0.3D0]
 
     ! We set the derivative of the shift to zero, such that the derivative of the first moment is computed
+    ! nontrivially
     grad_s = 0.D0
 
     ! Reconstruct in a polygonal approximation of a circle

@@ -61,12 +61,12 @@ contains
 
     cellVol = product(dx)
     if (liqVol <= 0.0) then
-      shift = d_neg_inf
+      shift = -100 * max_shift_plane
       if (present(moments)) moments = 0.0D0
       if (present(grad_s)) grad_s = 0.0D0
       return
     elseif (liqVol >= cellVol) then
-      shift = d_pos_inf
+      shift = 100 * max_shift_plane
       if (present(moments)) moments = [cellVol, 0.0D0, 0.0D0]
       if (present(grad_s)) grad_s = 0.0D0
       return
@@ -81,6 +81,7 @@ contains
     ! Try to get a better bracket with an (educated) guess
     if (plane_err == 0.0) then
       ! iff kappa0 == 0.0
+      shift = shift_plane
       if (present(moments)) moments = moments_
       return
     elseif (plane_err > 0.0) then

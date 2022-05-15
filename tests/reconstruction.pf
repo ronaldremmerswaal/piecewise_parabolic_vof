@@ -2,7 +2,8 @@ module reconstruction
   use m_common
   use funit
 
-  real*8, parameter         :: TOLERANCE = 1E-11
+  real*8, parameter         :: TOLERANCE = 1E-10
+  real*8, parameter         :: IS_INTERFACE_TOLERANCE = 1E-8
 contains
   @Test
   subroutine test_exact_plic_reconstruction()
@@ -30,35 +31,18 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      refMoments = reference_moments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+      refMoments = cmpMoments2d(normal, dx, shift)
       
       mofNormal = plic_normal_mof2d(refMoments, dx, mofMoments)
 
       @assertEqual(normal, mofNormal, TOLERANCE)
       @assertEqual(refMoments, mofMoments, TOLERANCE)
-
-      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE/10, verbose=.true.)
-
-      print*, '    moments = ', refMoments
-      print*, '   centroid = ', refMoments(2:3) / (.5*dx * refMoments(1))
-      print*, '   fraction = ', refMoments(1) / product(dx)
-      print*, '      shift = ', shift
-      print*, '      angle = ', normal
-      print*, '   mofAngle = ', mofNormal
-
+      
+      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.false.)
+  
       @assertEqual(normal, mofNormal, TOLERANCE)
     enddo
     enddo
-  contains
-    ! The liquid part coincides with levelSet(x) < 0 (normal points into gas)
-    real*8 function levelSet(x) result(ans)
-      implicit none
-
-      real*8, intent(in)  :: x(2)
-
-      ans = dot_product(x, normal) - shift
-
-    end function
   end subroutine
 
   @Test
@@ -70,11 +54,11 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), tangent(2), shift, kappa0, max_shift_plane, dx(2)
-    real*8                :: refMoments(3), mofNormal(2), mofAngle, pi
+    real*8                :: refMoments(3), mofNormal(2), pi
     integer               :: adx, sdx, kdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
-return
+
     pi = 4 * datan(1.0D0)
 
     dx = [0.123D0, 0.3141592D0]
@@ -82,7 +66,7 @@ return
     do adx=1,NR_ANGLE
     do sdx=1,NR_SHIFT
     do kdx=1,NR_KAPPA
-      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE
+      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE - pi
       normal = [dcos(angle), dsin(angle)]
       tangent = [-normal(2), normal(1)]
       
@@ -91,27 +75,27 @@ return
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      refMoments = reference_moments([0.D0, 0.D0], dx, levelSet)
+      refMoments = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
       
-      if (refMoments(1) > TOLERANCE .and. product(dx) - refMoments(1) > TOLERANCE) then
-        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE/10)
-        mofAngle = datan2(mofNormal(2), mofNormal(1))
+      if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
+        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.true.)
+  
+        print*, ''
+        print*, '       angle = ', angle
+        print*, '       shift = ', shift
+        print*, '      kappa0 = ', kappa0
+        print*, '  refMoments = ', refMoments
+        print*, '     refFrac = ', refMoments(1) / product(dx)
+        print*, ' refCentroid = ', refMoments(2:3) / refMoments(1)
+        print*, '      normal = ', normal
+        print*, '   morNormal = ', mofNormal
 
-        ! print*, angle, mofAngle
-        @assertEqual(angle, mofAngle, TOLERANCE)
+        @assertEqual(normal, mofNormal, TOLERANCE)
       endif
     enddo
     enddo
     enddo
-  contains
-    real*8 function levelSet(x) result(ans)
-      implicit none
 
-      real*8, intent(in)  :: x(2)
-
-      ans = shift - dot_product(x, normal) - (kappa0/2) * (dot_product(x, tangent))**2
-
-    end function
   end subroutine
 
   @Test
@@ -178,4 +162,18 @@ return
 
   end subroutine
 
+
+  @Test
+  subroutine test_approx_reconstruction()
+
+  contains
+    real*8 function levelSet(x) result(ans)
+      implicit none
+
+      real*8, intent(in)  :: x(2)
+
+      ! ans = shift - dot_product(x, normal) - (kappa0/2) * (dot_product(x, tangent))**2
+
+    end function
+  end subroutine
 end module
