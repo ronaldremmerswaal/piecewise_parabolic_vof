@@ -55,72 +55,69 @@ contains
     type(r2d_poly_f)      :: cell
     real*8                :: moments_(3), max_shift_plane, cellVol, shift_plane, plane_err
     real*8                :: shift_l, shift_r, err_l, err_r, normal3(3), dx3(3)
-    real*8                :: relTol_, grad_s_(2)
+    real*8                :: relTol_
 
     max_shift_plane = dot_product(abs(normal), dx)/2
 
     cellVol = product(dx)
     if (liqVol <= 0.0) then
       shift = d_neg_inf
-      if (present(moments)) moments = 0.0
+      if (present(moments)) moments = 0.0D0
+      if (present(grad_s)) grad_s = 0.0D0
+      return
     elseif (liqVol >= cellVol) then
       shift = d_pos_inf
-      if (present(moments)) moments = 0.0
-    else
-      call init_box(cell, [-dx/2.0, dx/2.0])
-
-      ! Use PLIC to get a good initial bracket (one side at least)
-      shift_plane = cmpShift2d(normal, dx, liqVol)
-      plane_err = volume_error_function(shift_plane)
-
-      ! Try to get a better bracket with an (educated) guess
-      if (plane_err == 0.0) then
-        ! iff kappa0 == 0.0
-        if (present(moments)) moments = moments_
-        if (present(grad_s)) grad_s = grad_s_
-        return
-      elseif (plane_err > 0.0) then
-        ! iff kappa0 < 0.0
-        shift_r = shift_plane
-        err_r = plane_err
-
-        shift_l = max_shift_plane * (kappa0 * max_shift_plane / 2. - 1.)
-        err_l = -liqVol
-      else
-        ! iff kappa0 > 0.0
-        shift_l = shift_plane
-        err_l = plane_err
-
-        shift_r = max_shift_plane * (kappa0 * max_shift_plane / 2. + 1.)
-        err_r = cellVol - liqVol
-      endif
-
-      if (present(relTol)) then
-        relTol_ = relTol
-      else
-        relTol_ = 1E-15
-      endif
-
-      ! NB the centered limits -pc_shift, pc_shift are incorrect for a parabolic interface
-      shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane * relTol_, 30, err_l, err_r)
+      if (present(moments)) moments = [cellVol, 0.0D0, 0.0D0]
+      if (present(grad_s)) grad_s = 0.0D0
+      return
     endif
 
+    call init_box(cell, [-dx/2.0, dx/2.0])
+
+    ! Use PLIC to get a good initial bracket (one side at least)
+    shift_plane = cmpShift2d(normal, dx, liqVol)
+    plane_err = volume_error_function(shift_plane)
+
+    ! Try to get a better bracket with an (educated) guess
+    if (plane_err == 0.0) then
+      ! iff kappa0 == 0.0
+      if (present(moments)) moments = moments_
+      return
+    elseif (plane_err > 0.0) then
+      ! iff kappa0 < 0.0
+      shift_r = shift_plane
+      err_r = plane_err
+
+      shift_l = max_shift_plane * (kappa0 * max_shift_plane / 2. - 1.)
+      err_l = -liqVol
+    else
+      ! iff kappa0 > 0.0
+      shift_l = shift_plane
+      err_l = plane_err
+
+      shift_r = max_shift_plane * (kappa0 * max_shift_plane / 2. + 1.)
+      err_r = cellVol - liqVol
+    endif
+
+    relTol_ = merge(relTol, 1D-15, present(relTol))
+
+    shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane * relTol_, 30, err_l, err_r)
     if (present(moments)) moments = moments_
-    if (present(grad_s)) grad_s = grad_s_
+
   contains
 
-    real*8 function volume_error_function(pc_tmp) result(err)
+    real*8 function volume_error_function(shift_tmp) result(err)
       implicit none
 
-      real*8, intent(in)    :: pc_tmp
+      real*8, intent(in)    :: shift_tmp
 
       ! Local variables
       type(r2d_poly_f)    :: liquid
       integer             :: idx
 
-      grad_s_ = [d_qnan, d_qnan]
+      if (present(grad_s)) grad_s = [d_qnan, d_qnan]
       call copy(to=liquid, from=cell)
-      call intersect_with_parabola(moments_, liquid, normal, kappa0, normal * pc_tmp, grad_s=grad_s_)
+      call intersect_with_parabola(moments_, liquid, normal, kappa0, normal * shift_tmp, grad_s=grad_s)
       err = moments_(1) - liqVol
     end function
   end function

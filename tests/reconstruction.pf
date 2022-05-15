@@ -13,7 +13,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, max_shift_plane, dx(2), pi
-    real*8                :: refMoments(3), mofMoments(3), mofNormal(2), mofAngle
+    real*8                :: refMoments(3), mofMoments(3), mofNormal(2)
     integer               :: adx, sdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
@@ -33,10 +33,20 @@ contains
       refMoments = reference_moments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
       
       mofNormal = plic_normal_mof2d(refMoments, dx, mofMoments)
-      mofAngle = datan2(mofNormal(2), mofNormal(1))
 
       @assertEqual(normal, mofNormal, TOLERANCE)
       @assertEqual(refMoments, mofMoments, TOLERANCE)
+
+      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE/10, verbose=.true.)
+
+      print*, '    moments = ', refMoments
+      print*, '   centroid = ', refMoments(2:3) / (.5*dx * refMoments(1))
+      print*, '   fraction = ', refMoments(1) / product(dx)
+      print*, '      shift = ', shift
+      print*, '      angle = ', normal
+      print*, '   mofAngle = ', mofNormal
+
+      @assertEqual(normal, mofNormal, TOLERANCE)
     enddo
     enddo
   contains
@@ -60,7 +70,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), tangent(2), shift, kappa0, max_shift_plane, dx(2)
-    real*8                :: refMoments(3), mofMoments(3), mofNormal(2), mofAngle, pi
+    real*8                :: refMoments(3), mofNormal(2), mofAngle, pi
     integer               :: adx, sdx, kdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
@@ -84,12 +94,11 @@ return
       refMoments = reference_moments([0.D0, 0.D0], dx, levelSet)
       
       if (refMoments(1) > TOLERANCE .and. product(dx) - refMoments(1) > TOLERANCE) then
-        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, mofMoments, errTol=TOLERANCE/10)
+        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE/10)
         mofAngle = datan2(mofNormal(2), mofNormal(1))
 
         ! print*, angle, mofAngle
         @assertEqual(angle, mofAngle, TOLERANCE)
-        @assertEqual(refMoments, mofMoments, TOLERANCE)
       endif
     enddo
     enddo
@@ -150,7 +159,8 @@ return
         kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
         moments01 = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
-        shift_recomputed = cmpShift2d_parabolic(normal, dx, moments01(1), kappa0)
+        shift_recomputed = cmpShift2d_parabolic(normal, dx, moments01(1), kappa0, moments=moments01_recomputed)
+        @assertEqual(moments01, moments01_recomputed, TOLERANCE)
 
         if (moments01(1) < TOLERANCE) then
           

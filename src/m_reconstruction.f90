@@ -5,64 +5,60 @@ module m_reconstruction
 
 contains
 
-  function ppic_normal_pmof2d(refMoments, kappa0, dx, mofMoments, verbose, errTol) result(mofNormal)
+  function ppic_normal_pmof2d(refMoments, kappa0, dx, verbose, errTol) result(mofNormal)
     use m_optimization
+    use m_ppic_util
 
     implicit none
 
     real*8, intent(in)    :: refMoments(3), kappa0, dx(2)
     real*8                :: mofNormal(2)
-    real*8, intent(out), optional :: mofMoments(3)
     logical, optional     :: verbose
     real*8, intent(in), optional :: errTol
 
     ! Local variables:
-    type(optimOpts)       :: LBFGS_OPTIONS = optimOpts(&
-      maxFEval = 50, &
-      fTol = 0.0, &
-      gTol = 1E-12, &
-      errTol = 1E-12, &
-      hStep = 1E-7, &
-      fdOrder = 2, &
-      verbose = .false.)
-
-    type(lsOpts)          :: MT_OPTIONS = lsOpts(&
-      type = LS_MORE_THUENTE,&
-      decreaseCondition = 1E-2, &
-      curvatureCondition = 5E-1, &
-      stepFactor = 6E-1, &
-      xTol = 1E-16, &
-      stpMin = 1E-16, &
-      stpMax = 1E+16)
-
+    type(optimOpts)       :: LBFGS_OPTIONS = optimOpts(fTol=1D-12)  ! NOTE: defaults are used as set in m_optimization
+    type(lsOpts)          :: MT_OPTIONS = lsOpts()
     type(optimInfo)       :: info
 
-    real*8                :: cost_fun_scaling, mofMoments_(3), centNorm, mofAngle(1)
+    real*8                :: cost_fun_scaling, mofMoments_(3), centNorm, mofAngle(1), tmp(1)
+    real*8                :: refMoments_(3), cellVol
+    logical               :: largerThanHalf
 
     if (present(verbose)) LBFGS_OPTIONS%verbose = verbose
-    if (present(errTol)) LBFGS_OPTIONS%errTol = errTol
+    if (present(errTol))  LBFGS_OPTIONS%errTol = errTol
 
-    cost_fun_scaling = product(dx)**1.5D0
+    cellVol = product(dx)
+    largerThanHalf = refMoments(1) > cellVol/2
+    if (.not. largerThanHalf) then
+      refMoments_ = refMoments
+    else
+      refMoments_(1) = cellVol - refMoments(1)
+      refMoments_(2:3) = -refMoments(2:3)
+    endif
+
+    cost_fun_scaling = cellVol**1.5D0
 
     ! Initial guess based on the reference centroid
-    centNorm = norm2(refMoments(2:3))
+    centNorm = norm2(refMoments_(2:3))
     if (centNorm > 0.0) then
-      mofNormal = -refMoments(2:3) / centNorm
+      mofNormal = -refMoments_(2:3) / centNorm
     else
       mofNormal = [1.0, 0.0]
     endif
     
     mofAngle = datan2(mofNormal(2), mofNormal(1))
-    call optimize(mofAngle, cost, LBFGS_OPTIONS, info, &
-      fun_and_grad=cost_fun_and_grad, ls_opts=MT_OPTIONS)
+
+    call optimize(mofAngle, cost, LBFGS_OPTIONS, info, fun_and_grad=cost_fun_and_grad, ls_opts=MT_OPTIONS)
 
     mofNormal = [dcos(mofAngle(1)), dsin(mofAngle(1))]
-
-    if (present(mofMoments)) mofMoments = mofMoments_
+    if (largerThanHalf) then
+      mofNormal = -mofNormal
+    endif
 
   contains 
 
-    real*8 function cost(angle) result(ans)
+    real*8 function cost(angle) result(err)
       use m_ppic_util
       implicit none
 
@@ -73,11 +69,11 @@ contains
       real*8                :: normal(2), shift
 
       normal = [cos(angle(1)), sin(angle(1))]
-      shift = cmpShift2d_parabolic(normal, dx, refMoments(1), kappa0, moments=mofMoments)
+      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0, moments=mofMoments_)
 
-      difference = (refMoments(2:3) - mofMoments(2:3)) / cost_fun_scaling
+      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
 
-      ans = norm2(difference)
+      err = norm2(difference)
     end function
 
     real*8 function cost_fun_and_grad(grad, angle) result(err)
@@ -93,14 +89,15 @@ contains
       real*8              :: difference(2), derivative(4), normal(2), shift
 
       normal = [cos(angle(1)), sin(angle(1))]
-      shift = cmpShift2d_parabolic(normal, dx, refMoments(1), kappa0)
+      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0)
 
       call init_box(poly, [-dx/2, dx/2])
-      call intersect_with_parabola(mofMoments, poly, normal, kappa0, normal * shift, derivative)
-      difference = (refMoments(2:3) - mofMoments(2:3)) / cost_fun_scaling
+      call intersect_with_parabola(mofMoments_, poly, normal, kappa0, normal * shift, derivative)
+      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
+      derivative(2:3) = derivative(2:3) / cost_fun_scaling
 
       err = norm2(difference)
-      grad = dot_product(derivative(2:3), difference / err) / cost_fun_scaling
+      grad = dot_product(derivative(2:3), difference) / err
     end function
 
   end function
