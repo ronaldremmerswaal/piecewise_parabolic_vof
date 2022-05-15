@@ -120,12 +120,20 @@ contains
     integer               :: selectedCases(3), cdx
     real*8                :: tmpNormal(2), tmpCentroid(2), tmpError, mofCentroid_(2), centroidError_
     real*8                :: refFrac, refCentroid(2)
+    logical               :: largerThanHalf
 
     mofNormal = 0.0
     centroidError_ = norm2(dx) * 43  ! Larger than diameter of cell
 
     refFrac = refMoments(1) / product(dx)
     refCentroid = refMoments(2:3) / refMoments(1)
+    
+    largerThanHalf = refFrac > 0.5
+    if (largerThanHalf) then
+      refCentroid = -refCentroid * refFrac
+      refFrac = 1.0D0 - refFrac
+      refCentroid = refCentroid / refFrac
+    endif
 
     ! There are 8 possible liquid configurations for which the optimization problem restricted to this configuration can be solved analytically
     ! Based on the centroid we may consider only 3 out of those 8 cases
@@ -186,6 +194,11 @@ contains
       endif
     end do
 
+    if (largerThanHalf) then
+      mofNormal = -mofNormal
+      mofCentroid_ = -mofCentroid_ * refFrac / (1.0D0 - refFrac)
+    endif
+
     if (present(mofMoments)) mofMoments = [refMoments(1), refMoments(1) * mofCentroid_]
 
   end function plic_normal_mof2d
@@ -211,7 +224,7 @@ contains
       (refCentroid(2) / dx(1) + aspectRatio / 2) / 9, -((2.0D0 / 9.0D0) * refFrac * aspectRatio)**2]
     call polynomial_roots_deg4(coeffs, roots_real, roots_imag)
 
-    minVal = 2 * aspectRatio * refFrac / 3
+    minVal = 2 * refFrac / 3
     maxVal = 1.0D0 / 3.0D0
 
     ! Consider at most 4 roots
