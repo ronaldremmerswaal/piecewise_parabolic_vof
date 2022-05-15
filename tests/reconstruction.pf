@@ -14,7 +14,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, max_shift_plane, dx(2), pi
-    real*8                :: refMoments(3), mofMoments(3), mofNormal(2)
+    real*8                :: refMoments(3), mofMoments(3), mofNormal(2), mofAngle
     integer               :: adx, sdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
@@ -38,9 +38,10 @@ contains
       @assertEqual(normal, mofNormal, TOLERANCE)
       @assertEqual(refMoments, mofMoments, TOLERANCE)
       
-      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.true.)
+      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.false.)
+      mofAngle = datan2(normal(2), normal(1))
   
-      @assertEqual(normal, mofNormal, TOLERANCE)
+      @assertEqual(angle, mofAngle, TOLERANCE)
     enddo
     enddo
   end subroutine
@@ -54,7 +55,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), tangent(2), shift, kappa0, max_shift_plane, dx(2)
-    real*8                :: refMoments(3), mofNormal(2), pi
+    real*8                :: refMoments(3), mofNormal(2), pi, mofAngle
     integer               :: adx, sdx, kdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
@@ -78,19 +79,10 @@ contains
       refMoments = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
-        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.true.)
-  
-        print*, ''
-        print*, '       angle = ', angle
-        print*, '       shift = ', shift
-        print*, '      kappa0 = ', kappa0
-        print*, '  refMoments = ', refMoments
-        print*, '     refFrac = ', refMoments(1) / product(dx)
-        print*, ' refCentroid = ', refMoments(2:3) / refMoments(1)
-        print*, '      normal = ', normal
-        print*, '   morNormal = ', mofNormal
+        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false.)
+        mofAngle = datan2(normal(2), normal(1))
 
-        @assertEqual(normal, mofNormal, TOLERANCE)
+        @assertEqual(angle, mofAngle, TOLERANCE)
       endif
     enddo
     enddo

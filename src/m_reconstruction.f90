@@ -46,11 +46,10 @@ contains
     else
       mofAngle = 0
     endif
-    mofNormal = [dcos(mofAngle(1)), dsin(mofAngle(1))]
     
     ! call optimize(mofAngle, cost, LBFGS_OPTIONS, info, fun_and_grad=cost_fun_and_grad, ls_opts=MT_OPTIONS)
     mofAngle(1) =  brent_min(cost_1d, dcost_1d, mofAngle(1), LBFGS_OPTIONS%errTol, &
-     LBFGS_OPTIONS%maxFEval, verbose=LBFGS_OPTIONS%verbose)
+     maxIt=LBFGS_OPTIONS%maxFEval, verbose=LBFGS_OPTIONS%verbose, maxStep=0.5D0)
 
     mofNormal = [dcos(mofAngle(1)), dsin(mofAngle(1))]
     if (largerThanHalf) then
