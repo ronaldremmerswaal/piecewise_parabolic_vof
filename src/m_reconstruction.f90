@@ -186,7 +186,6 @@ contains
       endif
     end do
 
-    print*, 'centroidError_ = ', centroidError_
     if (present(mofMoments)) mofMoments = [refMoments(1), refMoments(1) * mofCentroid_]
 
   end function plic_normal_mof2d
@@ -202,18 +201,17 @@ contains
     ! Local variables
     integer               :: rdx
     real*8                :: tmpCentroid(2), tmpError, scaledAndShiftedCx
-    real*8                :: minVal, maxVal, aspectRatio, coeffs(5)
+    real*8                :: minVal, maxVal, coeffs(5), aspectRatio
     real*8                :: roots_real(4), roots_imag(4)
 
     aspectRatio = dx(2) / dx(1)
 
-    ! We solve for (centroid_x / dx(1) + 1/2)
-    coeffs = [1.0D0, -(refCentroid(1) / dx(1) + 0.5), 0.0D0, 2 * refFrac * aspectRatio * &
+    ! We solve for (centroid_x / dx(1) + 1/2) by nondimensionalising everything by dx(1)
+    coeffs = [1.0D0, -(refCentroid(1) / dx(1) + 0.5D0), 0.0D0, 2 * refFrac * aspectRatio * &
       (refCentroid(2) / dx(1) + aspectRatio / 2) / 9, -((2.0D0 / 9.0D0) * refFrac * aspectRatio)**2]
     call polynomial_roots_deg4(coeffs, roots_real, roots_imag)
 
-    ! minVal = 2 * aspectRatio * refFrac / 3  ! TODO (why) is this wrong?
-    minVal = 2 * refFrac / 3
+    minVal = 2 * aspectRatio * refFrac / 3
     maxVal = 1.0D0 / 3.0D0
 
     ! Consider at most 4 roots
@@ -222,7 +220,8 @@ contains
     do rdx=1,4
       if (.not. isnan(roots_real(rdx)) .and. roots_imag(rdx) == 0 .and. &
         roots_real(rdx) >= minVal .and. roots_real(rdx) <= maxVal) then
-        tmpCentroid = [dx(1) * (roots_real(rdx) - 0.5D0), dx(2) * ((2 * refFrac / (9 * roots_real(rdx))) - 0.5D0)]
+
+        tmpCentroid = [dx(1) * (roots_real(rdx) - 0.5D0), dx(2) * ((2 * refFrac / (9 * (roots_real(rdx)))) - 0.5D0)]
         tmpError = norm2(tmpCentroid - refCentroid)
         if (tmpError < mofError) then
           scaledAndShiftedCx = roots_real(rdx)

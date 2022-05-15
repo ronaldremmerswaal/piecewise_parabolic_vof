@@ -16,7 +16,7 @@ contains
     real*8                :: refMoments(3), mofMoments(3), mofNormal(2), mofAngle
     integer               :: adx, sdx
 
-    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
+    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 3
 
     pi = 4 * datan(1.0D0)
 
@@ -30,12 +30,13 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      refMoments = reference_moments(LIQUID_PHASE, [0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+      refMoments = reference_moments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
       
       print*, ''
       mofNormal = plic_normal_mof2d(refMoments, dx, mofMoments)
       mofAngle = datan2(mofNormal(2), mofNormal(1))
 
+      print*, ' moments = ', refMoments
       print*, 'centroid = ', refMoments(2:3) / (.5*dx * refMoments(1))
       print*, '   shift = ', shift
       print*, '   angle = ', angle
@@ -86,7 +87,7 @@ return
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      refMoments = reference_moments(LIQUID_PHASE, [0.D0, 0.D0], dx, levelSet)
+      refMoments = reference_moments([0.D0, 0.D0], dx, levelSet)
       
       if (refMoments(1) > TOLERANCE .and. product(dx) - refMoments(1) > TOLERANCE) then
         mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, mofMoments, errTol=TOLERANCE/10)

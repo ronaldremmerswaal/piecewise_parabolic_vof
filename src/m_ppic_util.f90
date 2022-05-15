@@ -140,8 +140,8 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    call get_polygonal_approximation_of_exact_domain(exact_gas, GAS_PHASE, x, dx, levelSet)
-    call get_polygonal_approximation_of_exact_domain(exact_liq, LIQUID_PHASE, x, dx, levelSet)
+    call get_polygonal_approximation_of_exact_domain(exact_gas, x, dx, levelSet, GAS_PHASE)
+    call get_polygonal_approximation_of_exact_domain(exact_liq, x, dx, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
     call intersect_with_parabola(sd_1, exact_gas, normal, kappa0, x + normal * shift)

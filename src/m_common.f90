@@ -7,5 +7,5 @@ module m_common
 
   real(real64), parameter :: d_qnan = transfer(9221120237041090560_int64, 1._real64)
 
-  integer(kind=2), parameter :: LIQUID_PHASE = 1, GAS_PHASE = 4
+  integer, parameter      :: LIQUID_PHASE = 1, GAS_PHASE = 4
 end module

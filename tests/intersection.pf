@@ -1,12 +1,12 @@
 module intersection
   use m_common
+  use funit
   
   real*8, parameter       :: TOLERANCE = 1D-14
 contains
   
   @Test
   subroutine test_moments2d()
-    use funit
     use m_plic_util
     use m_r2d_parabolic
 
@@ -67,7 +67,6 @@ contains
   ! of a planar cut if kappa0 = 0
   @Test
   subroutine test_moments2d_planeLimit()
-    use funit
     use m_r2d_parabolic
     use m_plic_util
     use m_ppic_util
@@ -109,7 +108,6 @@ contains
   ! Validate exact parabola intersection
   @Test
   subroutine test_moments2d_analytical
-    use funit
     use m_r2d_parabolic
     use m_ppic_util
     use m_poly_roots
@@ -258,7 +256,6 @@ contains
 
   @Test
   subroutine test_symmetricDifference
-    use funit
     use m_ppic_util
     use m_r2d_parabolic
 
@@ -298,10 +295,10 @@ contains
 
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
-      call get_polygonal_approximation_of_exact_domain(poly_gas, GAS_PHASE, x, dx, levelset)
+      call get_polygonal_approximation_of_exact_domain(poly_gas, x, dx, levelset, GAS_PHASE)
       mom_gas = moments_01(poly_gas)
 
-      call get_polygonal_approximation_of_exact_domain(poly_liq, LIQUID_PHASE, x, dx, levelset)
+      call get_polygonal_approximation_of_exact_domain(poly_liq, x, dx, levelset, LIQUID_PHASE)
       mom_liq = moments_01(poly_liq)
 
       sd = cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelset)
@@ -331,9 +328,56 @@ contains
     end
   end
 
+  @Test 
+  subroutine test_reference_moments()
+    use m_r2d_parabolic
+
+    implicit none
+
+    real*8                :: angle, normal(2), shift, max_shift_plane, dx(2), pi
+    real*8                :: refMoments(3), r2dMoments(3)
+    integer               :: adx, sdx
+    type(r2d_poly_f)      :: poly
+
+    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
+
+    pi = 4 * datan(1.0D0)
+
+    dx = [0.123D0, pi/10]
+
+    do adx=1,NR_ANGLE
+    do sdx=1,NR_SHIFT
+      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE
+      normal = [dcos(angle), dsin(angle)]
+      
+      max_shift_plane = dot_product(abs(normal), dx) / 2
+      shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
+
+      call init_box(poly, [-dx/2, dx/2])
+      call intersect_by_plane(poly, normal, shift)
+      r2dMoments = moments_01(poly)
+
+      refMoments = reference_moments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+
+      @assertEqual(r2dMoments, refMoments, TOLERANCE)
+      @assertLessThanOrEqual(abs(refMoments(2:3)/refMoments(1)), dx/2)
+
+    enddo
+    enddo
+  contains
+    ! The liquid part coincides with levelSet(x) < 0 (normal points into gas)
+    real*8 function levelSet(x) result(ans)
+      implicit none
+
+      real*8, intent(in)  :: x(2)
+
+      ans = dot_product(x, normal) - shift
+
+    end function
+  end subroutine
+
   @Test
   subroutine test_cmpmoments_time()
-    use funit
     use m_plic_util
     use m_ppic_util
     use m_r2d_parabolic
