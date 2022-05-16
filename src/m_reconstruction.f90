@@ -1,32 +1,148 @@
 module m_reconstruction
 
   private
-  public :: plic_normal_mof2d, ppic_normal_pmof2d
+  public :: plic_normal_mof2d, ppic_normal_pmof2d, ppic_normal_plvira2d
 
 contains
 
+  function ppic_normal_plvira2d(refVolumes, kappa0, dxs, verbose, errTol) result(plviraNormal)
+    use m_optimization
+    use m_reconstruction_util
+
+    implicit none
+
+    real*8, intent(in)    :: refVolumes(-1:1,-1:1), kappa0, dxs(-1:1,2)
+    logical, intent(in), optional :: verbose
+    real*8, intent(in), optional :: errTol
+    real*8                :: plviraNormal(2)
+
+        ! Local variables:
+    real*8                :: errTol_, plviraAngle
+    logical               :: verbose_
+
+    verbose_ = merge(verbose, .false., present(verbose))
+    errTol_ = merge(errTol, 1D-8, present(errTol))
+
+    plviraAngle = lvira_angle_guess(refVolumes, dxs)
+    plviraAngle = brent_min(cost, dcost, plviraAngle, errTol_, 25, verbose_, maxStep=0.5D0)
+    plviraNormal = [dcos(plviraAngle), dsin(plviraAngle)]
+  contains
+    real*8 function cost(angle) result(err)
+      use m_r2d_parabolic
+
+      implicit none
+
+      real*8, intent(in)  :: angle
+
+      err = lvira_error(refVolumes, angle, kappa0, dxs)
+    end function
+
+    real*8 function dcost(angle) result(derr)
+      use m_r2d_parabolic
+
+      implicit none
+
+      real*8, intent(in)  :: angle
+
+      real*8              :: err, derivatives(2)
+
+      err = lvira_error(refVolumes, angle, kappa0, dxs, derivatives)
+      derr = derivatives(1)
+    end function
+  end function
+
+  real*8 function lvira_angle_guess(refVolumes, dxs) result(angle)
+    implicit none
+    
+    real*8, intent(in)    :: refVolumes(-1:1,-1:1), dxs(-1:1,2)
+
+    ! Local variables 
+    real*8                :: normal(2)
+
+    normal(1) = (refVolumes(-1,0)/(dxs(-1,1)*dxs(0,2)) - refVolumes(1,0)/(dxs(1,1)*dxs(0,2)))/&
+      (dxs(-1,1) + 2*dxs(0,1) + dxs(1,1))
+    normal(2) = (refVolumes(0,-1)/(dxs(-1,2)*dxs(0,1)) - refVolumes(0,1)/(dxs(1,2)*dxs(0,1)))/&
+      (dxs(-1,2) + 2*dxs(0,2) + dxs(1,2))
+    angle = datan2(normal(2), normal(1))
+  end function  
+
+  real*8 function lvira_error(refVolumes, angle, kappa0, dxs, derivatives) result(err)
+    use m_common
+    use m_reconstruction_util
+    use m_r2d_parabolic
+
+    implicit none
+
+    real*8, intent(in)    :: refVolumes(-1:1,-1:1), kappa0, dxs(-1:1,2), angle
+    real*8, intent(out), optional :: derivatives(2)   ! w.r.t. angle and curvature respectively
+
+    ! Local variables
+    type(r2d_poly_f)      :: poly
+    real*8                :: normal(2), shift, moments(3), derivatives_local(4), err_local
+    real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour, grad_s(2)
+    integer               :: i, j
+
+    normal = [dcos(angle), dsin(angle)]
+    shift = cmpShift(normal, dxs(0,:), refVolumes(0,0), kappa0)
+    
+    err = 0
+    if (present(derivatives)) then 
+      derivatives = 0
+      
+      ! Setting grad_s to NAN tells r2d_clip_parabola_cmpMoments that grad_s should be computed
+      ! and returned
+      grad_s = d_qnan
+      
+      ! Compute ds/dangle, which ensures that the centred volume is conserved
+      call init_box(poly, [-dxs(0,:)/2, dxs(0,:)/2])
+      call intersect_with_parabola(moments, poly, normal, kappa0, normal * shift, grad_s=grad_s)
+    endif
+    do j=-1,1
+    do i=-1,1
+      if (i==0 .and. j==0) cycle
+
+      dx_neighbour(1) = dxs(i, 1)
+      dx_neighbour(2) = dxs(j, 2)
+      cellVol_neighbour = product(dx_neighbour)
+
+      xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
+      xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
+
+      call init_box(poly, [xc_neighbour - dx_neighbour/2, xc_neighbour + dx_neighbour/2])
+      if (present(derivatives)) then
+        call intersect_with_parabola(moments, poly, normal, kappa0, normal * shift, derivatives_local, grad_s)
+      else
+        call intersect_with_parabola(moments, poly, normal, kappa0, normal * shift)
+      endif
+      err_local = (moments(1) - refVolumes(i,j)) / cellVol_neighbour
+
+      err = err + err_local**2
+      if (present(derivatives)) then
+        derivatives(1) = derivatives(1) + 2 * err_local * derivatives_local(1) / cellVol_neighbour
+        derivatives(2) = derivatives(2) + 2 * err_local * derivatives_local(4) / cellVol_neighbour
+      endif
+    enddo
+    enddo
+  end function
+
   function ppic_normal_pmof2d(refMoments, kappa0, dx, verbose, errTol) result(mofNormal)
     use m_optimization
-    use m_ppic_util
+    use m_reconstruction_util
 
     implicit none
 
     real*8, intent(in)    :: refMoments(3), kappa0, dx(2)
-    real*8                :: mofNormal(2)
     logical, optional     :: verbose
     real*8, intent(in), optional :: errTol
+    real*8                :: mofNormal(2)
 
     ! Local variables:
-    type(optimOpts)       :: LBFGS_OPTIONS = optimOpts(fTol=1D-12)  ! NOTE: defaults are used as set in m_optimization
-    type(lsOpts)          :: MT_OPTIONS = lsOpts()
-    type(optimInfo)       :: info
+    real*8                :: cost_fun_scaling, centNorm, mofAngle, tmp(1)
+    real*8                :: refMoments_(3), cellVol, mofMoments_(3), errTol_
+    logical               :: largerThanHalf, verbose_
 
-    real*8                :: cost_fun_scaling, centNorm, mofAngle(1), tmp(1)
-    real*8                :: refMoments_(3), cellVol, mofMoments_(3)
-    logical               :: largerThanHalf
-
-    if (present(verbose)) LBFGS_OPTIONS%verbose = verbose
-    if (present(errTol))  LBFGS_OPTIONS%errTol = errTol
+    verbose_ = merge(verbose, .false., present(verbose))
+    errTol_ = merge(errTol, 1D-8, present(errTol))
 
     cellVol = product(dx)
     largerThanHalf = refMoments(1) > cellVol/2
@@ -47,37 +163,34 @@ contains
       mofAngle = 0
     endif
     
-    ! call optimize(mofAngle, cost, LBFGS_OPTIONS, info, fun_and_grad=cost_fun_and_grad, ls_opts=MT_OPTIONS)
-    mofAngle(1) =  brent_min(cost_1d, dcost_1d, mofAngle(1), LBFGS_OPTIONS%errTol, &
-     maxIt=LBFGS_OPTIONS%maxFEval, verbose=LBFGS_OPTIONS%verbose, maxStep=0.5D0)
+    mofAngle =  brent_min(cost, dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
 
-    mofNormal = [dcos(mofAngle(1)), dsin(mofAngle(1))]
+    mofNormal = [dcos(mofAngle), dsin(mofAngle)]
     if (largerThanHalf) then
       mofNormal = -mofNormal
     endif
 
   contains 
 
-    real*8 function cost_1d(angle) result(err)
-      use m_ppic_util
+    real*8 function cost(angle) result(err)
+      use m_reconstruction_util
       implicit none
 
       real*8, intent(in)    :: angle
-      real*8                :: difference(2)
-
+      
       ! Local variables
-      real*8                :: normal(2), shift
+      real*8                :: normal(2), shift, difference(2)
 
       normal = [dcos(angle), dsin(angle)]
-      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0, moments=mofMoments_)
+      shift = cmpShift(normal, dx, refMoments_(1), kappa0, moments=mofMoments_)
 
       difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
 
       err = norm2(difference)**2
     end function
 
-    real*8 function dcost_1d(angle) result(derr)
-      use m_ppic_util
+    real*8 function dcost(angle) result(derr)
+      use m_reconstruction_util
       use m_r2d_parabolic
       implicit none
 
@@ -89,7 +202,7 @@ contains
 
       normal = [dcos(angle), dsin(angle)]
 
-      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0)
+      shift = cmpShift(normal, dx, refMoments_(1), kappa0)
       
       call init_box(poly, [-dx/2, dx/2])
       call intersect_with_parabola(mofMoments_, poly, normal, kappa0, normal * shift, derivative)
@@ -99,50 +212,6 @@ contains
       
       err = norm2(difference)**2
       derr = dot_product(derivative(2:3), difference)*2
-    end function
-
-    real*8 function cost(angle) result(err)
-      use m_ppic_util
-      implicit none
-
-      real*8, intent(in)    :: angle(1)
-      real*8                :: difference(2)
-
-      ! Local variables
-      real*8                :: normal(2), shift
-
-      normal = [dcos(angle(1)), dsin(angle(1))]
-      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0, moments=mofMoments_)
-
-      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
-
-      err = norm2(difference)
-    end function
-
-    real*8 function cost_fun_and_grad(grad, angle) result(err)
-      use m_ppic_util
-      use m_r2d_parabolic
-      implicit none
-
-      real*8, intent(out) :: grad(1)
-      real*8, intent(in)  :: angle(1)
-
-      ! Local variables:
-      type(r2d_poly_f)    :: poly
-      real*8              :: difference(2), derivative(4), normal(2), shift
-
-      normal = [dcos(angle(1)), dsin(angle(1))]
-
-      shift = cmpShift2d_parabolic(normal, dx, refMoments_(1), kappa0)
-      
-      call init_box(poly, [-dx/2, dx/2])
-      call intersect_with_parabola(mofMoments_, poly, normal, kappa0, normal * shift, derivative)
-      
-      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
-      derivative(2:3) = derivative(2:3) / cost_fun_scaling
-      
-      err = norm2(difference)
-      grad = dot_product(derivative(2:3), difference) / err
     end function
 
   end function

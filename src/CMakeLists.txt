@@ -1,10 +1,10 @@
 add_library(ppic
   m_reconstruction.f90
+  m_reconstruction_util.f90
+  m_r2d.f90
   m_r2d_parabolic.f90
   r2d_parabolic.h
   r2d_parabolic.c
-  m_ppic_util.f90
-  m_plic_util.f90
   m_common.f90
   )
 

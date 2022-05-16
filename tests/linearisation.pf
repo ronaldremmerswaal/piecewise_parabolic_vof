@@ -1,5 +1,6 @@
 module linearisation
   use funit
+  use m_common
   use m_r2d_parabolic
 
   real*8, parameter       :: TOLERANCE = 1E-8, STEP_SIZE = 1E-7
@@ -13,6 +14,7 @@ contains
     type(r2d_poly_f)      :: poly, poly_tmp
     real*8                :: angle, normal(2), kappa0, x0(2), x(2), pos(2, 7), radius
     real*8                :: derivative_cmp(4), derivative_fd(4), moments01(3), pi, grad_s(2)
+    real*8                :: grad_s_cmp(2), grad_s_fd(2)
     integer               :: adx, kdx, pdx, SEED(33)
 
     integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_POS = 30
@@ -24,11 +26,7 @@ contains
 
     radius = 1.0D0
     x = [0.5D0, 0.3D0]
-
-    ! We set the derivative of the shift to zero, such that the derivative of the first moment is computed
-    ! nontrivially
-    grad_s = 0.D0
-
+    
     ! Reconstruct in a polygonal approximation of a circle
     do adx=1,size(pos,2)
       angle = 2 * pi * (adx - 1.D0) / size(pos,2)
@@ -50,18 +48,29 @@ contains
       call random_number(x0)
       x0 = x + (x0 - .5D0) * radius
 
-      call approximate_derivatives(poly_tmp, angle, kappa0, x0, derivative_fd, grad_s)
+      ! We set the gradient of the shift to zero, such that the derivative of the first moment is computed
+      ! nontrivially
+      grad_s = 0.D0
       call intersect_with_parabola(moments01, poly_tmp, normal, kappa0, x0, derivative_cmp, grad_s)
-
+      call approximate_moment_derivatives(poly, angle, kappa0, x0, derivative_fd, grad_s)
+      
       @assertEqual(derivative_fd, derivative_cmp, TOLERANCE)
-
+      
+      ! Now we set grad_s to NAN, and hence we request the gradient of the shift (w.r.t. the angle and curvature)
+      ! such that volume is conserved
+      grad_s = d_qnan
+      call copy(from=poly, to=poly_tmp)
+      call intersect_with_parabola(moments01, poly_tmp, normal, kappa0, x0, derivative_cmp, grad_s_cmp)
+      call approximate_shift_derivatives(moments01(1), angle, kappa0, x0, grad_s_fd)
+      
+      @assertEqual(grad_s_fd, grad_s_cmp, TOLERANCE)
     enddo
     enddo
     enddo
 
   end subroutine
 
-  subroutine approximate_derivatives(poly, angle, kappa0, x0, derivative, grad_s)
+  subroutine approximate_moment_derivatives(poly, angle, kappa0, x0, derivative, grad_s)
     implicit none
     
     type(r2d_poly_f), intent(in) :: poly
@@ -91,6 +100,18 @@ contains
     call intersect_with_parabola(moments_neg, tmp_poly, [dcos(angle), dsin(angle)], kappa0 - STEP_SIZE, x0, dummy, grad_s_)
     
     derivative(4) = (moments_pos(1) - moments_neg(1)) / (2 * STEP_SIZE)
+
+  end
+
+  subroutine approximate_shift_derivatives(volume, angle, kappa0, x0, grad_s)
+    use m_reconstruction_util
+
+    implicit none
+    
+    real*8, intent(in)     :: volume, angle, kappa0, x0(2)
+    real*8, intent(out)    :: grad_s(2)
+
+    ! grad_s(1) = cmpShift([dcos(angle + STEP_SIZE), dsin(angle + STEP_SIZE)], dx, volume, kapp0)
 
   end
 end module

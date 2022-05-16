@@ -1,12 +1,9 @@
 program reconstruction_demo
-  ! Computation of moments / shift (PLIC)
-  use m_plic_util,        only: cmpMoments2d, cmpShift2d, cmpSymmDiff2d
-
-  ! Computation of moments / shift (PPIC)
-  use m_ppic_util,        only: cmpMoments2d_parabolic, cmpSymmDiff2d_parabolic, cmpShift2d_parabolic
+  ! Computation of moments / shift
+  use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff
 
   ! Tools for polygon intersection
-  use m_r2d_parabolic,    only: reference_moments
+  use m_r2d_parabolic,    only: referenceMoments
 
   ! Reconstruction methods
   use m_reconstruction,   only: plic_normal_mof2d, ppic_normal_pmof2d
@@ -30,7 +27,7 @@ program reconstruction_demo
   dx = [0.3, 0.3]
 
   ! Compute the reference zeroth and first moment (equivalent to the volume fraction and centroid)
-  refMoments = reference_moments(xc, dx, exact_interface)
+  refMoments = referenceMoments(xc, dx, exact_interface)
 
   ! Note that the moments should be relative to xc:
   refMoments(2:3) = refMoments(2:3) - xc * refMoments(1)
@@ -40,13 +37,13 @@ program reconstruction_demo
   normal = plic_normal_mof2d(refMoments, dx)
 
   ! The shift is computed by enforcing volume conservation
-  shift = cmpShift2d(normal, dx, refMoments(1))
+  shift = cmpShift(normal, dx, refMoments(1))
 
   ! ... hence we expect the zeroth moment have zero error
-  errMoments = abs(cmpMoments2d(normal, dx, shift) - refMoments)
+  errMoments = abs(cmpMoments(normal, dx, shift) - refMoments)
 
   ! The symmetric difference between the exact and approximate liquid domain can be approximated as follows
-  errSD = cmpSymmDiff2d(xc, dx, normal, shift, exact_interface)
+  errSD = cmpSymmDiff(xc, dx, normal, shift, exact_interface)
 
   write(*, '(A,1PD9.3,A,1PD9.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
   write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
@@ -57,9 +54,9 @@ program reconstruction_demo
   ! We repeat the same steps for the PMOF method, for which we use an exact curvature
   kappa0 = 1.
   normal = ppic_normal_pmof2d(refMoments, kappa0, dx)
-  shift = cmpShift2d_parabolic(normal, dx, refMoments(1), kappa0)
-  errMoments = abs(cmpMoments2d_parabolic(normal, dx, shift, kappa0) - refMoments)
-  errSD = cmpSymmDiff2d_parabolic(xc, dx, normal, shift, kappa0, exact_interface)
+  shift = cmpShift(normal, dx, refMoments(1), kappa0)
+  errMoments = abs(cmpMoments(normal, dx, shift, kappa0) - refMoments)
+  errSD = cmpSymmDiff(xc, dx, normal, shift, kappa0, exact_interface)
 
   write(*, '(A)') ''
   write(*, '(A)') 'The PMOF method'

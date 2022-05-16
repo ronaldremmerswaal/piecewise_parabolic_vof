@@ -36,7 +36,7 @@ typedef struct {
  * The derivative of the zeroth and first moment (w.r.t. the normal angle) of the clipped polygon (derivative[0:2])
  * and the derivative w.r.t. the curvature (derivative[3])
  */
-void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_real *grad_s, r2d_real *moments, r2d_real *derivative, bool *compute_derivative);
+void r2d_clip_parabola_cmpMoments(r2d_poly* poly, r2d_parabola *parabola, r2d_real *grad_s, r2d_real *moments, r2d_real *derivative, bool *compute_derivative);
 
 r2d_int parabola_line_intersection(r2d_parabola *parabola, r2d_rvec2 pos1, r2d_rvec2 pos2, r2d_real *roots);
 

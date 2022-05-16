@@ -18,7 +18,7 @@
 }
 
 // Clip poly with parabola, and compute zeroth and first moment
-void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_real *grad_s, r2d_real *moments, r2d_real *derivative, bool *compute_derivative) {
+void r2d_clip_parabola_cmpMoments(r2d_poly* poly, r2d_parabola *parabola, r2d_real *grad_s, r2d_real *moments, r2d_real *derivative, bool *compute_derivative) {
 
 	bool compute_grad_s;
 
@@ -86,7 +86,7 @@ void r2d_clip_parabola_moments_01(r2d_poly* poly, r2d_parabola *parabola, r2d_re
 			nr_roots = parabola_line_intersection(parabola, vertbuffer[vcur].pos, vertbuffer[vnext].pos, roots);
 			// if (nr_roots==0) {
 			// 	clipped[vnext] = 0;
-			// 	printf("r2d_clip_parabola_moments_01: zero roots\n");
+			// 	printf("r2d_clip_parabola_cmpMoments: zero roots\n");
 			// 	continue;
 			// }
 

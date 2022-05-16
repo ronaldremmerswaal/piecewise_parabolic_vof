@@ -7,7 +7,7 @@ contains
   
   @Test
   subroutine test_moments2d()
-    use m_plic_util
+    use m_reconstruction_util
     use m_r2d_parabolic
 
     implicit none
@@ -29,9 +29,9 @@ contains
     normal = [0.0D0, 1.0D0]
 
     call intersect_by_plane(cutPoly, normal, shift + dot_product(normal, x))
-    mom_r2d = moments_01(cutPoly)
+    mom_r2d = cmpMoments(cutPoly)
 
-    mom_util = cmpMoments2d(normal, dx, shift)
+    mom_util = cmpMoments(normal, dx, shift)
 
     @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
 
@@ -54,9 +54,9 @@ contains
         shift = pc - dot_product(abs(normal), dx) / 2.0
 
         call intersect_by_plane(cutPoly, normal, shift + dot_product(normal, x))
-        mom_r2d = moments_01(cutPoly)
+        mom_r2d = cmpMoments(cutPoly)
 
-        mom_util = cmpMoments2d(normal, dx, shift)
+        mom_util = cmpMoments(normal, dx, shift)
 
         @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
       enddo
@@ -68,8 +68,7 @@ contains
   @Test
   subroutine test_moments2d_planeLimit()
     use m_r2d_parabolic
-    use m_plic_util
-    use m_ppic_util
+    use m_reconstruction_util
 
     implicit none
 
@@ -93,10 +92,10 @@ contains
 
       call init_box(poly, [-dx/2, dx/2])
       call intersect_by_plane(poly, normal, shift)
-      moments_plane_r2d = moments_01(poly)
+      moments_plane_r2d = cmpMoments(poly)
       
-      moments_parabola = cmpMoments2d_parabolic(normal, dx, shift, 0.0D0)
-      moments_plane = cmpMoments2d(normal, dx, shift)
+      moments_parabola = cmpMoments(normal, dx, shift, 0.0D0)
+      moments_plane = cmpMoments(normal, dx, shift)
 
       @assertEqual(moments_plane, moments_parabola, TOLERANCE * cellVol)
       @assertEqual(moments_plane_r2d, moments_parabola, TOLERANCE * cellVol)
@@ -109,7 +108,7 @@ contains
   @Test
   subroutine test_moments2d_analytical
     use m_r2d_parabolic
-    use m_ppic_util
+    use m_reconstruction_util
     use m_poly_roots
 
     implicit none
@@ -256,7 +255,7 @@ contains
 
   @Test
   subroutine test_symmetricDifference
-    use m_ppic_util
+    use m_reconstruction_util
     use m_r2d_parabolic
 
     implicit none
@@ -283,7 +282,7 @@ contains
     kappa0 = 0.D0
 
     ! Analytical:
-    sd = cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelset)
+    sd = cmpSymmDiff(x, dx, normal, shift, kappa0, levelset)
     @assertEqual(pi / 16, sd, APPROX_TOLERANCE)
 
     ! Computed in MATLAB:
@@ -296,19 +295,19 @@ contains
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
       call get_polygonal_approximation_of_exact_domain(poly_gas, x, dx, levelset, GAS_PHASE)
-      mom_gas = moments_01(poly_gas)
+      mom_gas = cmpMoments(poly_gas)
 
       call get_polygonal_approximation_of_exact_domain(poly_liq, x, dx, levelset, LIQUID_PHASE)
-      mom_liq = moments_01(poly_liq)
+      mom_liq = cmpMoments(poly_liq)
 
-      sd = cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelset)
+      sd = cmpSymmDiff(x, dx, normal, shift, kappa0, levelset)
 
       if (radius <= 1.) then
         @assertEqual(pi * radius**2 / 4, mom_liq(1), APPROX_TOLERANCE)
       elseif (sdx == NR_STEPS) then
         @assertEqual(1.0, mom_liq(1), APPROX_TOLERANCE)
 
-        mom01 = cmpMoments2d_parabolic(-normal, dx, shift, kappa0)
+        mom01 = cmpMoments(-normal, dx, shift, kappa0)
         @assertEqual(1.0 - mom01(1), sd, APPROX_TOLERANCE)
       endif
 
@@ -329,7 +328,7 @@ contains
   end
 
   @Test 
-  subroutine test_reference_moments()
+  subroutine test_referenceMoments()
     use m_r2d_parabolic
 
     implicit none
@@ -355,9 +354,9 @@ contains
 
       call init_box(poly, [-dx/2, dx/2])
       call intersect_by_plane(poly, normal, shift)
-      r2dMoments = moments_01(poly)
+      r2dMoments = cmpMoments(poly)
 
-      refMoments = reference_moments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+      refMoments = referenceMoments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
 
       @assertEqual(r2dMoments, refMoments, TOLERANCE)
       @assertLessThanOrEqual(abs(refMoments(2:3)/refMoments(1)), dx/2)
@@ -378,8 +377,7 @@ contains
 
   @Test
   subroutine test_cmpmoments_time()
-    use m_plic_util
-    use m_ppic_util
+    use m_reconstruction_util
     use m_r2d_parabolic
 
     implicit none
@@ -403,7 +401,7 @@ contains
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      moments01 = cmpMoments2d(normal, dx, shift)
+      moments01 = cmpMoments(normal, dx, shift)
     enddo
     call cpu_time(time_intersect_plane)
     time_intersect_plane = time_intersect_plane - tmp
@@ -412,14 +410,14 @@ contains
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
       call init_box(poly, [-dx/2, dx/2])
-      moments01 = moments_01(poly)
+      moments01 = cmpMoments(poly)
     enddo
     call cpu_time(time_intersect_r2d_plane)
     time_intersect_r2d_plane = time_intersect_r2d_plane - tmp
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      moments01 = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
+      moments01 = cmpMoments(normal, dx, shift, kappa0)
     enddo
     call cpu_time(time_intersect_parabola)
     time_intersect_parabola = time_intersect_parabola - tmp

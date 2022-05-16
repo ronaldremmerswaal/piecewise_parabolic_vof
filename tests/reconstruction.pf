@@ -6,8 +6,8 @@ module reconstruction
   real*8, parameter         :: IS_INTERFACE_TOLERANCE = 1E-8
 contains
   @Test
-  subroutine test_exact_plic_reconstruction()
-    use m_plic_util
+  subroutine test_exact_mof_reconstruction()
+    use m_reconstruction_util
     use m_r2d_parabolic
     use m_reconstruction
 
@@ -31,7 +31,7 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      refMoments = cmpMoments2d(normal, dx, shift)
+      refMoments = cmpMoments(normal, dx, shift)
       
       mofNormal = plic_normal_mof2d(refMoments, dx, mofMoments)
 
@@ -46,14 +46,14 @@ contains
   end subroutine
 
   @Test
-  subroutine test_exact_ppic_reconstruction()
-    use m_ppic_util
+  subroutine test_exact_pmof_reconstruction()
+    use m_reconstruction_util
     use m_r2d_parabolic
     use m_reconstruction
 
     implicit none
 
-    real*8                :: angle, normal(2), tangent(2), shift, kappa0, max_shift_plane, dx(2)
+    real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dx(2)
     real*8                :: refMoments(3), mofNormal(2), pi
     integer               :: adx, sdx, kdx
 
@@ -68,17 +68,16 @@ contains
     do kdx=1,NR_KAPPA
       angle = 2 * pi * (adx - 1.D0) / NR_ANGLE - pi
       normal = [dcos(angle), dsin(angle)]
-      tangent = [-normal(2), normal(1)]
-      
+
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      refMoments = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
+      refMoments = cmpMoments(normal, dx, shift, kappa0)
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
-        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE/10, verbose=.true.)
+        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE/10, verbose=.false.)
 
         @assertEqual(normal, mofNormal, TOLERANCE)
       endif
@@ -89,9 +88,73 @@ contains
   end subroutine
 
   @Test
+  subroutine test_exact_plvira_reconstruction()
+    use m_reconstruction_util
+    use m_r2d_parabolic
+    use m_reconstruction
+
+    implicit none
+
+    real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dxs(-1:1,2)
+    real*8                :: refVolumes(-1:1,-1:1), plviraNormal(2), pi, refMoments(3)
+    real*8                :: xc_neighbour(2), dx_neighbour(2)
+    integer               :: adx, sdx, kdx, i, j
+
+    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
+
+    pi = 4 * datan(1.0D0)
+
+    ! dxs(:,1) is dx and dxs(:,2) is dy for the 3x3 rectilinear grid
+    dxs(-1:1,1) = [1., 0.9, 0.5]
+    dxs(-1:1,2) = [pi/5, pi/4, pi/3]
+
+    do adx=1,NR_ANGLE
+    do sdx=1,NR_SHIFT
+    do kdx=1,NR_KAPPA
+      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE - pi
+      normal = [dcos(angle), dsin(angle)]
+
+      max_shift_plane = dot_product(abs(normal), dxs(0,:)) / 2
+      shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
+
+      kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
+
+      do j=-1,1
+      do i=-1,1
+        dx_neighbour(1) = dxs(i, 1)
+        dx_neighbour(2) = dxs(j, 2)
+
+        xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
+        xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
+
+        ! NOTE: x0 refers to the position relative to which the interface is defined
+        refMoments = cmpMoments(normal, dx_neighbour, shift, kappa0, x0=-xc_neighbour)
+        refVolumes(i,j) = refMoments(1)
+      enddo
+      enddo
+      
+      if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
+        plviraNormal = ppic_normal_plvira2d(refVolumes, kappa0, dxs, errTol=TOLERANCE/10, verbose=.true.)
+
+        print*, '     angle = ', angle
+        print*, '     shift = ', shift
+        print*, '    kappa0 = ', kappa0
+        do j=1,-1,-1
+          print*, '             ', [refVolumes(-1,j)/dxs(-1,1), refVolumes(0,j)/dxs(0,1), refVolumes(1,j)/dxs(1,1)]/dxs(j,2)
+        enddo
+
+        @assertEqual(normal, plviraNormal, TOLERANCE)
+        return
+      endif
+    enddo
+    enddo
+    enddo
+
+  end subroutine
+
+  @Test
   subroutine test_shift_volume_consistency()
-    use m_plic_util
-    use m_ppic_util
+    use m_reconstruction_util
 
     implicit none
     
@@ -113,8 +176,8 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * (sdx - 1.D0) / (NR_SHIFT - 1.D0))
 
-      moments01 = cmpMoments2d(normal, dx, shift)
-      shift_recomputed = cmpShift2d(normal, dx, moments01(1))
+      moments01 = cmpMoments(normal, dx, shift)
+      shift_recomputed = cmpShift(normal, dx, moments01(1))
 
       if (shift <= -max_shift_plane) then
         @assertLessThanOrEqual(shift_recomputed, -max_shift_plane)
@@ -126,14 +189,14 @@ contains
         @assertEqual(shift, shift_recomputed, TOLERANCE)
       endif
 
-      moments01_recomputed = cmpMoments2d(normal, dx, shift_recomputed)
+      moments01_recomputed = cmpMoments(normal, dx, shift_recomputed)
       @assertEqual(moments01, moments01_recomputed, TOLERANCE)
       
       do kdx=1,NR_KAPPA
         kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-        moments01 = cmpMoments2d_parabolic(normal, dx, shift, kappa0)
-        shift_recomputed = cmpShift2d_parabolic(normal, dx, moments01(1), kappa0, moments=moments01_recomputed)
+        moments01 = cmpMoments(normal, dx, shift, kappa0)
+        shift_recomputed = cmpShift(normal, dx, moments01(1), kappa0, moments=moments01_recomputed)
         @assertEqual(moments01, moments01_recomputed, TOLERANCE)
 
         if (moments01(1) < TOLERANCE) then
@@ -144,7 +207,7 @@ contains
           @assertEqual(shift, shift_recomputed, TOLERANCE)
         endif
 
-        moments01_recomputed = cmpMoments2d_parabolic(normal, dx, shift_recomputed, kappa0)
+        moments01_recomputed = cmpMoments(normal, dx, shift_recomputed, kappa0)
         @assertEqual(moments01, moments01_recomputed, TOLERANCE)
       enddo
     enddo
