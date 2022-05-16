@@ -265,7 +265,6 @@ contains
     real*8                  :: mom_gas(3), mom_liq(3), mom01(3), tmp
     integer, parameter      :: NR_STEPS = 100
     integer                 :: sdx
-    type(r2d_poly_f)        :: poly_gas, poly_liq
 
     ! Results from MATLAB (very accurate)
     real*8, parameter       :: sd_MATLAB(NR_STEPS) = [&   
@@ -294,11 +293,8 @@ contains
 
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
-      call get_polygonal_approximation_of_exact_domain(poly_gas, x, dx, levelset, GAS_PHASE)
-      mom_gas = cmpMoments(poly_gas)
-
-      call get_polygonal_approximation_of_exact_domain(poly_liq, x, dx, levelset, LIQUID_PHASE)
-      mom_liq = cmpMoments(poly_liq)
+      mom_gas = cmpMoments(polygonalApproximation(x, dx, levelset, GAS_PHASE))
+      mom_liq = cmpMoments(polygonalApproximation(x, dx, levelset, LIQUID_PHASE))
 
       sd = cmpSymmDiff(x, dx, normal, shift, kappa0, levelset)
 
@@ -328,7 +324,7 @@ contains
   end
 
   @Test 
-  subroutine test_referenceMoments()
+  subroutine test_cmpMoments()
     use m_r2d_parabolic
 
     implicit none
@@ -356,7 +352,7 @@ contains
       call intersect_by_plane(poly, normal, shift)
       r2dMoments = cmpMoments(poly)
 
-      refMoments = referenceMoments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+      refMoments = cmpMoments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
 
       @assertEqual(r2dMoments, refMoments, TOLERANCE)
       @assertLessThanOrEqual(abs(refMoments(2:3)/refMoments(1)), dx/2)

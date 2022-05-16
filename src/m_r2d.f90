@@ -233,6 +233,21 @@ contains
 
   end subroutine
 
+  function makeBox(x, dx) result(poly)
+    implicit none
+    
+    real*8, intent(in)    :: x(2), dx(2)
+    type(r2d_poly_f)      :: poly
+
+        ! Local variables
+    type(r2d_rvec2_f)     :: rbounds_vec(2)
+
+    rbounds_vec(1)%xyz = x - dx/2
+    rbounds_vec(2)%xyz = x + dx/2
+
+    call r2d_init_box_f(poly, rbounds_vec)
+  end function  
+
   subroutine init_from_pos(poly, pos)
     implicit none
 

@@ -23,6 +23,14 @@ module m_r2d_parabolic
       logical(c_bool), intent(in)  :: compute_derivative
     end subroutine r2d_clip_parabola_cmpMoments
   end interface
+
+  interface cmpMoments
+    module procedure cmpMoments_levelset
+  end interface
+
+  interface polygonalApproximation
+    module procedure polygonalApproximation_rectangularIn, polygonalApproximation_polyIn
+  end interface
 contains
 
   ! Removes the part of poly for which 
@@ -99,7 +107,7 @@ contains
     if (present(grad_s)) grad_s = grad_s_
   end subroutine
 
-  function referenceMoments(x, dx, levelSet, phase, verts_per_segment) result(moments)
+  function cmpMoments_levelset(x, dx, levelSet, phase, verts_per_segment) result(moments)
     implicit none
     
     real*8, intent(in)    :: x(2), dx(2)
@@ -108,46 +116,52 @@ contains
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
 
-    ! Local variables
-    type(r2d_poly_f)      :: poly
-
-    call get_polygonal_approximation_of_exact_domain(poly, x, dx, levelSet, phase, verts_per_segment)
-    moments = cmpMoments(poly)
+    moments = cmpMoments(polygonalApproximation_rectangularIn(x, dx, levelSet, phase, verts_per_segment))
   end function
 
-  subroutine get_polygonal_approximation_of_exact_domain(poly, x, dx, levelSet, phase, verts_per_segment)
+  function polygonalApproximation_rectangularIn(x, dx, levelSet, phase, verts_per_segment) result(poly)
     use m_common
     use m_optimization,   only: brent
   
     implicit none
 
-    type(r2d_poly_f), intent(out) :: poly
     real*8, intent(in)    :: x(2), dx(2)
     real*8, external      :: levelSet
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
+    type(r2d_poly_f)      :: poly
+
+    poly = polygonalApproximation_polyIn(makeBox(x, dx), levelSet, phase, verts_per_segment)
+  end function
+
+  function polygonalApproximation_polyIn(cell, levelSet, phase, verts_per_segment) result(poly)
+    use m_common
+    use m_optimization,   only: brent
+  
+    implicit none
+
+    type(r2d_poly_f), intent(in) :: cell
+    real*8, external      :: levelSet
+    integer, intent(in), optional :: phase
+    integer, intent(in), optional :: verts_per_segment
+    type(r2d_poly_f)      :: poly
 
     ! Local variables
-    real*8                :: pos(2, R2D_MAX_VERTS), pos_skeleton(2, 8), corners(2, 4), funVals(4)
-    real*8                :: x0(2), dir(2), step, tDir(2)
+    real*8                :: pos(2, R2D_MAX_VERTS), pos_skeleton(2, 2*R2D_MAX_VERTS), funVals(R2D_MAX_VERTS)
+    real*8                :: x0(2), dir(2), step, tDir(2), bbox(2, 2), lengthScale
     integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
     integer               :: verts_per_segment_, phase_
-    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(8)
+    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(2*R2D_MAX_VERTS)
 
     verts_per_segment_ = R2D_MAX_VERTS / 3
     if (present(verts_per_segment)) verts_per_segment_ = min(verts_per_segment_, verts_per_segment)
 
     phase_ = merge(phase, LIQUID_PHASE, present(phase))
 
-    corners(:,1) = x + [-dx(1), -dx(2)]/2
-    corners(:,2) = x + [dx(1), -dx(2)]/2
-    corners(:,3) = x + [dx(1), dx(2)]/2
-    corners(:,4) = x + [-dx(1), dx(2)]/2
-
-    ! Find out which corners of the cell are inside the domain
+    ! Find out which vertices of the cell are inside the domain
     vdx_first_inside = 0
-    do vdx=1,4
-      funVals(vdx) = interfaceFun(corners(:,vdx))
+    do vdx=1,cell%nverts
+      funVals(vdx) = interfaceFun(cell%verts(vdx)%pos%xyz)
       if (funVals(vdx) < 0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
     enddo
     if (vdx_first_inside == 0) then
@@ -160,15 +174,15 @@ contains
     vdx_is_inside = .true.
     nrPos_skelelton = 0
 
-    do edx=1,4
-      vdx_next = merge(1, vdx + 1, vdx == 4)
+    do edx=1,cell%nverts
+      vdx_next = cell%verts(vdx)%pnbrs(1)+1
       vdx_next_is_inside = funVals(vdx_next) < 0.0
 
       ! TODO so far we assume that an edge has at most one intersection
       if (vdx_is_inside .neqv. vdx_next_is_inside) then
         ! Find and add new position
-        x0 = corners(:,vdx)
-        dir = corners(:,vdx_next) - corners(:,vdx)
+        x0 = cell%verts(vdx)%pos%xyz
+        dir = cell%verts(vdx_next)%pos%xyz - x0
         step = brent(interfaceFun_step, 0.0D0, 1.0D0, 1D-15, 30, funVals(vdx), funVals(vdx_next))
         nrPos_skelelton = nrPos_skelelton + 1
         pos_skeleton(:,nrPos_skelelton) = x0 + step * dir
@@ -177,13 +191,16 @@ contains
       if (vdx_next_is_inside) then
         ! And add next node (corner)
         nrPos_skelelton = nrPos_skelelton + 1
-        pos_skeleton(:,nrPos_skelelton) = corners(:,vdx_next)
+        pos_skeleton(:,nrPos_skelelton) = cell%verts(vdx_next)%pos%xyz
         is_on_interface(nrPos_skelelton) = .false.
       endif
 
       vdx = vdx_next
       vdx_is_inside = vdx_next_is_inside
     enddo
+
+    call bounding_box(bbox, cell)
+    lengthScale = norm2(bbox(:,2) - bbox(:,1))
 
     ! Now we add a refined approximation on edges that are on the interface
     nrPos = 0
@@ -198,7 +215,7 @@ contains
       else
 
         tDir = pos_skeleton(:,vdx_next) - pos_skeleton(:,vdx)
-        if (norm2(tDir) < 1E-15 * dx(1)) then
+        if (norm2(tDir) < 1E-15 * lengthScale) then
           nrPos = nrPos + 1
           pos(:,nrPos) = pos_skeleton(:,vdx_next)
         else

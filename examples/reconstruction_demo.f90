@@ -3,7 +3,7 @@ program reconstruction_demo
   use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff
 
   ! Tools for polygon intersection
-  use m_r2d_parabolic,    only: referenceMoments
+  use m_r2d_parabolic,    only: cmpMoments
 
   ! Reconstruction methods
   use m_reconstruction,   only: plic_normal_mof2d, ppic_normal_pmof2d
@@ -27,7 +27,7 @@ program reconstruction_demo
   dx = [0.3, 0.3]
 
   ! Compute the reference zeroth and first moment (equivalent to the volume fraction and centroid)
-  refMoments = referenceMoments(xc, dx, exact_interface)
+  refMoments = cmpMoments(xc, dx, exact_interface)
 
   ! Note that the moments should be relative to xc:
   refMoments(2:3) = refMoments(2:3) - xc * refMoments(1)

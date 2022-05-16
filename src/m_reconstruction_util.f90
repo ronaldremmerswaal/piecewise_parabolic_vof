@@ -11,7 +11,7 @@ module m_reconstruction_util
   end interface
 
   interface cmpShift
-    module procedure cmpShift2d_plane, cmpShift2d_parabolic
+    module procedure cmpShift2d_plane, cmpShift2d_parabolic, cmpShift2d_poly
   end interface
 
   interface cmpSymmDiff
@@ -165,8 +165,8 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    call get_polygonal_approximation_of_exact_domain(exact_gas, x, dx, levelSet, GAS_PHASE)
-    call get_polygonal_approximation_of_exact_domain(exact_liq, x, dx, levelSet, LIQUID_PHASE)
+    exact_gas = polygonalApproximation(x, dx, levelSet, GAS_PHASE)
+    exact_liq = polygonalApproximation(x, dx, levelSet, LIQUID_PHASE)
     call shift_by(exact_gas, -x)
     call shift_by(exact_liq, -x)
 
@@ -304,12 +304,26 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    call get_polygonal_approximation_of_exact_domain(exact_gas, x, dx, levelSet, GAS_PHASE)
-    call get_polygonal_approximation_of_exact_domain(exact_liq, x, dx, levelSet, LIQUID_PHASE)
+    exact_gas = polygonalApproximation(x, dx, levelSet, GAS_PHASE)
+    exact_liq = polygonalApproximation(x, dx, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
     call intersect_with_parabola(sd_1, exact_gas, normal, kappa0, x + normal * shift)
     call intersect_with_parabola(sd_2, exact_liq, -normal, -kappa0, x + normal * shift)
     sd = sd_1(1) + sd_2(1)
   end
+
+  real*8 function cmpShift2d_poly(normal, poly, liqVol, kappa0, relTol, moments) result(shift)
+    use m_r2d_parabolic
+    use m_optimization,   only: brent
+
+    implicit none
+
+    real*8, intent(in)    :: normal(2), liqVol, kappa0
+    type(r2d_poly_f), intent(in) :: poly
+    real*8, optional, intent(in) :: relTol
+    real*8, optional, intent(out) :: moments(3)
+
+    ! TODO support reconstruction in arbitrary cells; make function for common part with cmpShift2d_parabolic
+  end function
 end module
