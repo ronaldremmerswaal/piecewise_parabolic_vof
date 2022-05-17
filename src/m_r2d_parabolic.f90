@@ -152,7 +152,10 @@ contains
     endif
 
     if (present(derivative)) derivative = derivative_
-    if (present(grad_s)) grad_s = grad_s_
+    if (present(grad_s)) then 
+      grad_s = grad_s_
+      if (parabola%kappa0 > 0) grad_s(1) = -grad_s(1)
+    endif
   end function
 
   function cmpMoments_levelset(x, dx, levelSet, phase, verts_per_segment) result(moments)

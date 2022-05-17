@@ -3,7 +3,7 @@ module linearisation
   use m_common
   use m_r2d_parabolic
 
-  real*8, parameter       :: TOLERANCE = 1E-8, STEP_SIZE = 1E-7
+  real*8, parameter       :: TOLERANCE = 1E-8, STEP_SIZE = 1E-6
 
 contains
   
@@ -21,8 +21,7 @@ contains
     integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_SHIFT = 30
     
     pi = 4 * datan(1.0D0)
-print*, 'TEMP SWITCH OFF'
-return
+
     radius = 1.0D0
     x = [0.05D0, 0.03D0]
     
@@ -62,8 +61,6 @@ return
       moments01 = cmpMoments(poly, parabola, derivative=derivative_cmp, grad_s=grad_s_cmp)
       call approximate_shift_derivatives(poly, moments01(1), angle, kappa0, shift, grad_s_fd)
       
-      print*, 'cmp = ', grad_s_cmp
-      print*, ' fd = ', grad_s_fd
       @assertEqual(grad_s_fd, grad_s_cmp, TOLERANCE)
     enddo
     enddo
