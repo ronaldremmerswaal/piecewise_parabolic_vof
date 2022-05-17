@@ -74,7 +74,7 @@ contains
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      refMoments = cmpMoments(dx, makeParabola(normal, shift, kappa0))
+      refMoments = cmpMoments(dx, makeParabola(normal, kappa0, shift))
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
         recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false.)
