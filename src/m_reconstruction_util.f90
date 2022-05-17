@@ -324,6 +324,6 @@ contains
     real*8, optional, intent(in) :: relTol
     real*8, optional, intent(out) :: moments(3)
 
-    ! TODO support reconstruction in arbitrary cells; make function for common part with cmpShift2d_parabolic
+    ! TODO support shift computation in arbitrary cells
   end function
 end module

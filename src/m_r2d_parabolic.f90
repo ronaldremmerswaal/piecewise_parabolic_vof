@@ -25,7 +25,7 @@ module m_r2d_parabolic
   end interface
 
   interface cmpMoments
-    module procedure cmpMoments_levelset
+    module procedure cmpMoments_levelset, cmpMoments_levelset_poly
   end interface
 
   interface polygonalApproximation
@@ -117,6 +117,18 @@ contains
     integer, intent(in), optional :: verts_per_segment
 
     moments = cmpMoments(polygonalApproximation_rectangularIn(x, dx, levelSet, phase, verts_per_segment))
+  end function
+
+  function cmpMoments_levelset_poly(poly, levelSet, phase, verts_per_segment) result(moments)
+    implicit none
+    
+    type(r2d_poly_f), intent(in) :: poly
+    real*8, external      :: levelSet
+    real*8                :: moments(3)
+    integer, intent(in), optional :: phase
+    integer, intent(in), optional :: verts_per_segment
+
+    moments = cmpMoments(polygonalApproximation_polyIn(poly, levelSet, phase, verts_per_segment))
   end function
 
   function polygonalApproximation_rectangularIn(x, dx, levelSet, phase, verts_per_segment) result(poly)

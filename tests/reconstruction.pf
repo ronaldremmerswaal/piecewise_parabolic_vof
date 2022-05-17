@@ -14,7 +14,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, max_shift_plane, dx(2), pi
-    real*8                :: refMoments(3), mofMoments(3), mofNormal(2)
+    real*8                :: refMoments(3), mofMoments(3), recNormal(2)
     integer               :: adx, sdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
@@ -33,14 +33,14 @@ contains
 
       refMoments = cmpMoments(normal, dx, shift)
       
-      mofNormal = plic_normal_mof2d(refMoments, dx, mofMoments)
+      recNormal = mofNormal(refMoments, dx, mofMoments)
 
-      @assertEqual(normal, mofNormal, TOLERANCE)
+      @assertEqual(normal, recNormal, TOLERANCE)
       @assertEqual(refMoments, mofMoments, TOLERANCE)
       
-      mofNormal = ppic_normal_pmof2d(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.false.)
+      recNormal = pmofNormal(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.false.)
 
-      @assertEqual(normal, mofNormal, TOLERANCE)
+      @assertEqual(normal, recNormal, TOLERANCE)
     enddo
     enddo
   end subroutine
@@ -54,7 +54,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dx(2)
-    real*8                :: refMoments(3), mofNormal(2), pi
+    real*8                :: refMoments(3), recNormal(2), pi
     integer               :: adx, sdx, kdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
@@ -77,9 +77,9 @@ contains
       refMoments = cmpMoments(normal, dx, shift, kappa0)
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
-        mofNormal = ppic_normal_pmof2d(refMoments, kappa0, dx, errTol=TOLERANCE/10, verbose=.false.)
+        recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE/10, verbose=.false.)
 
-        @assertEqual(normal, mofNormal, TOLERANCE)
+        @assertEqual(normal, recNormal, TOLERANCE)
       endif
     enddo
     enddo
@@ -96,7 +96,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dxs(-1:1,2)
-    real*8                :: refVolumes(-1:1,-1:1), plviraNormal(2), pi, refMoments(3)
+    real*8                :: refVolumes(-1:1,-1:1), recNormal(2), pi, refMoments(3)
     real*8                :: xc_neighbour(2), dx_neighbour(2)
     integer               :: adx, sdx, kdx, i, j
 
@@ -134,7 +134,7 @@ contains
       enddo
       
       if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
-        plviraNormal = ppic_normal_plvira2d(refVolumes, kappa0, dxs, errTol=TOLERANCE/10, verbose=.true.)
+        recNormal = plviraNormal(refVolumes, kappa0, dxs, errTol=TOLERANCE/10, verbose=.true.)
 
         print*, '     angle = ', angle
         print*, '     shift = ', shift
@@ -143,7 +143,7 @@ contains
           print*, '             ', [refVolumes(-1,j)/dxs(-1,1), refVolumes(0,j)/dxs(0,1), refVolumes(1,j)/dxs(1,1)]/dxs(j,2)
         enddo
 
-        @assertEqual(normal, plviraNormal, TOLERANCE)
+        @assertEqual(normal, recNormal, TOLERANCE)
         return
       endif
     enddo

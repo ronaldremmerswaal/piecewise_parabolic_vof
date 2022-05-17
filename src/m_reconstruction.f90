@@ -1,11 +1,11 @@
 module m_reconstruction
 
   private
-  public :: plic_normal_mof2d, ppic_normal_pmof2d, ppic_normal_plvira2d
+  public :: mofNormal, pmofNormal, plviraNormal
 
 contains
 
-  function ppic_normal_plvira2d(refVolumes, kappa0, dxs, verbose, errTol) result(plviraNormal)
+  function plviraNormal(refVolumes, kappa0, dxs, verbose, errTol) result(normal)
     use m_optimization
     use m_reconstruction_util
 
@@ -14,7 +14,7 @@ contains
     real*8, intent(in)    :: refVolumes(-1:1,-1:1), kappa0, dxs(-1:1,2)
     logical, intent(in), optional :: verbose
     real*8, intent(in), optional :: errTol
-    real*8                :: plviraNormal(2)
+    real*8                :: normal(2)
 
         ! Local variables:
     real*8                :: errTol_, plviraAngle
@@ -25,7 +25,7 @@ contains
 
     plviraAngle = lvira_angle_guess(refVolumes, dxs)
     plviraAngle = brent_min(cost, dcost, plviraAngle, errTol_, 25, verbose_, maxStep=0.5D0)
-    plviraNormal = [dcos(plviraAngle), dsin(plviraAngle)]
+    normal = [dcos(plviraAngle), dsin(plviraAngle)]
   contains
     real*8 function cost(angle) result(err)
       use m_r2d_parabolic
@@ -125,7 +125,7 @@ contains
     enddo
   end function
 
-  function ppic_normal_pmof2d(refMoments, kappa0, dx, verbose, errTol) result(mofNormal)
+  function pmofNormal(refMoments, kappa0, dx, verbose, errTol) result(normal)
     use m_optimization
     use m_reconstruction_util
 
@@ -134,7 +134,7 @@ contains
     real*8, intent(in)    :: refMoments(3), kappa0, dx(2)
     logical, optional     :: verbose
     real*8, intent(in), optional :: errTol
-    real*8                :: mofNormal(2)
+    real*8                :: normal(2)
 
     ! Local variables:
     real*8                :: cost_fun_scaling, centNorm, mofAngle, tmp(1)
@@ -165,9 +165,9 @@ contains
     
     mofAngle =  brent_min(cost, dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
 
-    mofNormal = [dcos(mofAngle), dsin(mofAngle)]
+    normal = [dcos(mofAngle), dsin(mofAngle)]
     if (largerThanHalf) then
-      mofNormal = -mofNormal
+      normal = -normal
     endif
 
   contains 
@@ -219,12 +219,12 @@ contains
 
   !NB The 2D MoF optimization problem is solved exactly using a direct method
   ! See also "Moment-of-fluid analytic reconstruction on 2D Cartesian grids", JCP 2017
-  function plic_normal_mof2d(refMoments, dx, mofMoments) result(mofNormal)
+  function mofNormal(refMoments, dx, mofMoments) result(normal)
 
     implicit none
 
     real*8, intent(in)    :: refMoments(3), dx(2)
-    real*8                :: mofNormal(2)
+    real*8                :: normal(2)
     real*8, intent(out), optional :: mofMoments(3)
 
     ! Local variables
@@ -233,7 +233,7 @@ contains
     real*8                :: refFrac, refCentroid(2)
     logical               :: largerThanHalf
 
-    mofNormal = 0.0
+    normal = 0.0
     centroidError_ = norm2(dx) * 43  ! Larger than diameter of cell
 
     refFrac = refMoments(1) / product(dx)
@@ -299,20 +299,20 @@ contains
         tmpCentroid = [tmpCentroid(2), -tmpCentroid(1)]
       end select
       if (tmpError < centroidError_) then
-        mofNormal = tmpNormal
+        normal = tmpNormal
         centroidError_ = tmpError
         mofCentroid_ = tmpCentroid
       endif
     end do
 
     if (largerThanHalf) then
-      mofNormal = -mofNormal
+      normal = -normal
       mofCentroid_ = -mofCentroid_ * refFrac / (1.0D0 - refFrac)
     endif
 
     if (present(mofMoments)) mofMoments = [refMoments(1), refMoments(1) * mofCentroid_]
 
-  end function plic_normal_mof2d
+  end function mofNormal
 
   subroutine solve_2dMoF_hyperbola(refFrac, refCentroid, dx, mofNormal, mofCentroid, mofError)
     use m_poly_roots, only: polynomial_roots_deg4

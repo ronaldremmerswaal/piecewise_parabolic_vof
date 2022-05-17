@@ -6,7 +6,7 @@ program reconstruction_demo
   use m_r2d_parabolic,    only: cmpMoments
 
   ! Reconstruction methods
-  use m_reconstruction,   only: plic_normal_mof2d, ppic_normal_pmof2d
+  use m_reconstruction,   only: mofNormal, pmofNormal
 
   implicit none
 
@@ -34,7 +34,7 @@ program reconstruction_demo
 
   ! First we try a linear reconstruction, for which kappa0 = 0
   write(*, '(A)') 'The MOF method'
-  normal = plic_normal_mof2d(refMoments, dx)
+  normal = mofNormal(refMoments, dx)
 
   ! The shift is computed by enforcing volume conservation
   shift = cmpShift(normal, dx, refMoments(1))
@@ -53,7 +53,7 @@ program reconstruction_demo
 
   ! We repeat the same steps for the PMOF method, for which we use an exact curvature
   kappa0 = 1.
-  normal = ppic_normal_pmof2d(refMoments, kappa0, dx)
+  normal = pmofNormal(refMoments, kappa0, dx)
   shift = cmpShift(normal, dx, refMoments(1), kappa0)
   errMoments = abs(cmpMoments(normal, dx, shift, kappa0) - refMoments)
   errSD = cmpSymmDiff(xc, dx, normal, shift, kappa0, exact_interface)
