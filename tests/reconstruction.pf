@@ -17,7 +17,7 @@ contains
     real*8                :: refMoments(3), mofMoments(3), recNormal(2)
     integer               :: adx, sdx
 
-    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
+    integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20
 
     pi = 4 * datan(1.0D0)
 
@@ -57,7 +57,7 @@ contains
     real*8                :: refMoments(3), recNormal(2), pi
     integer               :: adx, sdx, kdx
 
-    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
+    integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
 
     pi = 4 * datan(1.0D0)
 
@@ -77,8 +77,10 @@ contains
       refMoments = cmpMoments(dx, makeParabola(normal, shift, kappa0))
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
-        recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE/10, verbose=.false.)
+        recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false.)
 
+        ! NOTE: it seems that PMOF does not always yield a unique solution
+        !       and therefore this test fails 
         @assertEqual(normal, recNormal, TOLERANCE)
       endif
     enddo
@@ -100,7 +102,7 @@ contains
     real*8                :: xc_neighbour(2), dx_neighbour(2)
     integer               :: adx, sdx, kdx, i, j
 
-    integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30, NR_KAPPA = 30
+    integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
 
     pi = 4 * datan(1.0D0)
 
@@ -155,7 +157,7 @@ contains
     real*8                :: moments01(3), moments01_recomputed(3), pi, max_shift_plane
     integer               :: adx, kdx, sdx
 
-    integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_SHIFT = 30
+    integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 20
 
     pi = 4 * datan(1.0D0)
 
@@ -221,7 +223,7 @@ contains
     real*8                :: moments01(3), moments01_recomputed(3), pi
     integer               :: adx, kdx, sdx
 
-    integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_SHIFT = 30
+    integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 20
 
     pi = 4 * datan(1.0D0)
 

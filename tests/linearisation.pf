@@ -18,7 +18,7 @@ contains
     real*8                :: grad_s_cmp(2), grad_s_fd(2), shift
     integer               :: adx, kdx, sdx
 
-    integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_SHIFT = 30
+    integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 20
     
     pi = 4 * datan(1.0D0)
 

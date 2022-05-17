@@ -190,7 +190,6 @@ contains
     real*8                :: moments(3)
 
     ! Local variables
-    type(r2d_poly_f)      :: liquid
     type(r2d_parabola_f)  :: parabola_
     real*8                :: bounds
 
@@ -199,8 +198,7 @@ contains
       parabola_%x0%xyz = parabola_%x0%xyz + x0
     endif
 
-    liquid = makeBox_bounds([-dx/2.0, dx/2.0])
-    moments = cmpMoments(liquid, parabola_, derivative, grad_s)
+    moments = cmpMoments(makeBox_bounds([-dx/2.0, dx/2.0]), parabola_, derivative, grad_s)
   end function
 
   real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments) result(shift)
