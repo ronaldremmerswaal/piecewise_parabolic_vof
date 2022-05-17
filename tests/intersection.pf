@@ -28,7 +28,7 @@ contains
     shift = 0.0D0
     normal = [0.0D0, 1.0D0]
 
-    call intersect_by_plane(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
+    call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
     mom_r2d = cmpMoments(cutPoly)
 
     mom_util = cmpMoments(normal, dx, shift)
@@ -53,7 +53,7 @@ contains
         pc = pc * dot_product(abs(normal), dx)
         shift = pc - dot_product(abs(normal), dx) / 2.0
 
-        call intersect_by_plane(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
+        call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
         mom_r2d = cmpMoments(cutPoly)
 
         mom_util = cmpMoments(normal, dx, shift)
@@ -91,7 +91,7 @@ contains
       shift = lengthScale * (sdx - 1.D0) / (NR_SHIFT - 1.D0) - lengthScale/2
 
       poly = makeBox_bounds([-dx/2, dx/2])
-      call intersect_by_plane(poly, makePlane(normal, shift))
+      call intersect(poly, makePlane(normal, shift))
       moments_plane_r2d = cmpMoments(poly)
       
       moments_parabola = cmpMoments(dx, makeParabola(normal, 0.0D0, shift))
@@ -293,8 +293,8 @@ contains
 
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
-      mom_gas = cmpMoments(polygonalApproximation(x, dx, levelset, GAS_PHASE))
-      mom_liq = cmpMoments(polygonalApproximation(x, dx, levelset, LIQUID_PHASE))
+      mom_gas = cmpMoments(polyApprox(x, dx, levelset, GAS_PHASE))
+      mom_liq = cmpMoments(polyApprox(x, dx, levelset, LIQUID_PHASE))
 
       sd = cmpSymmDiff(x, dx, normal, shift, kappa0, levelset)
 
@@ -349,7 +349,7 @@ contains
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
       poly = makeBox_bounds([-dx/2, dx/2])
-      call intersect_by_plane(poly, makePlane(normal, shift))
+      call intersect(poly, makePlane(normal, shift))
       r2dMoments = cmpMoments(poly)
 
       refMoments = cmpMoments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)

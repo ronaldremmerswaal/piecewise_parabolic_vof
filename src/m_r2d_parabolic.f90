@@ -33,8 +33,8 @@ module m_r2d_parabolic
     module procedure cmpMoments_parabola_poly_
   end interface
 
-  interface polygonalApproximation
-    module procedure polygonalApproximation_rectangularIn, polygonalApproximation_polyIn
+  interface polyApprox
+    module procedure polyApprox_rectangularIn, polyApprox_polyIn
   end interface
 
   interface makeParabola
@@ -167,7 +167,7 @@ contains
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
 
-    moments = cmpMoments(polygonalApproximation_rectangularIn(x, dx, levelSet, phase, verts_per_segment))
+    moments = cmpMoments(polyApprox_rectangularIn(x, dx, levelSet, phase, verts_per_segment))
   end function
 
   function cmpMoments_levelset_poly(poly, levelSet, phase, verts_per_segment) result(moments)
@@ -179,10 +179,10 @@ contains
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
 
-    moments = cmpMoments(polygonalApproximation_polyIn(poly, levelSet, phase, verts_per_segment))
+    moments = cmpMoments(polyApprox_polyIn(poly, levelSet, phase, verts_per_segment))
   end function
 
-  function polygonalApproximation_rectangularIn(x, dx, levelSet, phase, verts_per_segment) result(poly)
+  function polyApprox_rectangularIn(x, dx, levelSet, phase, verts_per_segment) result(poly)
     use m_common
     use m_optimization,   only: brent
   
@@ -194,10 +194,10 @@ contains
     integer, intent(in), optional :: verts_per_segment
     type(r2d_poly_f)      :: poly
 
-    poly = polygonalApproximation_polyIn(makeBox(x, dx), levelSet, phase, verts_per_segment)
+    poly = polyApprox_polyIn(makeBox(x, dx), levelSet, phase, verts_per_segment)
   end function
 
-  function polygonalApproximation_polyIn(cell, levelSet, phase, verts_per_segment) result(poly)
+  function polyApprox_polyIn(cell, levelSet, phase, verts_per_segment) result(poly)
     use m_common
     use m_optimization,   only: brent
   

@@ -97,7 +97,11 @@ module m_r2d
 
 
   interface cmpMoments
-    module procedure reduce_1
+    module procedure reduce_1, cmpMoments_poly_plane
+  end interface
+
+  interface cmpMoments_
+    module procedure cmpMoments_poly_plane_
   end interface
 
   interface makeBox
@@ -148,6 +152,32 @@ contains
     call r2d_reduce(poly, mom, %val(1))
   end function
 
+  function cmpMoments_poly_plane(poly, plane) result(mom)
+    implicit none
+
+    type(r2d_poly_f), intent(in) :: poly
+    type(r2d_plane_f), intent(in) :: plane
+    real*8                :: mom(3)
+
+    ! Local variables
+    type(r2d_poly_f)      :: poly_
+
+    poly_ = copy(poly)
+    call intersect(poly_, plane) 
+    mom = reduce_1(poly_)
+  end function
+
+  function cmpMoments_poly_plane_(poly, plane) result(mom)
+    implicit none
+
+    type(r2d_poly_f), intent(inout) :: poly
+    type(r2d_plane_f), intent(in) :: plane
+    real*8                :: mom(3)
+
+    call intersect(poly, plane)
+    mom = reduce_1(poly)
+  end function
+
   subroutine intersect_with_cell(poly, x0, dx)
     implicit none
 
@@ -173,7 +203,7 @@ contains
   end subroutine
 
   ! Remove part on outward normal side of plane defined by η ⋅ x = s, or η ⋅ x - s > 0
-  subroutine intersect_by_plane(poly, plane)
+  subroutine intersect(poly, plane)
     implicit none
 
     type(r2d_poly_f), intent(inout) :: poly

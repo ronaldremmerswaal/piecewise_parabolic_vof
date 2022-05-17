@@ -15,7 +15,7 @@ module m_reconstruction_util
   end interface
 
   interface cmpSymmDiff
-    module procedure cmpSymmDiff2d_plane, cmpSymmDiff2d_parabolic
+    module procedure cmpSymmDiff2d_plane, cmpSymmDiff2d_parabolic, cmpSymmDiff2d_parabolic_polyIn
   end interface
 
 contains
@@ -165,15 +165,15 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    exact_gas = polygonalApproximation(x, dx, levelSet, GAS_PHASE)
-    exact_liq = polygonalApproximation(x, dx, levelSet, LIQUID_PHASE)
+    exact_gas = polyApprox(x, dx, levelSet, GAS_PHASE)
+    exact_liq = polyApprox(x, dx, levelSet, LIQUID_PHASE)
     call shift_by(exact_gas, -x)
     call shift_by(exact_liq, -x)
 
     ! Compute symmetric difference
-    call intersect_by_plane(exact_gas, makePlane(normal, shift))
+    call intersect(exact_gas, makePlane(normal, shift))
     sd_1 = cmpMoments(exact_gas)
-    call intersect_by_plane(exact_liq, makePlane(-normal, -shift))
+    call intersect(exact_liq, makePlane(-normal, -shift))
     sd_2 = cmpMoments(exact_liq)
     sd = sd_1(1) + sd_2(1)
   end
@@ -305,12 +305,60 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    exact_gas = polygonalApproximation(x, dx, levelSet, GAS_PHASE)
-    exact_liq = polygonalApproximation(x, dx, levelSet, LIQUID_PHASE)
+    exact_gas = polyApprox(x, dx, levelSet, GAS_PHASE)
+    exact_liq = polyApprox(x, dx, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
     sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, x + normal * shift))
     sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, x + normal * shift))
+    sd = sd_1(1) + sd_2(1)
+  end
+
+  real function cmpSymmDiff2d_polyIn(cell, normal, shift, levelSet) result(sd)
+    use m_r2d_parabolic
+    implicit none
+
+    type(r2d_poly_f), intent(in) :: cell
+    real*8, intent(in)     :: normal(2), shift
+    real*8, external       :: levelSet
+
+    ! Local variables
+    real*8                :: sd_1(3), sd_2(3)
+    type(r2d_poly_f)      :: exact_gas, exact_liq
+
+
+    ! Construct polygonal approximation of exact gas & liquid domains
+    ! (relative to the cell centroid)
+    exact_gas = polyApprox(cell, levelSet, GAS_PHASE)
+    exact_liq = polyApprox(cell, levelSet, LIQUID_PHASE)
+
+    ! Compute symmetric difference
+    sd_1 = cmpMoments_(exact_gas, makePlane(normal, shift))
+    sd_2 = cmpMoments_(exact_liq, makePlane(-normal, shift))
+    sd = sd_1(1) + sd_2(1)
+  end
+
+  real function cmpSymmDiff2d_parabolic_polyIn(cell, normal, shift, kappa0, levelSet) result(sd)
+    use m_r2d_parabolic
+    implicit none
+
+    type(r2d_poly_f), intent(in) :: cell
+    real*8, intent(in)     :: normal(2), shift, kappa0
+    real*8, external       :: levelSet
+
+    ! Local variables
+    real*8                :: sd_1(3), sd_2(3)
+    type(r2d_poly_f)      :: exact_gas, exact_liq
+
+
+    ! Construct polygonal approximation of exact gas & liquid domains
+    ! (relative to the cell centroid)
+    exact_gas = polyApprox(cell, levelSet, GAS_PHASE)
+    exact_liq = polyApprox(cell, levelSet, LIQUID_PHASE)
+
+    ! Compute symmetric difference
+    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, normal * shift))
+    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, normal * shift))
     sd = sd_1(1) + sd_2(1)
   end
 
