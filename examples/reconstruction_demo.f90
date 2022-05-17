@@ -3,7 +3,7 @@ program reconstruction_demo
   use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff
 
   ! Tools for polygon intersection
-  use m_r2d_parabolic,    only: cmpMoments
+  use m_r2d_parabolic,    only: cmpMoments, makeParabola
 
   ! Reconstruction methods
   use m_reconstruction,   only: mofNormal, pmofNormal
@@ -55,7 +55,7 @@ program reconstruction_demo
   kappa0 = 1.
   normal = pmofNormal(refMoments, kappa0, dx)
   shift = cmpShift(normal, dx, refMoments(1), kappa0)
-  errMoments = abs(cmpMoments(normal, dx, shift, kappa0) - refMoments)
+  errMoments = abs(cmpMoments(dx, makeParabola(normal, kappa0, shift)) - refMoments)
   errSD = cmpSymmDiff(xc, dx, normal, shift, kappa0, exact_interface)
 
   write(*, '(A)') ''

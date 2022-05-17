@@ -5,6 +5,7 @@ module m_r2d_parabolic
 
   type, bind(C) :: r2d_parabola_f
     type(r2d_rvec2_f)     :: n
+    type(r2d_rvec2_f)     :: x0
     real(c_double)        :: kappa0
   end type
 
@@ -25,13 +26,37 @@ module m_r2d_parabolic
   end interface
 
   interface cmpMoments
-    module procedure cmpMoments_levelset, cmpMoments_levelset_poly
+    module procedure cmpMoments_levelset, cmpMoments_levelset_poly, cmpMoments_parabola_poly
   end interface
 
   interface polygonalApproximation
     module procedure polygonalApproximation_rectangularIn, polygonalApproximation_polyIn
   end interface
+
+  interface makeParabola
+    module procedure makeParabola_x0, makeParabola_shift
+  end interface
 contains
+
+  function makeParabola_x0(normal, kappa0, x0) result(parabola)
+    implicit none
+    
+    real*8, intent(in)    :: normal(2), kappa0, x0(2)
+    type(r2d_parabola_f)  :: parabola
+
+    parabola%n%xyz = normal
+    parabola%kappa0 = kappa0
+    parabola%x0%xyz = x0
+  end function
+
+  function makeParabola_shift(normal, kappa0, shift) result(parabola)
+    implicit none
+    
+    real*8, intent(in)    :: normal(2), kappa0, shift
+    type(r2d_parabola_f)  :: parabola
+
+    parabola = makeParabola_x0(normal, kappa0, shift * normal)
+  end function
 
   ! Removes the part of poly for which 
   !   \eta \cdot (x - x_0) + (\kappa/2) * (\tau \cdot (x - x_0))^2 > 0
@@ -54,58 +79,48 @@ contains
   !                         If initially NaN, then this gradient is computed such that d M_0/ d \varphi = 0
   !                         If not, then it is assumed that the gradient of the shift s is given by grad_s
   !                         (This only affects the computation of the gradient)
-  subroutine intersect_with_parabola(moments01, poly, normal, kappa0, x0, derivative, grad_s)
+  function cmpMoments_parabola_poly(poly, parabola, derivative, grad_s) result(moments01)
     use m_common
 
     implicit none
 
-    real*8, intent(out)   :: moments01(3)
     type(r2d_poly_f), intent(inout) :: poly
-    real*8, intent(in)    :: normal(2), kappa0, x0(2)
+    type(r2d_parabola_f), intent(in) :: parabola
     real*8, intent(inout), optional :: derivative(4), grad_s(2)
+    real*8                :: moments01(3)
 
     ! Local variables
-    type(r2d_parabola_f)  :: parabola(1)
+    type(r2d_parabola_f)  :: parabolas(1)
     real*8                :: moments01_poly(3)
     real*8                :: derivative_(4), grad_s_(2)
     logical*1             :: compute_derivative_
     integer               :: vdx
 
-    ! The algorithm is implemented assuming that x0 = 0, so we must shift the positions of the polygon beforehand
-    do vdx=1,poly%nverts
-      poly%verts(vdx)%pos%xyz = poly%verts(vdx)%pos%xyz - x0
-    enddo
-
+    
     ! The algorithm is implemented for kappa0 <= 0, so we must compute the moments of the complement
     ! (for which the sign of the curvature is swapped) if kappa0 > 0
-    if (kappa0 > 0) then
-      parabola(1)%n%xyz = -normal
-      parabola(1)%kappa0 = -kappa0
+    if (parabola%kappa0 > 0) then
+      parabolas(1)%n%xyz = -parabola%n%xyz
+      parabolas(1)%x0 = parabola%x0
+      parabolas(1)%kappa0 = -parabola%kappa0
       moments01_poly = cmpMoments(poly)
     else
-      parabola(1)%n%xyz = normal
-      parabola(1)%kappa0 = kappa0
+      parabolas(1) = parabola
     endif
 
     grad_s_ = merge(grad_s, [d_qnan, d_qnan], present(grad_s))
 
     compute_derivative_ = present(derivative) .or. present(grad_s)
-    call r2d_clip_parabola_cmpMoments(poly, parabola, grad_s_, moments01, derivative_, compute_derivative_)
+    call r2d_clip_parabola_cmpMoments(poly, parabolas, grad_s_, moments01, derivative_, compute_derivative_)
 
-    if (kappa0 > 0) then
+    if (parabola%kappa0 > 0) then
       moments01 = moments01_poly - moments01
       derivative_(1:3) = -derivative_(1:3)
     endif
 
-    ! Shift the position back relative to x0
-    moments01(2:3) = moments01(2:3) + moments01(1) * x0
-
-    if (present(derivative)) then 
-      derivative = derivative_
-      derivative(2:3) = derivative(2:3) + derivative(1) * x0
-    endif
+    if (present(derivative)) derivative = derivative_
     if (present(grad_s)) grad_s = grad_s_
-  end subroutine
+  end function
 
   function cmpMoments_levelset(x, dx, levelSet, phase, verts_per_segment) result(moments)
     implicit none

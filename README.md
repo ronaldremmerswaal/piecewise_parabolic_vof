@@ -2,7 +2,6 @@
 
 ## Description
 Implementation of the intersection algorithm described in https://arxiv.org/abs/2111.09627, which is based on the two-dimensional part of https://github.com/devonmpowell/r3d.
-A FORTRAN wrapper is provided, where in particular the subroutine intersect_with_parabola is of interest.
 
 ## TODO
 - Make tests

@@ -28,7 +28,6 @@ contains
     normal = [dcos(plviraAngle), dsin(plviraAngle)]
   contains
     real*8 function cost(angle) result(err)
-      use m_r2d_parabolic
 
       implicit none
 
@@ -38,7 +37,6 @@ contains
     end function
 
     real*8 function dcost(angle) result(derr)
-      use m_r2d_parabolic
 
       implicit none
 
@@ -77,7 +75,6 @@ contains
     real*8, intent(out), optional :: derivatives(2)   ! w.r.t. angle and curvature respectively
 
     ! Local variables
-    type(r2d_poly_f)      :: poly
     real*8                :: normal(2), shift, moments(3), derivatives_local(4), err_local
     real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour, grad_s(2)
     integer               :: i, j
@@ -94,8 +91,7 @@ contains
       grad_s = d_qnan
       
       ! Compute ds/dangle, which ensures that the centred volume is conserved
-      call init_box(poly, [-dxs(0,:)/2, dxs(0,:)/2])
-      call intersect_with_parabola(moments, poly, normal, kappa0, normal * shift, grad_s=grad_s)
+      moments = cmpMoments(dxs(0,:), makeParabola(normal, kappa0, shift), grad_s=grad_s)
     endif
     do j=-1,1
     do i=-1,1
@@ -108,11 +104,12 @@ contains
       xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
       xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
-      call init_box(poly, [xc_neighbour - dx_neighbour/2, xc_neighbour + dx_neighbour/2])
       if (present(derivatives)) then
-        call intersect_with_parabola(moments, poly, normal, kappa0, normal * shift, derivatives_local, grad_s)
+        moments = cmpMoments(dx_neighbour, makeParabola(normal, kappa0, shift), &
+          x0=-xc_neighbour, derivative=derivatives_local, grad_s=grad_s)
       else
-        call intersect_with_parabola(moments, poly, normal, kappa0, normal * shift)
+        moments = cmpMoments(dx_neighbour, makeParabola(normal, kappa0, shift), &
+          x0=-xc_neighbour)
       endif
       err_local = (moments(1) - refVolumes(i,j)) / cellVol_neighbour
 
@@ -192,20 +189,19 @@ contains
     real*8 function dcost(angle) result(derr)
       use m_reconstruction_util
       use m_r2d_parabolic
+  
       implicit none
 
       real*8, intent(in)  :: angle
 
       ! Local variables:
-      type(r2d_poly_f)    :: poly
       real*8              :: difference(2), derivative(4), normal(2), shift, err
 
       normal = [dcos(angle), dsin(angle)]
 
       shift = cmpShift(normal, dx, refMoments_(1), kappa0)
       
-      call init_box(poly, [-dx/2, dx/2])
-      call intersect_with_parabola(mofMoments_, poly, normal, kappa0, normal * shift, derivative)
+      mofMoments_ = cmpMoments(dx, makeParabola(normal, kappa0, shift), derivative=derivative)
       
       difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
       derivative(2:3) = derivative(2:3) / cost_fun_scaling

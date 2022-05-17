@@ -74,7 +74,7 @@ contains
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      refMoments = cmpMoments(normal, dx, shift, kappa0)
+      refMoments = cmpMoments(dx, makeParabola(normal, shift, kappa0))
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
         recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE/10, verbose=.false.)
@@ -128,7 +128,7 @@ contains
         xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
         ! NOTE: x0 refers to the position relative to which the interface is defined
-        refMoments = cmpMoments(normal, dx_neighbour, shift, kappa0, x0=-xc_neighbour)
+        refMoments = cmpMoments(dx_neighbour, makeParabola(normal, kappa0,  shift), x0=-xc_neighbour)
         refVolumes(i,j) = refMoments(1)
       enddo
       enddo
@@ -155,6 +155,7 @@ contains
   @Test
   subroutine test_shift_volume_consistency()
     use m_reconstruction_util
+    use m_r2d_parabolic
 
     implicit none
     
@@ -195,7 +196,7 @@ contains
       do kdx=1,NR_KAPPA
         kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-        moments01 = cmpMoments(normal, dx, shift, kappa0)
+        moments01 = cmpMoments(dx, makeParabola(normal, kappa0, shift))
         shift_recomputed = cmpShift(normal, dx, moments01(1), kappa0, moments=moments01_recomputed)
         @assertEqual(moments01, moments01_recomputed, TOLERANCE)
 
@@ -207,7 +208,7 @@ contains
           @assertEqual(shift, shift_recomputed, TOLERANCE)
         endif
 
-        moments01_recomputed = cmpMoments(normal, dx, shift_recomputed, kappa0)
+        moments01_recomputed = cmpMoments(dx, makeParabola(normal, kappa0, shift_recomputed))
         @assertEqual(moments01, moments01_recomputed, TOLERANCE)
       enddo
     enddo

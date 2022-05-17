@@ -201,11 +201,11 @@ contains
     call r2d_split_ptr(polys, %val(size(polys, 1)), plane, out_pos, out_neg)
   end subroutine
 
-  subroutine copy(to, from)
+  function copy(from) result(to)
     implicit none
 
     type(r2d_poly_f), intent(in) :: from
-    type(r2d_poly_f), intent(out) :: to
+    type(r2d_poly_f)      :: to
 
     integer               :: v
 
@@ -215,7 +215,7 @@ contains
       to%verts(v)%pos%xyz = from%verts(v)%pos%xyz
     enddo
 
-  end subroutine
+  end function
 
   subroutine init_box(poly, rbounds)
     implicit none

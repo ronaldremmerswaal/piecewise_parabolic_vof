@@ -10,6 +10,7 @@
  */
 typedef struct {
 	r2d_rvec2 n; /*!< Unit-length normal vector. */
+	r2d_rvec2 x0; /*!< Position relative to which the parabola is dedfined (usualla x0 = shift * normal) */
 	r2d_real kappa0;
 } r2d_parabola;
 

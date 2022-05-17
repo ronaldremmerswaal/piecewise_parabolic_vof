@@ -178,36 +178,28 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  function cmpMoments2d_parabolic(normal, dx, shift, kappa0, x0) result(moments)
+  function cmpMoments2d_parabolic(dx, parabola, x0, derivative, grad_s) result(moments)
     use m_r2d_parabolic
 
     implicit none
 
-    real*8, intent(in)    :: normal(2), dx(2), shift, kappa0
+    real*8, intent(in)    :: dx(2)
+    type(r2d_parabola_f), intent(in) :: parabola
     real*8, intent(in), optional :: x0(2)
+    real*8, intent(inout), optional :: derivative(4), grad_s(2)
     real*8                :: moments(3)
 
     ! Local variables
     type(r2d_poly_f)      :: liquid
-    real*8                :: x0_(2)
-    
-    if (shift == d_pos_inf) then
-      moments(1) = product(dx)
-      moments(2:3) = 0.D0
-      return
-    elseif (shift == d_neg_inf) then
-      moments = 0.D0
-      return
-    endif
+    type(r2d_parabola_f)  :: parabola_
 
-    
-    x0_ = normal * shift
+    parabola_ = parabola
     if (present(x0)) then
-      x0_ = x0_ + x0
+      parabola_%x0%xyz = parabola_%x0%xyz + x0
     endif
 
     call init_box(liquid, [-dx/2.0, dx/2.0])
-    call intersect_with_parabola(moments, liquid, normal, kappa0, x0_)
+    moments = cmpMoments(liquid, parabola_, derivative, grad_s)
   end function
 
   real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments) result(shift)
@@ -283,8 +275,8 @@ contains
       type(r2d_poly_f)    :: liquid
       integer             :: idx
 
-      call copy(to=liquid, from=cell)
-      call intersect_with_parabola(moments_, liquid, normal, kappa0, normal * shift_tmp)
+      liquid = copy(cell)
+      moments_ = cmpMoments(liquid, makeParabola(normal, kappa0, shift_tmp))
       err = moments_(1) - liqVol
     end function
   end function
@@ -308,8 +300,8 @@ contains
     exact_liq = polygonalApproximation(x, dx, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
-    call intersect_with_parabola(sd_1, exact_gas, normal, kappa0, x + normal * shift)
-    call intersect_with_parabola(sd_2, exact_liq, -normal, -kappa0, x + normal * shift)
+    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, x + normal * shift))
+    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, x + normal * shift))
     sd = sd_1(1) + sd_2(1)
   end
 
