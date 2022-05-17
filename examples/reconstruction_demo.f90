@@ -93,22 +93,35 @@ program reconstruction_demo
     ! The control volume is now a polygon
     type(r2d_poly_f)        :: cell
 
-    real*8                  :: pos(2,32), xc(2)
-    integer                 :: vdx
+    real*8                  :: pos(2,32), xc(2), pacmanRadius
+    integer                 :: vdx, count
+    logical                 :: midPointAdded
 
     real*8                  :: normal(2), shift, kappa0, angle, pi
     real*8                  :: errMoments(3), errSD(3)
 
     pi = 4 * datan(1.0D0)
-    xc = [1/dsqrt(2.0D0), 1/dsqrt(2.0D0)]
+    pacmanRadius = 0.15D0
+    ! Move inside such that interface intersects Pacman's mouth
+    xc = [1/dsqrt(2.0D0), 1/dsqrt(2.0D0)] * (1.0D0 - pacmanRadius/2)
 
-    ! We reconstruct inside a polygonal approximation of an circle
+    ! We reconstruct inside a polygonal approximation of Pacman
+    count = 1
+    midPointAdded = .false.
     do vdx=1,size(pos,2)
-      angle = 2 * pi * (vdx - 1.D0) / size(pos,2)
-      pos(1,vdx) = xc(1) + 0.15D0 * dcos(angle)
-      pos(2,vdx) = xc(2) + 0.15D0 * dsin(angle)
+      angle = 2 * pi * (vdx - 1.D0) / size(pos,2) - pi
+      pos(1,count) = xc(1)
+      pos(2,count) = xc(2)
+      if (angle > pi/2 .or. angle < 0) then
+        pos(1,count) = pos(1,count) + pacmanRadius * dcos(angle)
+        pos(2,count) = pos(2,count) + pacmanRadius * dsin(angle)
+        count = count + 1
+        elseif (.not. midPointAdded) then
+        count = count + 1
+        midPointAdded = .true.
+      endif
     enddo
-    call init_from_pos(cell, pos)
+    call init_from_pos(cell, pos(:,1:count))
 
     ! Other than the initialisation, the rest is the same as before
     refMoments = cmpMoments(cell, exact_interface)
@@ -119,7 +132,7 @@ program reconstruction_demo
     errSD = cmpSymmDiff(cell, normal, shift, kappa0, exact_interface)
 
     write(*, '(A)') ''
-    write(*, '(A)') 'The PMOF method can reconstruct inside nonrectilinear cells as well, and'
+    write(*, '(A)') 'The PMOF method can reconstruct inside non-rectilinear (and non-convex) cells as well, and'
     write(*, '(A,1PD9.3,A,1PD9.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
     write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
       ' and (', errMoments(2), ', ', errMoments(3), '), respectively'
