@@ -9,6 +9,7 @@
 // useful macros
 #define NR_MONOMIALS 6
 #define dot(va, vb) (va.x*vb.x + va.y*vb.y)
+#define dot_rotate(va, vb) (va.y*vb.x - va.x*vb.y)
 #define dot_relative(va, vb, vr) ((va.x - vr.x)*vb.x + (va.y - vr.y)*vb.y)
 #define dot_relative_rotate(va, vb, vr) ((va.y - vr.y)*vb.x - (va.x - vr.x)*vb.y)
 #define wav(va, wa, vb, wb, vr) {			\
@@ -68,8 +69,8 @@ void r2d_clip_parabola_cmpMoments(r2d_poly* poly, r2d_parabola *parabola, r2d_re
 	for(v = 0; v < old_nverts; ++v) {
 		// NB this does no longer represent a distance (unless kapp0 = 0), but the
 		// sign still indicates on which side of the parabola we are on
-		tau = dot_relative_rotate(vertbuffer[v].pos, parabola->n, parabola->x0);
-		sdist = dot_relative(vertbuffer[v].pos, parabola->n, parabola->x0) + (parabola->kappa0 / 2.0) * tau * tau;
+		tau = dot_rotate(vertbuffer[v].pos, parabola->n);
+		sdist = dot(vertbuffer[v].pos, parabola->n) - parabola->shift + (parabola->kappa0 / 2.0) * tau * tau;
 		if(sdist >= 0.0) clipped[v] = 1;
 		// printf("v, clipped, sdist = %d, %d, %e\n", v, clipped[v], sdist);
 	}
@@ -207,7 +208,7 @@ void compute_moment_derivatives(r2d_parabola *parabola, r2d_vertex *vertbuffer, 
 	// TODO for efficiency we could compute the monomials_sum once and re-use it for
 	// computation of the moments
 	kappa0 = parabola->kappa0;
-	shift = dot(parabola->x0, parabola->n);
+	shift = parabola->shift;
 
 	for (int i = 0; i < NR_MONOMIALS; ++i){
 		monomials_sum[i] = 0.0;
@@ -218,8 +219,8 @@ void compute_moment_derivatives(r2d_parabola *parabola, r2d_vertex *vertbuffer, 
 		vnext = vertbuffer[vcur].pnbrs[0];
 
 		if (is_on_parabola[vcur] && is_on_parabola[vnext]) {
-			tau[0] = dot_relative_rotate(vertbuffer[vcur].pos, parabola->n, parabola->x0);
-			tau[1] = dot_relative_rotate(vertbuffer[vnext].pos, parabola->n, parabola->x0);
+			tau[0] = dot_rotate(vertbuffer[vcur].pos, parabola->n);
+			tau[1] = dot_rotate(vertbuffer[vnext].pos, parabola->n);
 
 			// each of the intergrals is over the total interface (which may be split into parts)
 			// hence we compute the integrals
@@ -272,13 +273,13 @@ void adjust_moments_for_parabola(r2d_parabola *parabola, r2d_rvec2 pos1, r2d_rve
 	r2d_real monomials[5];
 
 	kappa0 = parabola->kappa0;
-	tau[0] = dot_relative_rotate(pos1, parabola->n, parabola->x0);
-	tau[1] = dot_relative_rotate(pos2, parabola->n, parabola->x0);
+	tau[0] = dot_rotate(pos1, parabola->n);
+	tau[1] = dot_rotate(pos2, parabola->n);
 
 	if (tau[0] == tau[1]) return;
 
-	eta[0] = dot_relative(pos1, parabola->n, parabola->x0);
-	eta[1] = dot_relative(pos2, parabola->n, parabola->x0);
+	eta[0] = dot(pos1, parabola->n) - parabola->shift;
+	eta[1] = dot(pos2, parabola->n) - parabola->shift;
 
 	// in the local coordinates the polygon face is given by
 	// x_η = c_0 * x_τ + c_1
@@ -305,8 +306,8 @@ void adjust_moments_for_parabola(r2d_parabola *parabola, r2d_rvec2 pos1, r2d_rve
 	// printf("Parabola first moment correction = (%e, %e)\n", first_moment_correction[0], first_moment_correction[1]);
 
 	// transform the first moment correction back to global coordinates, and increment first moment
-	moments[1] += parabola->n.x * first_moment_correction[1] - parabola->n.y * first_moment_correction[0] + parabola->x0.x * volume_correction;
-	moments[2] += parabola->n.y * first_moment_correction[1] + parabola->n.x * first_moment_correction[0] + parabola->x0.y * volume_correction;
+	moments[1] += parabola->n.x * (first_moment_correction[1] + parabola->shift * volume_correction) - parabola->n.y * first_moment_correction[0];
+	moments[2] += parabola->n.y * (first_moment_correction[1] + parabola->shift * volume_correction) + parabola->n.x * first_moment_correction[0];
 }
 
 // Given a parabola and a line connecting the points pos1, pos2; find the intersection
@@ -317,8 +318,8 @@ r2d_int parabola_line_intersection(r2d_parabola *parabola, r2d_rvec2 pos1, r2d_r
 	// We parametrize the line as: l(t) = pos1 + t * (pos2 - pos1),
 	// and solve for t
 	coeff[0] = (parabola->kappa0/2) * pow(dot_relative_rotate(pos2, parabola->n, pos1), 2);
-	coeff[1] = parabola->kappa0 * dot_relative_rotate(pos1, parabola->n, parabola->x0) * dot_relative_rotate(pos2, parabola->n, pos1) + dot_relative(pos2, parabola->n, pos1);
-	coeff[2] = dot_relative(pos1, parabola->n, parabola->x0) + (parabola->kappa0/2) * pow(dot_relative_rotate(pos1, parabola->n, parabola->x0), 2);
+	coeff[1] = parabola->kappa0 * dot_rotate(pos1, parabola->n) * dot_relative_rotate(pos2, parabola->n, pos1) + dot_relative(pos2, parabola->n, pos1);
+	coeff[2] = dot(pos1, parabola->n) - parabola->shift + (parabola->kappa0/2) * pow(dot_rotate(pos1, parabola->n), 2);
 
 	real_roots(coeff, roots);
 

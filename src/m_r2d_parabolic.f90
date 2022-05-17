@@ -5,7 +5,7 @@ module m_r2d_parabolic
 
   type, bind(C) :: r2d_parabola_f
     type(r2d_rvec2_f)     :: n
-    type(r2d_rvec2_f)     :: x0
+    real(c_double)        :: shift
     real(c_double)        :: kappa0
   end type
 
@@ -38,20 +38,9 @@ module m_r2d_parabolic
   end interface
 
   interface makeParabola
-    module procedure makeParabola_x0, makeParabola_shift, makeParabola_angle
+    module procedure makeParabola_shift, makeParabola_angle
   end interface
 contains
-
-  function makeParabola_x0(normal, kappa0, x0) result(parabola)
-    implicit none
-    
-    real*8, intent(in)    :: normal(2), kappa0, x0(2)
-    type(r2d_parabola_f)  :: parabola
-
-    parabola%n%xyz = normal
-    parabola%kappa0 = kappa0
-    parabola%x0%xyz = x0
-  end function
 
   function makeParabola_shift(normal, kappa0, shift) result(parabola)
     implicit none
@@ -59,7 +48,9 @@ contains
     real*8, intent(in)    :: normal(2), kappa0, shift
     type(r2d_parabola_f)  :: parabola
 
-    parabola = makeParabola_x0(normal, kappa0, shift * normal)
+    parabola%n%xyz = normal
+    parabola%kappa0 = kappa0
+    parabola%shift = shift
   end function
 
   function makeParabola_angle(angle, kappa0, shift) result(parabola)
@@ -71,7 +62,7 @@ contains
     real*8                :: normal(2)
 
     normal = [dcos(angle), dsin(angle)]
-    parabola = makeParabola_x0(normal, kappa0, shift * normal)
+    parabola = makeParabola_shift(normal, kappa0, shift)
   end function
 
   ! Removes the part of poly for which 
@@ -85,6 +76,7 @@ contains
   !                         intersection volume)
   ! poly                  Polygon which is to be intersected
   ! parabola              The parabola
+  ! x0                    The position relative to which the parabola is defined (0 by default)
   ! derivative            The derivatives of the zeroth and first moments (optional):  
   !                         derivative(1)   = d M_0/ d \varphi
   !                         derivative(2:3) = d M_1/ d \varphi
@@ -93,30 +85,32 @@ contains
   !                         If initially NaN, then this gradient is computed such that d M_0/ d \varphi = 0
   !                         If not, then it is assumed that the gradient of the shift s is given by grad_s
   !                         (This only affects the computation of the gradient)
-  function cmpMoments_parabola_poly(poly, parabola, derivative, grad_s) result(moments01)
+  function cmpMoments_parabola_poly(poly, parabola, x0, derivative, grad_s) result(moments01)
     use m_common
 
     implicit none
 
     type(r2d_poly_f), intent(in) :: poly
     type(r2d_parabola_f), intent(in) :: parabola
+    real*8, intent(in), optional :: x0(2)
     real*8, intent(inout), optional :: derivative(4), grad_s(2)
     real*8                :: moments01(3)
 
     type(r2d_poly_f)      :: poly_
 
     poly_ = copy(poly)
-    moments01 = cmpMoments_parabola_poly_(poly_, parabola, derivative, grad_s)
+    moments01 = cmpMoments_parabola_poly_(poly_, parabola, x0, derivative, grad_s)
   end function
 
   ! This one modifies poly itself!
-  function cmpMoments_parabola_poly_(poly, parabola, derivative, grad_s) result(moments01)
+  function cmpMoments_parabola_poly_(poly, parabola, x0, derivative, grad_s) result(moments01)
     use m_common
 
     implicit none
 
     type(r2d_poly_f), intent(inout) :: poly
     type(r2d_parabola_f), intent(in) :: parabola
+    real*8, intent(in), optional :: x0(2)
     real*8, intent(inout), optional :: derivative(4), grad_s(2)
     real*8                :: moments01(3)
 
@@ -127,12 +121,19 @@ contains
     logical*1             :: compute_derivative_
     integer               :: vdx
 
+    if (present(x0)) then
+      ! The parabola is assumed to be relative to 0, so we shift the polygon instead if x0/=0
+      do vdx=1,poly%nverts
+        poly%verts(vdx)%pos%xyz = poly%verts(vdx)%pos%xyz - x0
+      enddo
+    endif
+
     
     ! The algorithm is implemented for kappa0 <= 0, so we must compute the moments of the complement
     ! (for which the sign of the curvature is swapped) if kappa0 > 0
     if (parabola%kappa0 > 0) then
       parabolas(1)%n%xyz = -parabola%n%xyz
-      parabolas(1)%x0 = parabola%x0
+      parabolas(1)%shift = -parabola%shift
       parabolas(1)%kappa0 = -parabola%kappa0
       moments01_poly = cmpMoments(poly)
     else
@@ -155,6 +156,13 @@ contains
     if (present(grad_s)) then 
       grad_s = grad_s_
       if (parabola%kappa0 > 0) grad_s(1) = -grad_s(1)
+    endif
+
+    if (present(x0)) then
+      moments01(2:3) = moments01(2:3) + x0 * moments01(1)
+      if (present(derivative)) then
+        derivative(2:3) = derivative(2:3) + x0 * derivative(1)
+      endif
     endif
   end function
 

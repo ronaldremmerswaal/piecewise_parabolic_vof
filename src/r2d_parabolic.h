@@ -6,11 +6,11 @@
 
 
 /** \struct r2d_parabola
- *  \brief A parabola: n ⋅ (x - x0) + (kappa0/2) * (t ⋅ (x - x0))^2 = 0.
+ *  \brief A parabola: n ⋅ x - shift + (kappa0/2) * (t ⋅ x)^2 = 0.
  */
 typedef struct {
 	r2d_rvec2 n; /*!< Unit-length normal vector. */
-	r2d_rvec2 x0; /*!< Position relative to which the parabola is dedfined (usualla x0 = shift * normal) */
+	r2d_real shift; /*!< The shift */
 	r2d_real kappa0;
 } r2d_parabola;
 

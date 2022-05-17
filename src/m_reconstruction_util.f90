@@ -189,16 +189,7 @@ contains
     real*8, intent(inout), optional :: derivative(4), grad_s(2)
     real*8                :: moments(3)
 
-    ! Local variables
-    type(r2d_parabola_f)  :: parabola_
-    real*8                :: bounds
-
-    parabola_ = parabola
-    if (present(x0)) then
-      parabola_%x0%xyz = parabola_%x0%xyz + x0
-    endif
-
-    moments = cmpMoments(makeBox_bounds([-dx/2.0, dx/2.0]), parabola_, derivative, grad_s)
+    moments = cmpMoments(makeBox_bounds([-dx/2.0, dx/2.0]), parabola, x0, derivative, grad_s)
   end function
 
   real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments) result(shift)
@@ -309,8 +300,8 @@ contains
     exact_liq = polyApprox(x, dx, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
-    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, x + normal * shift))
-    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, x + normal * shift))
+    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, shift), x0=x)
+    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, -shift), x0=x)
     sd = sd_1(1) + sd_2(1)
   end
 
@@ -357,8 +348,8 @@ contains
     exact_liq = polyApprox(cell, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
-    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, normal * shift))
-    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, normal * shift))
+    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, shift))
+    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, -shift))
     sd = sd_1(1) + sd_2(1)
   end
 

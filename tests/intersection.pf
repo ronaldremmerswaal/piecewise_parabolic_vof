@@ -122,9 +122,6 @@ contains
 
     dx = 1.0D0
 
-    pos(1,1:4) = [0.0D0, dx(1), dx(1), 0.0D0] - dx(1)/2
-    pos(2,1:4) = [0.0D0, 0.0D0, dx(2), dx(2)] - dx(2)/2
-
     ! Verify exactness for simple examples (which contain some interesting edge cases)
     angle = 2 * datan(1.0D0)
     normal = [dcos(angle), dsin(angle)]
@@ -138,8 +135,7 @@ contains
       ! Ensure that |s - κ/8| < 1/2
       kappa0 = -4.0D0 + 8 * (shift + (kdx - 1.D0) / (NR_KAPPA - 1.D0))
 
-      call init_from_pos(poly, pos)
-      moments01_para = cmpMoments(poly, makeParabola(normal, kappa0, shift))
+      moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
 
       moments01_exact(1) = 0.5D0 + shift - kappa0 / 24
       moments01_exact(2) = 0.0D0
@@ -153,8 +149,7 @@ contains
     ! #1
     shift = 0.75D0
     kappa0 = 40.0D0
-    call init_from_pos(poly, pos)
-    moments01_para = cmpMoments(poly, makeParabola(normal, kappa0, shift))
+    moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
 
     xStar = dsqrt(2 * (shift + dx(2)/2)/kappa0)
     moments01_exact(1) = 2 * ((dx(2)/2 + shift) * xStar - (kappa0/6) * xStar**3)
@@ -168,8 +163,7 @@ contains
     normal = -normal
     shift = -shift
     kappa0 = -kappa0
-    call init_from_pos(poly, pos)
-    moments01_para = cmpMoments(poly, makeParabola(normal, kappa0, shift))
+    moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
 
     moments01_exact(1) = 1.0D0 - moments01_exact(1)
     @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
@@ -179,8 +173,7 @@ contains
     angle = datan(1.0D0)
     normal = [dcos(angle), dsin(angle)]
     kappa0 = 4.D0 / dsqrt(2.0D0)
-    call init_from_pos(poly, pos)
-    moments01_para = cmpMoments(poly, makeParabola(normal, kappa0, shift))
+    moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
 
     A = 1.D0
     B = dsqrt(8.0D0) / kappa0 + dx(1)
@@ -196,13 +189,14 @@ contains
     normal = -normal
     shift = -shift
     kappa0 = -kappa0
-    call init_from_pos(poly, pos)
-    moments01_para = cmpMoments(poly, makeParabola(normal, kappa0, shift))
+    moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
 
     moments01_exact(1) = 1.0 - moments01_exact(1)
     @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
 
     ! Split the box and intersect its parts
+    pos(1,1:4) = [0.0D0, dx(1), dx(1), 0.0D0] - dx(1)/2
+    pos(2,1:4) = [0.0D0, 0.0D0, dx(2), dx(2)] - dx(2)/2
     call init_from_pos(polys1(1), pos)
     call split_by_plane(polys1, [2.0D0, 1.0D0] / dsqrt(5.D0), 0.1D0, polys2(1:1), polys2(2:2))
     call split_by_plane(polys2, [-1.0D0, 3.0D0] / dsqrt(10.D0), -0.1D0, polys4(1:2), polys4(3:4))
@@ -246,7 +240,7 @@ contains
 
 
     call init_from_pos(poly, pos)
-    moments01_para = cmpMoments(poly, makeParabola(normal, kappa0, normal * shift + x0))
+    moments01_para = cmpMoments(poly, makeParabola(normal, kappa0, shift), x0=x0)
 
     @assertEqual(moments01_para, moments01_exact, TOLERANCE)
 

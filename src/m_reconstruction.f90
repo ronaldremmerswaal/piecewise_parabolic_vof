@@ -115,6 +115,7 @@ contains
       kappa0_ = X(2) / lengthScale
 
       err = lvira_error(refVolumes, angle_, kappa0_, dxs, derivatives=grad)
+      grad(2) = grad(2) / lengthScale
     end function
   end function
 

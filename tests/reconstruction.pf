@@ -198,6 +198,11 @@ contains
         ! Make sure the initial guess is bad
         recKappa0 = kappa0 + 1.
         recNormal = prostNormal(refVolumes, recKappa0, dxs, errTol=TOLERANCE, verbose=.true.)
+
+        print*, '      frac = ', refMoments(1) / product(dxs(0,:))
+        print*, ' kappa/rec = ', kappa0, recKappa0
+        print*, ' angle/rec = ', angle, datan2(recNormal(2), recNormal(1))
+
         @assertEqual(normal, recNormal, TOLERANCE)
         @assertEqual(kappa0, recKappa0, TOLERANCE)
         
