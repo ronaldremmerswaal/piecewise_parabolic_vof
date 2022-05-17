@@ -134,17 +134,9 @@ contains
       enddo
       
       if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
-        recNormal = plviraNormal(refVolumes, kappa0, dxs, errTol=TOLERANCE/10, verbose=.true.)
-
-        print*, '     angle = ', angle
-        print*, '     shift = ', shift
-        print*, '    kappa0 = ', kappa0
-        do j=1,-1,-1
-          print*, '             ', [refVolumes(-1,j)/dxs(-1,1), refVolumes(0,j)/dxs(0,1), refVolumes(1,j)/dxs(1,1)]/dxs(j,2)
-        enddo
+        recNormal = plviraNormal(refVolumes, kappa0, dxs, errTol=TOLERANCE/10, verbose=.false.)
 
         @assertEqual(normal, recNormal, TOLERANCE)
-        return
       endif
     enddo
     enddo
