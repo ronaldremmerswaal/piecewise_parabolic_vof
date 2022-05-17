@@ -54,7 +54,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dx(2)
-    real*8                :: refMoments(3), recNormal(2), pi
+    real*8                :: refMoments(3), recMoments(3), recNormal(2), pi, recShift
     integer               :: adx, sdx, kdx
 
     integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
@@ -78,10 +78,10 @@ contains
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
         recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false.)
-
-        ! NOTE: it seems that PMOF does not always yield a unique solution
-        !       and therefore this test fails 
         @assertEqual(normal, recNormal, TOLERANCE)
+
+        recShift = cmpShift(recNormal, dx, refMoments(1), kappa0, moments=recMoments)
+        @assertEqual(refMoments, recMoments, TOLERANCE * product(dx))
       endif
     enddo
     enddo
@@ -98,7 +98,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dxs(-1:1,2)
-    real*8                :: refVolumes(-1:1,-1:1), recNormal(2), pi, refMoments(3)
+    real*8                :: refVolumes(-1:1,-1:1), recNormal(2), pi, refMoments(3), recShift
     real*8                :: xc_neighbour(2), dx_neighbour(2)
     integer               :: adx, sdx, kdx, i, j
 
@@ -137,8 +137,10 @@ contains
       
       if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
         recNormal = plviraNormal(refVolumes, kappa0, dxs, errTol=TOLERANCE/10, verbose=.false.)
-
         @assertEqual(normal, recNormal, TOLERANCE)
+        
+        recShift = cmpShift(recNormal, dxs(0,:), refVolumes(0,0), kappa0)
+        @assertEqual(shift, recShift, TOLERANCE)
       endif
     enddo
     enddo

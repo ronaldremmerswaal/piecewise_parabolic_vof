@@ -139,27 +139,19 @@ contains
 
     ! Local variables:
     real*8                :: cost_fun_scaling, centNorm, mofAngle, tmp(1)
-    real*8                :: refMoments_(3), cellVol, mofMoments_(3), errTol_
-    logical               :: largerThanHalf, verbose_
+    real*8                :: cellVol, mofMoments_(3), errTol_
+    logical               :: verbose_
 
     verbose_ = merge(verbose, .false., present(verbose))
     errTol_ = merge(errTol, 1D-8, present(errTol))
 
     cellVol = product(dx)
-    largerThanHalf = refMoments(1) > cellVol/2
-    if (.not. largerThanHalf) then
-      refMoments_ = refMoments
-    else
-      refMoments_(1) = cellVol - refMoments(1)
-      refMoments_(2:3) = -refMoments(2:3)
-    endif
-
     cost_fun_scaling = cellVol**1.5D0
 
     ! Initial guess based on the reference centroid
-    centNorm = norm2(refMoments_(2:3))
+    centNorm = norm2(refMoments(2:3))
     if (centNorm > 0.0) then
-      mofAngle = datan2(-refMoments_(3), -refMoments_(2))
+      mofAngle = datan2(-refMoments(3), -refMoments(2))
     else
       mofAngle = 0
     endif
@@ -167,10 +159,6 @@ contains
     mofAngle =  brent_min(cost, dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
 
     normal = [dcos(mofAngle), dsin(mofAngle)]
-    if (largerThanHalf) then
-      normal = -normal
-    endif
-
   contains 
 
     real*8 function cost(angle) result(err)
@@ -180,14 +168,14 @@ contains
       real*8, intent(in)    :: angle
       
       ! Local variables
-      real*8                :: normal(2), shift, difference(2)
+      real*8                :: normal_(2), shift, difference(2)
 
-      normal = [dcos(angle), dsin(angle)]
-      shift = cmpShift(normal, dx, refMoments_(1), kappa0, moments=mofMoments_)
+      normal_ = [dcos(angle), dsin(angle)]
+      shift = cmpShift(normal_, dx, refMoments(1), kappa0, moments=mofMoments_)
 
-      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
+      difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
 
-      err = norm2(difference)**2
+      err = sum(difference**2)
     end function
 
     real*8 function dcost(angle) result(derr)
@@ -199,18 +187,18 @@ contains
       real*8, intent(in)  :: angle
 
       ! Local variables:
-      real*8              :: difference(2), derivative(4), normal(2), shift, err
+      real*8              :: difference(2), derivative(4), normal_(2), shift, err
 
-      normal = [dcos(angle), dsin(angle)]
+      normal_ = [dcos(angle), dsin(angle)]
 
-      shift = cmpShift(normal, dx, refMoments_(1), kappa0)
+      shift = cmpShift(normal_, dx, refMoments(1), kappa0)
       
-      mofMoments_ = cmpMoments(dx, makeParabola(normal, kappa0, shift), derivative=derivative)
+      mofMoments_ = cmpMoments(dx, makeParabola(normal_, kappa0, shift), derivative=derivative)
       
-      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
+      difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative(2:3) = derivative(2:3) / cost_fun_scaling
       
-      err = norm2(difference)**2
+      err = sum(difference**2)
       derr = dot_product(derivative(2:3), difference)*2
     end function
 
@@ -231,27 +219,19 @@ contains
 
     ! Local variables:
     real*8                :: cost_fun_scaling, centNorm, mofAngle, tmp(1)
-    real*8                :: refMoments_(3), cellMoments(3), mofMoments_(3), errTol_
+    real*8                :: cellMoments(3), mofMoments_(3), errTol_
     logical               :: largerThanHalf, verbose_
 
     verbose_ = merge(verbose, .false., present(verbose))
     errTol_ = merge(errTol, 1D-8, present(errTol))
 
     cellMoments = cmpMoments(cell)
-    largerThanHalf = refMoments(1) > cellMoments(1)/2
-    if (.not. largerThanHalf) then
-      refMoments_ = refMoments
-    else
-      refMoments_(1) = cellMoments(1) - refMoments(1)
-      refMoments_(2:3) = -refMoments(2:3)
-    endif
-
     cost_fun_scaling = cellMoments(1)**1.5D0
 
     ! Initial guess based on the reference centroid
-    centNorm = norm2(refMoments_(2:3))
+    centNorm = norm2(refMoments(2:3))
     if (centNorm > 0.0) then
-      mofAngle = datan2(-refMoments_(3), -refMoments_(2))
+      mofAngle = datan2(-refMoments(3), -refMoments(2))
     else
       mofAngle = 0
     endif
@@ -259,9 +239,6 @@ contains
     mofAngle =  brent_min(cost, dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
 
     normal = [dcos(mofAngle), dsin(mofAngle)]
-    if (largerThanHalf) then
-      normal = -normal
-    endif
 
   contains 
 
@@ -272,14 +249,14 @@ contains
       real*8, intent(in)    :: angle
       
       ! Local variables
-      real*8                :: normal(2), shift, difference(2)
+      real*8                :: normal_(2), shift, difference(2)
 
-      normal = [dcos(angle), dsin(angle)]
-      shift = cmpShift(normal, cell, refMoments_(1), kappa0, moments=mofMoments_)
+      normal_ = [dcos(angle), dsin(angle)]
+      shift = cmpShift(normal_, cell, refMoments(1), kappa0, moments=mofMoments_)
 
-      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
+      difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
 
-      err = norm2(difference)**2
+      err = sum(difference**2)
     end function
 
     real*8 function dcost(angle) result(derr)
@@ -291,18 +268,18 @@ contains
       real*8, intent(in)  :: angle
 
       ! Local variables:
-      real*8              :: difference(2), derivative(4), normal(2), shift, err
+      real*8              :: difference(2), derivative(4), normal_(2), shift, err
 
-      normal = [dcos(angle), dsin(angle)]
+      normal_ = [dcos(angle), dsin(angle)]
 
-      shift = cmpShift(normal, cell, refMoments_(1), kappa0)
+      shift = cmpShift(normal_, cell, refMoments(1), kappa0)
       
-      mofMoments_ = cmpMoments(cell, makeParabola(normal, kappa0, shift), derivative=derivative)
+      mofMoments_ = cmpMoments(cell, makeParabola(normal_, kappa0, shift), derivative=derivative)
       
-      difference = (mofMoments_(2:3) - refMoments_(2:3)) / cost_fun_scaling
+      difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative(2:3) = derivative(2:3) / cost_fun_scaling
       
-      err = norm2(difference)**2
+      err = sum(difference**2)
       derr = dot_product(derivative(2:3), difference)*2
     end function
 

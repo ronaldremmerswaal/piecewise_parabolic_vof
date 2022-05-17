@@ -124,10 +124,6 @@ program reconstruction_demo
     write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
       ' and (', errMoments(2), ', ', errMoments(3), '), respectively'
     write(*, '(A,1PD9.3)') '... whereas the area of the symmetric difference is given by ', errSD(1)
-
-    ! Note that both methods conserve volume, but PMOF yields a better approximation;
-    ! both in terms of the error of the first moment (or centroid) as well as the area
-    ! of the symmetric difference
   end subroutine
 
 
