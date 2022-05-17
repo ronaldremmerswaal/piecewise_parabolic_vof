@@ -1,7 +1,7 @@
 module m_reconstruction
 
   private
-  public :: mofNormal, pmofNormal, plviraNormal
+  public :: mofNormal, pmofNormal, plviraNormal, prostNormal
 
   interface pmofNormal
     module procedure pmofNormal_poly, pmofNormal_rect
@@ -50,6 +50,71 @@ contains
 
       err = lvira_error(refVolumes, angle, kappa0, dxs, derivatives)
       derr = derivatives(1)
+    end function
+  end function
+
+  function prostNormal(refVolumes, kappa0, dxs, verbose, errTol) result(normal)
+    use m_optimization
+    use m_reconstruction_util
+
+    implicit none
+
+    real*8, intent(in)    :: refVolumes(-1:1,-1:1), dxs(-1:1,2)
+    logical, intent(in), optional :: verbose
+    real*8, intent(in), optional :: errTol
+    real*8, intent(inout) :: kappa0
+    real*8                :: normal(2)
+
+        ! Local variables:
+    real*8                :: prostAngle, XSOL(2), lengthScale
+    logical               :: verbose_
+    type(optimOpts)       :: opts = optimOpts(maxFEval=100)
+    type(lsOpts)          :: ls = lsOpts(decreaseCondition=1E-3)
+    type(optimInfo)       :: info
+
+    opts%verbose = merge(verbose, .false., present(verbose))
+    opts%errTol = merge(errTol, 1D-8, present(errTol))
+
+    prostAngle = lvira_angle_guess(refVolumes, dxs)
+    lengthScale = norm2(dxs(0,:))
+    XSOL = [prostAngle, lengthScale * kappa0]
+
+    call optimize(XSOL, cost, opts, info, ls_opts=ls, fun_and_grad=cost_and_grad)
+    prostAngle = XSOL(1)
+    kappa0 = XSOL(2) / lengthScale
+
+    normal = [dcos(prostAngle), dsin(prostAngle)]
+
+  contains
+    real*8 function cost(X) result(err)
+
+      implicit none
+
+      real*8, intent(in)  :: X(2)
+
+      ! Local variables
+      real*8              :: angle_, kappa0_
+
+      angle_ = X(1)
+      kappa0_ = X(2) / lengthScale
+
+      err = lvira_error(refVolumes, angle_, kappa0_, dxs)
+    end function
+
+    real*8 function cost_and_grad(grad, X) result(err)
+
+      implicit none
+
+      real*8, intent(out) :: grad(2)
+      real*8, intent(in)  :: X(2)
+
+      ! Local variables
+      real*8              :: angle_, kappa0_
+
+      angle_ = X(1)
+      kappa0_ = X(2) / lengthScale
+
+      err = lvira_error(refVolumes, angle_, kappa0_, dxs, derivatives=grad)
     end function
   end function
 

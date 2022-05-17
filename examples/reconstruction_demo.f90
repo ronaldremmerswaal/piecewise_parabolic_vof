@@ -116,7 +116,7 @@ program reconstruction_demo
         pos(1,count) = pos(1,count) + pacmanRadius * dcos(angle)
         pos(2,count) = pos(2,count) + pacmanRadius * dsin(angle)
         count = count + 1
-        elseif (.not. midPointAdded) then
+      elseif (.not. midPointAdded) then
         count = count + 1
         midPointAdded = .true.
       endif
@@ -141,9 +141,9 @@ program reconstruction_demo
 
 
   real*8 function exact_interface(x) result(ans)
-  implicit none
+    implicit none
 
-  real*8, intent(in)    :: x(2)
+    real*8, intent(in)    :: x(2)
 
     ! The exact interface is defined as the unit circle
     ans = norm2(x) - 1.0

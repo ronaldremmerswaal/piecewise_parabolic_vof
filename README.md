@@ -6,7 +6,6 @@ Implementation of the intersection algorithm described in https://arxiv.org/abs/
 ## TODO
 - Make tests
   - PPIC reconstruction
-    - Exact reconstruction: (n, s, (kappa) -[intersection]> moments -> [reconstruction] n, s, (kappa))
     - Approximate reconstruction: validation using symmetric difference with exact domain
     - Timing (compare to PLIC)
-- Include reconstruction functions: PLVIRA, PROST, LVIRA
+- Include reconstruction functions: LVIRA
