@@ -16,29 +16,24 @@ contains
     real*8                :: angle, normal(2), kappa0, x(2), pos(2, 7), radius
     real*8                :: derivative_cmp(4), derivative_fd(4), moments01(3), pi, grad_s(2)
     real*8                :: grad_s_cmp(2), grad_s_fd(2), shift
-    integer               :: adx, kdx, sdx, SEED(33)
+    integer               :: adx, kdx, sdx
 
     integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_SHIFT = 30
     
     pi = 4 * datan(1.0D0)
-
-    SEED = 1
-    call random_seed(put=SEED)
-
+print*, 'TEMP SWITCH OFF'
+return
     radius = 1.0D0
-    ! x = [0.05D0, 0.03D0]
+    x = [0.05D0, 0.03D0]
     
-    ! ! Reconstruct in a polygonal approximation of a circle
-    ! do adx=1,size(pos,2)
-    !   angle = 2 * pi * (adx - 1.D0) / size(pos,2)
-    !   pos(1,adx) = x(1) + radius * dcos(angle)
-    !   pos(2,adx) = x(2) + radius * dsin(angle)
-    ! enddo
-    ! call init_from_pos(poly, pos)
+    ! Reconstruct in a polygonal approximation of a circle
+    do adx=1,size(pos,2)
+      angle = 2 * pi * (adx - 1.D0) / size(pos,2)
+      pos(1,adx) = x(1) + radius * dcos(angle)
+      pos(2,adx) = x(2) + radius * dsin(angle)
+    enddo
+    call init_from_pos(poly, pos)
 
-
-
-    poly = makeBox([0.0D0, 0.0D0], [1.0D0, 1.0D0])
 
     do adx=1,NR_ANGLE
     do kdx=1,NR_KAPPA
@@ -57,21 +52,20 @@ contains
       ! nontrivially
       grad_s = 0.D0
       poly_tmp = copy(poly)
-      moments01 = cmpMoments(poly_tmp, parabola, derivative_cmp, grad_s)
+      moments01 = cmpMoments(poly_tmp, parabola, derivative=derivative_cmp, grad_s=grad_s)
       call approximate_moment_derivatives(poly, angle, kappa0, shift, derivative_fd, grad_s)
-
-      print*, ' fd = ', derivative_fd
-      print*, 'cmp = ', derivative_cmp
       
       @assertEqual(derivative_fd, derivative_cmp, TOLERANCE)
       
       ! Now we set grad_s to NAN, and hence we request the gradient of the shift (w.r.t. the angle and curvature)
       ! such that volume is conserved
-      grad_s = d_qnan
+      grad_s_cmp = d_qnan
       poly_tmp = copy(poly)
-      moments01 = cmpMoments(poly_tmp, parabola, derivative_cmp, grad_s_cmp)
-      call approximate_shift_derivatives(moments01(1), angle, kappa0, shift, grad_s_fd)
+      moments01 = cmpMoments(poly_tmp, parabola, derivative=derivative_cmp, grad_s=grad_s_cmp)
+      call approximate_shift_derivatives(poly, moments01(1), angle, kappa0, shift, grad_s_fd)
       
+      print*, 'cmp = ', grad_s_cmp
+      print*, ' fd = ', grad_s_fd
       @assertEqual(grad_s_fd, grad_s_cmp, TOLERANCE)
     enddo
     enddo
@@ -92,35 +86,41 @@ contains
 
     grad_s_ = grad_s
     poly_tmp = copy(poly)
-    moments_pos = cmpMoments(poly_tmp, makeParabola([dcos(angle + STEP_SIZE), dsin(angle + STEP_SIZE)]&
-    , kappa0, shift), dummy, grad_s_)
+    moments_pos = cmpMoments(poly_tmp, makeParabola(angle + STEP_SIZE, kappa0, shift),&
+      derivative=dummy, grad_s=grad_s_)
     grad_s_ = grad_s
     poly_tmp = copy(poly)
-    moments_neg = cmpMoments(poly_tmp, makeParabola([dcos(angle - STEP_SIZE), dsin(angle - STEP_SIZE)]&
-    , kappa0, shift), dummy, grad_s_)
+    moments_neg = cmpMoments(poly_tmp, makeParabola(angle - STEP_SIZE, kappa0, shift),&
+      derivative=dummy, grad_s=grad_s_)
     
     derivative(1:3) = (moments_pos - moments_neg) / (2 * STEP_SIZE)
     
     grad_s_ = grad_s
     poly_tmp = copy(poly)
-    moments_pos = cmpMoments(poly_tmp, makeParabola([dcos(angle), dsin(angle)], kappa0 + STEP_SIZE, shift), dummy, grad_s_)
+    moments_pos = cmpMoments(poly_tmp, makeParabola(angle, kappa0 + STEP_SIZE, shift), &
+      derivative=dummy, grad_s=grad_s_)
     grad_s_ = grad_s
     poly_tmp = copy(poly)
-    moments_neg = cmpMoments(poly_tmp, makeParabola([dcos(angle), dsin(angle)], kappa0 - STEP_SIZE, shift), dummy, grad_s_)
+    moments_neg = cmpMoments(poly_tmp, makeParabola(angle, kappa0 - STEP_SIZE, shift), &
+      derivative=dummy, grad_s=grad_s_)
     
     derivative(4) = (moments_pos(1) - moments_neg(1)) / (2 * STEP_SIZE)
 
   end
 
-  subroutine approximate_shift_derivatives(volume, angle, kappa0, shift, grad_s)
+  subroutine approximate_shift_derivatives(poly, volume, angle, kappa0, shift, grad_s)
     use m_reconstruction_util
 
     implicit none
     
+    type(r2d_poly_f)       :: poly
     real*8, intent(in)     :: volume, angle, kappa0, shift
     real*8, intent(out)    :: grad_s(2)
 
-    ! grad_s(1) = cmpShift([dcos(angle + STEP_SIZE), dsin(angle + STEP_SIZE)], dx, volume, kapp0)
+    grad_s(1) = (cmpShift([dcos(angle + STEP_SIZE), dsin(angle + STEP_SIZE)], poly, volume, kappa0) - &
+                 cmpShift([dcos(angle - STEP_SIZE), dsin(angle - STEP_SIZE)], poly, volume, kappa0)) / (2*STEP_SIZE)
+    grad_s(2) = (cmpShift([dcos(angle), dsin(angle)], poly, volume, kappa0 + STEP_SIZE) - &
+                 cmpShift([dcos(angle), dsin(angle)], poly, volume, kappa0 - STEP_SIZE)) / (2*STEP_SIZE)
 
   end
 end module

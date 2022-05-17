@@ -207,10 +207,72 @@ contains
         else
           @assertEqual(shift, shift_recomputed, TOLERANCE)
         endif
-
+        
         moments01_recomputed = cmpMoments(dx, makeParabola(normal, kappa0, shift_recomputed))
         @assertEqual(moments01, moments01_recomputed, TOLERANCE)
       enddo
+    enddo
+    enddo
+
+  end subroutine
+
+  @Test
+  subroutine test_shift_volume_consistency_nonrect()
+    use m_reconstruction_util
+    use m_r2d_parabolic
+
+    implicit none
+    
+    type(r2d_poly_f)      :: cell, cell_tmp
+    real*8                :: angle, normal(2), kappa0, shift, shift_recomputed
+    real*8                :: x(2), pos(2, 7), radius, cellMoments(3)
+    real*8                :: moments01(3), moments01_recomputed(3), pi
+    integer               :: adx, kdx, sdx
+
+    integer, parameter    :: NR_ANGLE = 30, NR_KAPPA = 30, NR_SHIFT = 30
+
+    pi = 4 * datan(1.0D0)
+
+    radius = 1.0D0
+    x = [0.05D0, 0.03D0]
+
+    ! Reconstruct in a polygonal approximation of a circle
+    do adx=1,size(pos,2)
+      angle = 2 * pi * (adx - 1.D0) / size(pos,2)
+      pos(1,adx) = x(1) + radius * dcos(angle)
+      pos(2,adx) = x(2) + radius * dsin(angle)
+    enddo
+    call init_from_pos(cell, pos)
+
+    cellMoments = cmpMoments(cell)
+
+    do adx=1,NR_ANGLE
+    do sdx=1,NR_SHIFT
+    do kdx=1,NR_KAPPA
+      angle = 2 * pi * (adx - 1.D0) / NR_ANGLE
+      normal = [dcos(angle), dsin(angle)]
+      
+      shift = (radius/2) * (-1.D0 + 2 * (sdx - 1.D0) / (NR_SHIFT - 1.D0))
+      
+      kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
+
+      cell_tmp = copy(cell)
+      moments01 = cmpMoments(cell_tmp, makeParabola(normal, kappa0, shift))
+      shift_recomputed = cmpShift(normal, cell, moments01(1), kappa0, moments=moments01_recomputed)
+      @assertEqual(moments01, moments01_recomputed, TOLERANCE)
+
+      if (moments01(1) < TOLERANCE) then
+        
+      elseif (cellMoments(1) - moments01(1) < TOLERANCE) then
+        
+      else
+        @assertEqual(shift, shift_recomputed, TOLERANCE)
+      endif
+
+      cell_tmp = copy(cell)
+      moments01_recomputed = cmpMoments(cell_tmp, makeParabola(normal, kappa0, shift_recomputed))
+      @assertEqual(moments01, moments01_recomputed, TOLERANCE)
+    enddo
     enddo
     enddo
 

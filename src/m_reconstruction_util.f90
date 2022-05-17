@@ -192,13 +192,14 @@ contains
     ! Local variables
     type(r2d_poly_f)      :: liquid
     type(r2d_parabola_f)  :: parabola_
+    real*8                :: bounds
 
     parabola_ = parabola
     if (present(x0)) then
       parabola_%x0%xyz = parabola_%x0%xyz + x0
     endif
 
-    call init_box(liquid, [-dx/2.0, dx/2.0])
+    liquid = makeBox_bounds([-dx/2.0, dx/2.0])
     moments = cmpMoments(liquid, parabola_, derivative, grad_s)
   end function
 
@@ -214,24 +215,34 @@ contains
 
     ! Local variables
     type(r2d_poly_f)      :: cell
-    real*8                :: moments_(3), max_shift_plane, cellVol, shift_plane, plane_err
-    real*8                :: shift_l, shift_r, err_l, err_r, normal3(3), dx3(3)
+    real*8                :: moments_(3), cellVol, shift_plane, plane_err
+    real*8                :: max_shift_plane_eta, max_shift_plane_tau
+    real*8                :: shift_l, shift_r, err_l, err_r
     real*8                :: relTol_
 
-    max_shift_plane = dot_product(abs(normal), dx)/2
+    max_shift_plane_eta = dot_product(abs(normal), dx)/2
+    max_shift_plane_tau = dot_product(abs([normal(2), normal(1)]), dx)/2
 
     cellVol = product(dx)
-    if (liqVol <= 0.0) then
-      shift = -100 * max_shift_plane
+    if (liqVol <= 0) then
+      if (kappa0 > 0) then
+        shift = -max_shift_plane_eta
+      else
+        shift = kappa0 * max_shift_plane_tau**2 / 2. - max_shift_plane_eta
+      endif
       if (present(moments)) moments = 0.0D0
       return
     elseif (liqVol >= cellVol) then
-      shift = 100 * max_shift_plane
+      if (kappa0 > 0) then
+        shift = kappa0 * max_shift_plane_tau**2 / 2. + max_shift_plane_eta
+      else
+        shift = max_shift_plane_eta
+      endif
       if (present(moments)) moments = [cellVol, 0.0D0, 0.0D0]
       return
     endif
 
-    call init_box(cell, [-dx/2.0, dx/2.0])
+    cell = makeBox_bounds([-dx/2.0, dx/2.0])
 
     ! Use PLIC to get a good initial bracket (one side at least)
     shift_plane = cmpShift2d_plane(normal, dx, liqVol)
@@ -243,25 +254,27 @@ contains
       shift = shift_plane
       if (present(moments)) moments = moments_
       return
-    elseif (plane_err > 0.0) then
+    endif
+
+    if (plane_err > 0.0) then
       ! iff kappa0 < 0.0
       shift_r = shift_plane
       err_r = plane_err
 
-      shift_l = max_shift_plane * (kappa0 * max_shift_plane / 2. - 1.)
+      shift_l = kappa0 * max_shift_plane_tau**2 / 2 - max_shift_plane_eta
       err_l = -liqVol
     else
       ! iff kappa0 > 0.0
       shift_l = shift_plane
       err_l = plane_err
 
-      shift_r = max_shift_plane * (kappa0 * max_shift_plane / 2. + 1.)
+      shift_r = kappa0 * max_shift_plane_tau**2 / 2 + max_shift_plane_eta
       err_r = cellVol - liqVol
     endif
 
     relTol_ = merge(relTol, 1D-15, present(relTol))
 
-    shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane * relTol_, 30, err_l, err_r)
+    shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, 30, err_l, err_r)
     if (present(moments)) moments = moments_
 
   contains
@@ -305,17 +318,108 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  real*8 function cmpShift2d_poly(normal, poly, liqVol, kappa0, relTol, moments) result(shift)
+  real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, relTol, moments) result(shift)
     use m_r2d_parabolic
     use m_optimization,   only: brent
 
     implicit none
 
     real*8, intent(in)    :: normal(2), liqVol, kappa0
-    type(r2d_poly_f), intent(in) :: poly
+    type(r2d_poly_f), intent(in) :: cell
     real*8, optional, intent(in) :: relTol
     real*8, optional, intent(out) :: moments(3)
 
-    ! TODO support shift computation in arbitrary cells
+    ! Local variables
+    real*8                :: moments_(3), cellMoments(3), shift0, err0
+    real*8                :: shift_l, shift_r, err_l, err_r, eta_dist, tau_dist_sq
+    real*8                :: min_eta_dist, max_eta_dist, max_tau_dist_sq
+    real*8                :: relTol_, tau(2), pos(2)
+    integer               :: vdx
+
+    relTol_ = merge(relTol, 1D-15, present(relTol))
+    
+    tau = [-normal(2), normal(1)]
+    do vdx=1,cell%nverts
+      pos = cell%verts(vdx)%pos%xyz
+      eta_dist = dot_product(normal, pos)
+      tau_dist_sq = dot_product(tau, pos)**2
+      if (vdx == 1) then
+        min_eta_dist = eta_dist
+        max_eta_dist = eta_dist
+        max_tau_dist_sq = tau_dist_sq
+      else
+        if (eta_dist < min_eta_dist) min_eta_dist = eta_dist
+        if (eta_dist > max_eta_dist) max_eta_dist = eta_dist
+        if (tau_dist_sq > max_tau_dist_sq) max_tau_dist_sq = tau_dist_sq
+      endif
+    enddo
+
+    cellMoments = cmpMoments(cell)
+    if (liqVol <= 0.0) then
+      if (kappa0 > 0) then
+        shift = min_eta_dist
+      else
+        shift = kappa0 * tau_dist_sq / 2 + min_eta_dist
+      endif
+      if (present(moments)) moments = 0.0D0
+      return
+    elseif (liqVol >= cellMoments(1)) then
+      if (kappa0 > 0) then
+        shift = kappa0 * tau_dist_sq / 2 + max_eta_dist
+      else
+        shift = max_eta_dist
+      endif
+      if (present(moments)) moments = cellMoments
+      return
+    endif
+    
+    shift0 = (min_eta_dist + max_eta_dist) / 2
+    err0 = volume_error_function(shift0)
+    
+    if (err0 == 0) then
+      shift = shift0
+      if (present(moments)) moments = moments_
+      return
+    elseif (err0 > 0) then
+      shift_r = shift0
+      err_r = err0
+
+      if (kappa0 > 0) then
+        shift_l = min_eta_dist
+      else
+        shift_l = kappa0 * tau_dist_sq / 2 + min_eta_dist
+      endif
+
+      err_l = -liqVol
+    else
+      shift_l = shift0
+      err_l = err0
+
+      if (kappa0 > 0) then
+        shift_r = kappa0 * tau_dist_sq / 2 + max_eta_dist
+      else
+        shift_r = max_eta_dist
+      endif
+      err_r = cellMoments(1) - liqVol
+    endif
+
+    shift = brent(volume_error_function, shift_l, shift_r, &
+      (max_eta_dist - min_eta_dist) * relTol_, 30, err_l, err_r)
+    if (present(moments)) moments = moments_
+
+    contains
+
+      real*8 function volume_error_function(shift_tmp) result(err)
+        implicit none
+
+        real*8, intent(in)    :: shift_tmp
+
+        ! Local variables
+        type(r2d_poly_f)    :: liquid
+
+        liquid = copy(cell)
+        moments_ = cmpMoments(liquid, makeParabola(normal, kappa0, shift_tmp))
+        err = moments_(1) - liqVol
+      end function
   end function
 end module

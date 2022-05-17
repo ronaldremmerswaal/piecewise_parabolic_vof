@@ -207,6 +207,7 @@ void compute_moment_derivatives(r2d_parabola *parabola, r2d_vertex *vertbuffer, 
 	// TODO for efficiency we could compute the monomials_sum once and re-use it for
 	// computation of the moments
 	kappa0 = parabola->kappa0;
+	shift = dot(parabola->x0, parabola->n);
 
 	for (int i = 0; i < NR_MONOMIALS; ++i){
 		monomials_sum[i] = 0.0;

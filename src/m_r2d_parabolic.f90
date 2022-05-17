@@ -34,7 +34,7 @@ module m_r2d_parabolic
   end interface
 
   interface makeParabola
-    module procedure makeParabola_x0, makeParabola_shift
+    module procedure makeParabola_x0, makeParabola_shift, makeParabola_angle
   end interface
 contains
 
@@ -58,6 +58,18 @@ contains
     parabola = makeParabola_x0(normal, kappa0, shift * normal)
   end function
 
+  function makeParabola_angle(angle, kappa0, shift) result(parabola)
+    implicit none
+    
+    real*8, intent(in)    :: angle, kappa0, shift
+    type(r2d_parabola_f)  :: parabola
+
+    real*8                :: normal(2)
+
+    normal = [dcos(angle), dsin(angle)]
+    parabola = makeParabola_x0(normal, kappa0, shift * normal)
+  end function
+
   ! Removes the part of poly for which 
   !   \eta \cdot (x - x_0) + (\kappa/2) * (\tau \cdot (x - x_0))^2 > 0
   ! and returns the zeroth (M_0) and first (M_1) moments
@@ -68,9 +80,7 @@ contains
   !                         volume and moments01(2:3)/moments01(1) is the centroid of the
   !                         intersection volume)
   ! poly                  Polygon which is to be intersected (is modified!)
-  ! normal                The normal \eta of the interface at x = x_0 (\eta = [cos(\varphi), sin(\varphi)])
-  ! kappa0                The curvature \kappa of the interface at x = x_0
-  ! x0                    The position x_0 on the interface
+  ! parabola              The parabola
   ! derivative            The derivatives of the zeroth and first moments (optional):  
   !                         derivative(1)   = d M_0/ d \varphi
   !                         derivative(2:3) = d M_1/ d \varphi
@@ -108,6 +118,8 @@ contains
       parabolas(1) = parabola
     endif
 
+    ! Setting grad_s_ to NaN ensures that grad_s_ is computed such that the derivative of the zeroth 
+    ! moment w.r.t. the normal angle is zero (derivative_(1) = 0)
     grad_s_ = merge(grad_s, [d_qnan, d_qnan], present(grad_s))
 
     compute_derivative_ = present(derivative) .or. present(grad_s)

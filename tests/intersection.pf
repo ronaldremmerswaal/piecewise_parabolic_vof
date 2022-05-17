@@ -24,7 +24,7 @@ contains
 
     x = 0.0D0
     dx = 1.0D0
-    call init_box(cutPoly, [x - dx/2, x + dx/2])
+    cutPoly = makeBox_bounds([x - dx/2, x + dx/2])
     shift = 0.0D0
     normal = [0.0D0, 1.0D0]
 
@@ -41,7 +41,7 @@ contains
       ! Consider boxes of any size
       dx = dx * (10.0D0**(3-bdx))
 
-      call init_box(poly, [x - dx/2, x + dx/2])
+      poly = makeBox_bounds([x - dx/2, x + dx/2])
       do pdx=1,nrPlics
         cutPoly = copy(poly)
 
@@ -90,7 +90,7 @@ contains
 
       shift = lengthScale * (sdx - 1.D0) / (NR_SHIFT - 1.D0) - lengthScale/2
 
-      call init_box(poly, [-dx/2, dx/2])
+      poly = makeBox_bounds([-dx/2, dx/2])
       call intersect_by_plane(poly, makePlane(normal, shift))
       moments_plane_r2d = cmpMoments(poly)
       
@@ -348,7 +348,7 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      call init_box(poly, [-dx/2, dx/2])
+      poly = makeBox_bounds([-dx/2, dx/2])
       call intersect_by_plane(poly, makePlane(normal, shift))
       r2dMoments = cmpMoments(poly)
 
@@ -405,7 +405,7 @@ contains
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      call init_box(poly, [-dx/2, dx/2])
+      poly = makeBox_bounds([-dx/2, dx/2])
       moments01 = cmpMoments(poly)
     enddo
     call cpu_time(time_intersect_r2d_plane)

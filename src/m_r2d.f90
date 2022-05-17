@@ -58,17 +58,6 @@ module m_r2d
   end interface
 
   interface
-    subroutine r2d_volume(poly, volume) bind(C, name="r2d_volume")
-      import r2d_poly_f, c_double, c_int32_t
-
-      implicit none
-
-      type(r2d_poly_f), intent(in):: poly
-      real(c_double), intent(out) :: volume
-    end subroutine r2d_volume
-  end interface
-
-  interface
     subroutine r2d_reduce(poly, moments, order) bind(C, name="r2d_reduce")
       import r2d_poly_f, c_double, c_int32_t
 
@@ -109,6 +98,10 @@ module m_r2d
 
   interface cmpMoments
     module procedure reduce_1
+  end interface
+
+  interface makeBox
+    module procedure makeBox_bounds, makeBox_xdx
   end interface
 contains
 
@@ -227,23 +220,22 @@ contains
 
   end function
 
-  subroutine init_box(poly, rbounds)
+  function makeBox_bounds(rbounds) result(poly)
     implicit none
 
-    type(r2d_poly_f), intent(out) :: poly
     real*8, intent(in)    :: rbounds(2, 2)
+    type(r2d_poly_f)      :: poly
 
     ! Local variables
     type(r2d_rvec2_f)     :: rbounds_vec(2)
 
-    rbounds_vec(1)%xyz = rbounds(:, 1)
+    rbounds_vec(1)%xyz = rbounds(:, 1) 
     rbounds_vec(2)%xyz = rbounds(:, 2)
 
     call r2d_init_box_f(poly, rbounds_vec)
+  end function
 
-  end subroutine
-
-  function makeBox(x, dx) result(poly)
+  function makeBox_xdx(x, dx) result(poly)
     implicit none
     
     real*8, intent(in)    :: x(2), dx(2)
