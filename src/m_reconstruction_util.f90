@@ -171,9 +171,9 @@ contains
     call shift_by(exact_liq, -x)
 
     ! Compute symmetric difference
-    call intersect_by_plane(exact_gas, normal, shift)
+    call intersect_by_plane(exact_gas, makePlane(normal, shift))
     sd_1 = cmpMoments(exact_gas)
-    call intersect_by_plane(exact_liq, -normal, -shift)
+    call intersect_by_plane(exact_liq, makePlane(-normal, -shift))
     sd_2 = cmpMoments(exact_liq)
     sd = sd_1(1) + sd_2(1)
   end

@@ -112,6 +112,16 @@ module m_r2d
   end interface
 contains
 
+  function makePlane(normal, shift) result(plane)
+    implicit none
+    
+    real*8                :: normal(2), shift
+    type(r2d_plane_f)     :: plane
+
+    plane%n%xyz = normal
+    plane%d = shift
+  end function
+
   subroutine bounding_box(box, poly)
     implicit none
 
@@ -170,19 +180,19 @@ contains
   end subroutine
 
   ! Remove part on outward normal side of plane defined by η ⋅ x = s, or η ⋅ x - s > 0
-  subroutine intersect_by_plane(poly, normal, shift)
+  subroutine intersect_by_plane(poly, plane)
     implicit none
 
     type(r2d_poly_f), intent(inout) :: poly
-    real*8, intent(in)    :: normal(2), shift
+    type(r2d_plane_f), intent(in)  :: plane
 
-    type(r2d_plane_f)     :: plane(1)
+    type(r2d_plane_f)     :: planes(1)
 
-    plane(1)%n%xyz = -normal
-    plane(1)%d = shift
+    planes(1)%n%xyz = -plane%n%xyz
+    planes(1)%d = plane%d
 
     ! r2d convention: remove part for which η . x + s < 0
-    call r2d_clip(poly, plane, %val(1))
+    call r2d_clip(poly, planes, %val(1))
   end subroutine
 
   subroutine split_by_plane(polys, normal, shift, out_pos, out_neg)
