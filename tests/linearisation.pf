@@ -11,7 +11,7 @@ contains
   subroutine test_samecell_derivatives()
     implicit none
 
-    type(r2d_poly_f)      :: poly, poly_tmp
+    type(r2d_poly_f)      :: poly
     type(r2d_parabola_f)  :: parabola
     real*8                :: angle, normal(2), kappa0, x(2), pos(2, 7), radius
     real*8                :: derivative_cmp(4), derivative_fd(4), moments01(3), pi, grad_s(2)
@@ -51,8 +51,7 @@ return
       ! We set the gradient of the shift to zero, such that the derivative of the first moment is computed
       ! nontrivially
       grad_s = 0.D0
-      poly_tmp = copy(poly)
-      moments01 = cmpMoments(poly_tmp, parabola, derivative=derivative_cmp, grad_s=grad_s)
+      moments01 = cmpMoments(poly, parabola, derivative=derivative_cmp, grad_s=grad_s)
       call approximate_moment_derivatives(poly, angle, kappa0, shift, derivative_fd, grad_s)
       
       @assertEqual(derivative_fd, derivative_cmp, TOLERANCE)
@@ -60,8 +59,7 @@ return
       ! Now we set grad_s to NAN, and hence we request the gradient of the shift (w.r.t. the angle and curvature)
       ! such that volume is conserved
       grad_s_cmp = d_qnan
-      poly_tmp = copy(poly)
-      moments01 = cmpMoments(poly_tmp, parabola, derivative=derivative_cmp, grad_s=grad_s_cmp)
+      moments01 = cmpMoments(poly, parabola, derivative=derivative_cmp, grad_s=grad_s_cmp)
       call approximate_shift_derivatives(poly, moments01(1), angle, kappa0, shift, grad_s_fd)
       
       print*, 'cmp = ', grad_s_cmp
@@ -81,27 +79,22 @@ return
     real*8, intent(inout)  :: derivative(4)
     
     ! Local variables
-    type(r2d_poly_f)      :: poly_tmp
     real*8                :: moments_pos(3), moments_neg(3), dummy(4), grad_s_(2)
 
     grad_s_ = grad_s
-    poly_tmp = copy(poly)
-    moments_pos = cmpMoments(poly_tmp, makeParabola(angle + STEP_SIZE, kappa0, shift),&
+    moments_pos = cmpMoments(poly, makeParabola(angle + STEP_SIZE, kappa0, shift),&
       derivative=dummy, grad_s=grad_s_)
     grad_s_ = grad_s
-    poly_tmp = copy(poly)
-    moments_neg = cmpMoments(poly_tmp, makeParabola(angle - STEP_SIZE, kappa0, shift),&
+    moments_neg = cmpMoments(poly, makeParabola(angle - STEP_SIZE, kappa0, shift),&
       derivative=dummy, grad_s=grad_s_)
     
     derivative(1:3) = (moments_pos - moments_neg) / (2 * STEP_SIZE)
     
     grad_s_ = grad_s
-    poly_tmp = copy(poly)
-    moments_pos = cmpMoments(poly_tmp, makeParabola(angle, kappa0 + STEP_SIZE, shift), &
+    moments_pos = cmpMoments(poly, makeParabola(angle, kappa0 + STEP_SIZE, shift), &
       derivative=dummy, grad_s=grad_s_)
     grad_s_ = grad_s
-    poly_tmp = copy(poly)
-    moments_neg = cmpMoments(poly_tmp, makeParabola(angle, kappa0 - STEP_SIZE, shift), &
+    moments_neg = cmpMoments(poly, makeParabola(angle, kappa0 - STEP_SIZE, shift), &
       derivative=dummy, grad_s=grad_s_)
     
     derivative(4) = (moments_pos(1) - moments_neg(1)) / (2 * STEP_SIZE)

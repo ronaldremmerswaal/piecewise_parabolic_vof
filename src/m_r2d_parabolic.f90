@@ -29,6 +29,10 @@ module m_r2d_parabolic
     module procedure cmpMoments_levelset, cmpMoments_levelset_poly, cmpMoments_parabola_poly
   end interface
 
+  interface cmpMoments_
+    module procedure cmpMoments_parabola_poly_
+  end interface
+
   interface polygonalApproximation
     module procedure polygonalApproximation_rectangularIn, polygonalApproximation_polyIn
   end interface
@@ -79,7 +83,7 @@ contains
   ! moments01             The zeroth and first moments of intersection (so moments01(1) is the 
   !                         volume and moments01(2:3)/moments01(1) is the centroid of the
   !                         intersection volume)
-  ! poly                  Polygon which is to be intersected (is modified!)
+  ! poly                  Polygon which is to be intersected
   ! parabola              The parabola
   ! derivative            The derivatives of the zeroth and first moments (optional):  
   !                         derivative(1)   = d M_0/ d \varphi
@@ -90,6 +94,23 @@ contains
   !                         If not, then it is assumed that the gradient of the shift s is given by grad_s
   !                         (This only affects the computation of the gradient)
   function cmpMoments_parabola_poly(poly, parabola, derivative, grad_s) result(moments01)
+    use m_common
+
+    implicit none
+
+    type(r2d_poly_f), intent(in) :: poly
+    type(r2d_parabola_f), intent(in) :: parabola
+    real*8, intent(inout), optional :: derivative(4), grad_s(2)
+    real*8                :: moments01(3)
+
+    type(r2d_poly_f)      :: poly_
+
+    poly_ = copy(poly)
+    moments01 = cmpMoments_parabola_poly_(poly_, parabola, derivative, grad_s)
+  end function
+
+  ! This one modifies poly itself!
+  function cmpMoments_parabola_poly_(poly, parabola, derivative, grad_s) result(moments01)
     use m_common
 
     implicit none

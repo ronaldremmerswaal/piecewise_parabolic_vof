@@ -285,11 +285,9 @@ contains
       real*8, intent(in)    :: shift_tmp
 
       ! Local variables
-      type(r2d_poly_f)    :: liquid
       integer             :: idx
 
-      liquid = copy(cell)
-      moments_ = cmpMoments(liquid, makeParabola(normal, kappa0, shift_tmp))
+      moments_ = cmpMoments(cell, makeParabola(normal, kappa0, shift_tmp))
       err = moments_(1) - liqVol
     end function
   end function
@@ -414,11 +412,7 @@ contains
 
         real*8, intent(in)    :: shift_tmp
 
-        ! Local variables
-        type(r2d_poly_f)    :: liquid
-
-        liquid = copy(cell)
-        moments_ = cmpMoments(liquid, makeParabola(normal, kappa0, shift_tmp))
+        moments_ = cmpMoments(cell, makeParabola(normal, kappa0, shift_tmp))
         err = moments_(1) - liqVol
       end function
   end function

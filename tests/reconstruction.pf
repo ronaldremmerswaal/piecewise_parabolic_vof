@@ -223,7 +223,7 @@ contains
 
     implicit none
     
-    type(r2d_poly_f)      :: cell, cell_tmp
+    type(r2d_poly_f)      :: cell
     real*8                :: angle, normal(2), kappa0, shift, shift_recomputed
     real*8                :: x(2), pos(2, 7), radius, cellMoments(3)
     real*8                :: moments01(3), moments01_recomputed(3), pi
@@ -256,8 +256,7 @@ contains
       
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      cell_tmp = copy(cell)
-      moments01 = cmpMoments(cell_tmp, makeParabola(normal, kappa0, shift))
+      moments01 = cmpMoments(cell, makeParabola(normal, kappa0, shift))
       shift_recomputed = cmpShift(normal, cell, moments01(1), kappa0, moments=moments01_recomputed)
       @assertEqual(moments01, moments01_recomputed, TOLERANCE)
 
@@ -269,8 +268,7 @@ contains
         @assertEqual(shift, shift_recomputed, TOLERANCE)
       endif
 
-      cell_tmp = copy(cell)
-      moments01_recomputed = cmpMoments(cell_tmp, makeParabola(normal, kappa0, shift_recomputed))
+      moments01_recomputed = cmpMoments(cell, makeParabola(normal, kappa0, shift_recomputed))
       @assertEqual(moments01, moments01_recomputed, TOLERANCE)
     enddo
     enddo
