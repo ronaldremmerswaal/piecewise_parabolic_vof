@@ -270,7 +270,7 @@ contains
 
   end function
 
-  function pmofNormal_poly(refMoments, kappa0, cell, verbose, errTol) result(normal)
+  function pmofNormal_poly(refMoments, kappa0, cell, x0, verbose, errTol) result(normal)
     use m_optimization
     use m_reconstruction_util
     use m_r2d_parabolic
@@ -280,7 +280,7 @@ contains
     real*8, intent(in)    :: refMoments(3), kappa0
     type(r2d_poly_f)      :: cell
     logical, optional     :: verbose
-    real*8, intent(in), optional :: errTol
+    real*8, intent(in), optional :: x0(2), errTol
     real*8                :: normal(2)
 
     ! Local variables:
@@ -318,7 +318,7 @@ contains
       real*8                :: normal_(2), shift, difference(2)
 
       normal_ = [dcos(angle), dsin(angle)]
-      shift = cmpShift(normal_, cell, refMoments(1), kappa0, moments=mofMoments_)
+      shift = cmpShift(normal_, cell, refMoments(1), kappa0, x0=x0, moments=mofMoments_)
 
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
 
@@ -338,9 +338,9 @@ contains
 
       normal_ = [dcos(angle), dsin(angle)]
 
-      shift = cmpShift(normal_, cell, refMoments(1), kappa0)
+      shift = cmpShift(normal_, cell, refMoments(1), kappa0, x0=x0)
       
-      mofMoments_ = cmpMoments(cell, makeParabola(normal_, kappa0, shift), derivative=derivative)
+      mofMoments_ = cmpMoments(cell, makeParabola(normal_, kappa0, shift), x0=x0, derivative=derivative)
       
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative(2:3) = derivative(2:3) / cost_fun_scaling

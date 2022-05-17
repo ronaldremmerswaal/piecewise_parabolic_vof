@@ -125,11 +125,12 @@ program reconstruction_demo
 
     ! Other than the initialisation, the rest is the same as before
     refMoments = cmpMoments(cell, exact_interface)
+
     kappa0 = 1.
-    normal = pmofNormal(refMoments, kappa0, cell)
-    shift = cmpShift(normal, cell, refMoments(1), kappa0)
-    errMoments = abs(cmpMoments(cell, makeParabola(normal, kappa0, shift)) - refMoments)
-    errSD = cmpSymmDiff(cell, normal, shift, kappa0, exact_interface)
+    normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
+    shift = cmpShift(normal, cell, refMoments(1), kappa0, x0=xc)
+    errMoments = abs(cmpMoments(cell, makeParabola(normal, kappa0, shift), x0=xc) - refMoments)
+    errSD = cmpSymmDiff(cell, normal, shift, kappa0, exact_interface, x0=xc)
 
     write(*, '(A)') ''
     write(*, '(A)') 'The PMOF method can reconstruct inside non-rectilinear (and non-convex) cells as well, and'

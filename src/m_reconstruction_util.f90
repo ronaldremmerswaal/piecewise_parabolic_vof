@@ -329,13 +329,14 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  real function cmpSymmDiff2d_parabolic_polyIn(cell, normal, shift, kappa0, levelSet) result(sd)
+  real function cmpSymmDiff2d_parabolic_polyIn(cell, normal, shift, kappa0, levelSet, x0) result(sd)
     use m_r2d_parabolic
     implicit none
 
     type(r2d_poly_f), intent(in) :: cell
     real*8, intent(in)     :: normal(2), shift, kappa0
     real*8, external       :: levelSet
+    real*8, intent(in), optional :: x0(2)
 
     ! Local variables
     real*8                :: sd_1(3), sd_2(3)
@@ -348,12 +349,12 @@ contains
     exact_liq = polyApprox(cell, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
-    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, shift))
-    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, -shift))
+    sd_1 = cmpMoments(exact_gas, makeParabola(normal, kappa0, shift), x0=x0)
+    sd_2 = cmpMoments(exact_liq, makeParabola(-normal, -kappa0, -shift), x0=x0)
     sd = sd_1(1) + sd_2(1)
   end
 
-  real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, relTol, moments) result(shift)
+  real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, x0, relTol, moments) result(shift)
     use m_r2d_parabolic
     use m_optimization,   only: brent
 
@@ -361,7 +362,7 @@ contains
 
     real*8, intent(in)    :: normal(2), liqVol, kappa0
     type(r2d_poly_f), intent(in) :: cell
-    real*8, optional, intent(in) :: relTol
+    real*8, optional, intent(in) :: x0(2), relTol
     real*8, optional, intent(out) :: moments(3)
 
     ! Local variables
@@ -376,6 +377,7 @@ contains
     tau = [-normal(2), normal(1)]
     do vdx=1,cell%nverts
       pos = cell%verts(vdx)%pos%xyz
+      if (present(x0)) pos = pos - x0
       eta_dist = dot_product(normal, pos)
       tau_dist_sq = dot_product(tau, pos)**2
       if (vdx == 1) then
@@ -449,7 +451,7 @@ contains
 
         real*8, intent(in)    :: shift_tmp
 
-        moments_ = cmpMoments(cell, makeParabola(normal, kappa0, shift_tmp))
+        moments_ = cmpMoments(cell, makeParabola(normal, kappa0, shift_tmp), x0=x0)
         err = moments_(1) - liqVol
       end function
   end function
