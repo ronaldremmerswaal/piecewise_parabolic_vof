@@ -117,9 +117,9 @@ contains
       err = lvira_error(refVolumes, angle_, kappa0_, dxs, derivatives=grad)
       grad(2) = grad(2) / lengthScale
 
-      print*, 'cmp grad = ', grad
-      print*, ' fd grad = ', (cost([X(1) + 1D-6, X(2)]) - cost([X(1) - 1D-6, X(2)]))/2D-6, &
-                             (cost([X(1), X(2) + 1D-6]) - cost([X(1), X(2) - 1D-6]))/2D-6
+      ! print*, 'cmp grad = ', grad
+      ! print*, ' fd grad = ', (cost([X(1) + 1D-6, X(2)]) - cost([X(1) - 1D-6, X(2)]))/2D-6, &
+      !                        (cost([X(1), X(2) + 1D-6]) - cost([X(1), X(2) - 1D-6]))/2D-6
     end function
   end function
 
@@ -150,12 +150,15 @@ contains
 
     ! Local variables
     type(r2d_poly_f)      :: cell
+    type(r2d_parabola_f)  :: parabola
     real*8                :: normal(2), shift, moments(3), derivatives_local(4), err_local
     real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour, grad_s(2)
     integer               :: i, j
 
     normal = [dcos(angle), dsin(angle)]
     shift = cmpShift(normal, dxs(0,:), refVolumes(0,0), kappa0)
+
+    parabola = makeParabola(normal, kappa0, shift)
     
     err = 0
     if (present(derivatives)) then 
@@ -166,7 +169,7 @@ contains
       grad_s = d_qnan
       
       ! Compute ds/dangle, which ensures that the centred volume is conserved
-      moments = cmpMoments(dxs(0,:), makeParabola(normal, kappa0, shift), grad_s=grad_s)
+      moments = cmpMoments(dxs(0,:), parabola, grad_s=grad_s)
     endif
     do j=-1,1
     do i=-1,1
@@ -181,10 +184,9 @@ contains
 
       cell = makeBox(xc_neighbour, dx_neighbour)
       if (present(derivatives)) then
-        moments = cmpMoments_(cell, makeParabola(normal, kappa0, shift), &
-          derivative=derivatives_local, grad_s=grad_s)
+        moments = cmpMoments_(cell, parabola, derivative=derivatives_local, grad_s=grad_s)
       else
-        moments = cmpMoments_(cell, makeParabola(normal, kappa0, shift))
+        moments = cmpMoments_(cell, parabola)
       endif
       err_local = (moments(1) - refVolumes(i,j)) / cellVol_neighbour
 

@@ -3,7 +3,7 @@ module linearisation
   use m_common
   use m_r2d_parabolic
 
-  real*8, parameter       :: TOLERANCE = 1E-8, STEP_SIZE = 1E-6
+  real*8, parameter       :: TOLERANCE = 1E-7, STEP_SIZE = 1E-6, IS_INTERFACE_TOL = 1E-8
 
 contains
   
@@ -13,7 +13,7 @@ contains
 
     type(r2d_poly_f)      :: poly
     type(r2d_parabola_f)  :: parabola
-    real*8                :: angle, normal(2), kappa0, x(2), pos(2, 7), radius
+    real*8                :: angle, normal(2), kappa0, pos(2, 7), radius
     real*8                :: derivative_cmp(4), derivative_fd(4), moments01(3), pi, grad_s(2)
     real*8                :: grad_s_cmp(2), grad_s_fd(2), shift
     integer               :: adx, kdx, sdx
@@ -23,13 +23,12 @@ contains
     pi = 4 * datan(1.0D0)
 
     radius = 1.0D0
-    x = [0.05D0, 0.03D0]
-    
+
     ! Reconstruct in a polygonal approximation of a circle
     do adx=1,size(pos,2)
       angle = 2 * pi * (adx - 1.D0) / size(pos,2)
-      pos(1,adx) = x(1) + radius * dcos(angle)
-      pos(2,adx) = x(2) + radius * dsin(angle)
+      pos(1,adx) = radius * dcos(angle)
+      pos(2,adx) = radius * dsin(angle)
     enddo
     call init_from_pos(poly, pos)
 
@@ -50,8 +49,8 @@ contains
       ! We set the gradient of the shift to zero, such that the derivative of the first moment is computed
       ! nontrivially
       grad_s = 0.D0
-      moments01 = cmpMoments(poly, parabola, x0=x, derivative=derivative_cmp, grad_s=grad_s)
-      call approximate_moment_derivatives(poly, angle, kappa0, shift, x, derivative_fd, grad_s)
+      moments01 = cmpMoments(poly, parabola, derivative=derivative_cmp, grad_s=grad_s)
+      call approximate_moment_derivatives(poly, angle, kappa0, shift, derivative_fd)
 
       @assertEqual(derivative_fd, derivative_cmp, TOLERANCE)
 
@@ -72,85 +71,113 @@ contains
   subroutine test_othercell_derivatives()
     implicit none
 
-    type(r2d_poly_f)      :: poly
+    type(r2d_poly_f)      :: cell_nb, cell
     type(r2d_parabola_f)  :: parabola
-    real*8                :: angle, normal(2), kappa0, x(2), pos(2, 7), radius
-    real*8                :: derivative_cmp(4), derivative_fd(4), moments01(3), pi, grad_s(2)
-    real*8                :: grad_s_cmp(2), grad_s_fd(2), shift, x0(2), shift_tau
-    integer               :: adx, kdx, sdx, tdx
+    real*8                :: angle, normal(2), kappa0, dxs(-1:1,2), max_shift_plane
+    real*8                :: derivative_cmp(4), derivative_fd(4), moments01(3), moments01_nb(3), pi, grad_s(2)
+    real*8                :: grad_s_cmp(2), grad_s_fd(2), shift, xc_nb(2), dx_nb(2)
+    integer               :: adx, kdx, sdx, i, j
 
-    integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 10, NR_SHIFT_TAU = 10
+    integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 10
 
     pi = 4 * datan(1.0D0)
 
-    radius = 1.0D0
-    x = [0.05D0, 0.03D0]
-    
-    ! Reconstruct in a polygonal approximation of a circle
-    do adx=1,size(pos,2)
-      angle = 2 * pi * (adx - 1.D0) / size(pos,2)
-      pos(1,adx) = x(1) + radius * dcos(angle)
-      pos(2,adx) = x(2) + radius * dsin(angle)
-    enddo
-    call init_from_pos(poly, pos)
-
+    dxs(:,1) = [1.D0, 0.9D0, 1.42D0]
+    dxs(:,2) = [pi/3, pi/2, pi/4]
 
     do adx=1,NR_ANGLE
     do kdx=1,NR_KAPPA
     do sdx=1,NR_SHIFT
-    do tdx=1,NR_SHIFT_TAU
 
       angle = 2 * pi * (adx - 1.D0) / NR_ANGLE
       normal = [dcos(angle), dsin(angle)]
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      shift = (radius/2) * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
- 
-      shift_tau = radius * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
-      x0 = x + shift_tau * [-normal(1), normal(2)]
+      max_shift_plane = dot_product(abs(normal), dxs(0,:))
+
+      shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
       parabola = makeParabola(normal, kappa0, shift)
 
-      ! We set the gradient of the shift to zero, such that the derivative of the first moment is computed
-      ! nontrivially
-      grad_s = 0.D0
-      moments01 = cmpMoments(poly, parabola, x0=x0, derivative=derivative_cmp, grad_s=grad_s)
-      call approximate_moment_derivatives(poly, angle, kappa0, shift, x0, derivative_fd, grad_s)
+      ! Compute grad_s such that the volume of the centred cell is conserved
+      grad_s = d_qnan
+      cell = makeBox([0.D0, 0.D0], dxs(0,:))
+      moments01 = cmpMoments(cell, parabola, grad_s=grad_s)
 
-      @assertEqual(derivative_fd, derivative_cmp, TOLERANCE)
-    enddo
+      if (moments01(1) > IS_INTERFACE_TOL .and. product(dxs(0,:)) - moments01(1) > IS_INTERFACE_TOL) then
+
+        ! The parabola is defined relative to i=0, j=0
+        do j=-1,1
+        do i=-1,1
+        
+          dx_nb(1) = dxs(i, 1)
+          dx_nb(2) = dxs(j, 2)
+
+          xc_nb(1) = i * (dxs(0,1) + dx_nb(1))/2
+          xc_nb(2) = j * (dxs(0,2) + dx_nb(2))/2
+    
+          cell_nb = makeBox(xc_nb, dx_nb)
+          moments01_nb = cmpMoments(cell_nb, parabola, derivative=derivative_cmp, grad_s=grad_s)
+          call approximate_moment_derivatives(cell_nb, angle, kappa0, shift, derivative_fd, dxs(0,:))
+
+          @assertEqual(derivative_fd, derivative_cmp, TOLERANCE * product(dx_nb))
+
+        enddo
+        enddo
+
+      endif
     enddo
     enddo
     enddo
 
   end subroutine
 
-  subroutine approximate_moment_derivatives(poly, angle, kappa0, shift, x0, derivative, grad_s)
+  subroutine approximate_moment_derivatives(poly, angle, kappa0, shift, derivative, dx_cons)
+    use m_reconstruction_util
     implicit none
     
     type(r2d_poly_f), intent(in) :: poly
-    real*8, intent(in)     :: angle, kappa0, shift, x0(2), grad_s(2)
+    real*8, intent(in)     :: angle, kappa0, shift
     real*8, intent(inout)  :: derivative(4)
+    real*8, intent(in), optional :: dx_cons(2)
     
     ! Local variables
-    real*8                :: moments_pos(3), moments_neg(3), dummy(4), grad_s_(2)
+    real*8                :: moments_pos(3), moments_neg(3), moments_cons(3)
+    type(r2d_parabola_f)  :: parabola
 
-    grad_s_ = grad_s
-    moments_pos = cmpMoments(poly, makeParabola(angle + STEP_SIZE, kappa0, shift),&
-      x0=x0, derivative=dummy, grad_s=grad_s_)
-    grad_s_ = grad_s
-    moments_neg = cmpMoments(poly, makeParabola(angle - STEP_SIZE, kappa0, shift),&
-      x0=x0, derivative=dummy, grad_s=grad_s_)
+    if (present(dx_cons)) then
+      ! Then shift must be altered upon changing angle/kappa to ensure
+      ! that the liquid volume in dx_cons is conserved
+      moments_cons = cmpMoments(dx_cons, makeParabola(angle, kappa0, shift))
+    endif
+
+    parabola = makeParabola(angle + STEP_SIZE, kappa0, shift)
+    if (present(dx_cons)) then
+      parabola%shift = cmpShift(parabola%n%xyz, dx_cons, moments_cons(1), parabola%kappa0)
+    endif
+    moments_pos = cmpMoments(poly, parabola)
+
+    parabola = makeParabola(angle - STEP_SIZE, kappa0, shift)
+    if (present(dx_cons)) then
+      parabola%shift = cmpShift(parabola%n%xyz, dx_cons, moments_cons(1), parabola%kappa0)
+    endif
+    moments_neg = cmpMoments(poly, parabola)
     
     derivative(1:3) = (moments_pos - moments_neg) / (2 * STEP_SIZE)
     
-    grad_s_ = grad_s
-    moments_pos = cmpMoments(poly, makeParabola(angle, kappa0 + STEP_SIZE, shift), &
-      x0=x0, derivative=dummy, grad_s=grad_s_)
-    grad_s_ = grad_s
-    moments_neg = cmpMoments(poly, makeParabola(angle, kappa0 - STEP_SIZE, shift), &
-      x0=x0, derivative=dummy, grad_s=grad_s_)
+    ! Similarly for the curvature
+    parabola = makeParabola(angle, kappa0 + STEP_SIZE, shift)
+    if (present(dx_cons)) then
+      parabola%shift = cmpShift(parabola%n%xyz, dx_cons, moments_cons(1), parabola%kappa0)
+    endif
+    moments_pos = cmpMoments(poly, parabola)
+
+    parabola = makeParabola(angle, kappa0 - STEP_SIZE, shift)
+    if (present(dx_cons)) then
+      parabola%shift = cmpShift(parabola%n%xyz, dx_cons, moments_cons(1), parabola%kappa0)
+    endif
+    moments_neg = cmpMoments(poly, parabola)
     
     derivative(4) = (moments_pos(1) - moments_neg(1)) / (2 * STEP_SIZE)
 

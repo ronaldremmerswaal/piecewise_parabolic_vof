@@ -143,6 +143,9 @@ contains
     ! Setting grad_s_ to NaN ensures that grad_s_ is computed such that the derivative of the zeroth 
     ! moment w.r.t. the normal angle is zero (derivative_(1) = 0)
     grad_s_ = merge(grad_s, [d_qnan, d_qnan], present(grad_s))
+    if (present(grad_s) .and. .not. isnan(grad_s_(1)) .and. parabola%kappa0 > 0) then
+      grad_s_(1) = -grad_s_(1)
+    endif
 
     compute_derivative_ = present(derivative) .or. present(grad_s)
     call r2d_clip_parabola_cmpMoments(poly, parabolas, grad_s_, moments01, derivative_, compute_derivative_)
