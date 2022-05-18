@@ -101,7 +101,7 @@ program reconstruction_demo
     real*8                  :: errMoments(3), errSD(3)
 
     pi = 4 * datan(1.0D0)
-    pacmanRadius = 0.15D0
+    pacmanRadius = 0.3D0
     ! Move inside such that interface intersects Pacman's mouth
     xc = [1/dsqrt(2.0D0), 1/dsqrt(2.0D0)] * (1.0D0 - pacmanRadius/2)
 
@@ -123,9 +123,11 @@ program reconstruction_demo
     enddo
     call init_from_pos(cell, pos(:,1:count))
 
-    ! Other than the initialisation, the rest is the same as before
+    ! Other than the initialisation of the control volume, the rest is the same as before
     refMoments = cmpMoments(cell, exact_interface)
 
+    ! We pass the optional argoment x0=xc to tell the intersection functions that our
+    ! parabola is defined relative to xc, rather than 0, which is the default
     kappa0 = 1.
     normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
     shift = cmpShift(normal, cell, refMoments(1), kappa0, x0=xc)

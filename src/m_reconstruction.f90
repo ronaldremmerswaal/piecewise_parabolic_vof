@@ -116,6 +116,10 @@ contains
 
       err = lvira_error(refVolumes, angle_, kappa0_, dxs, derivatives=grad)
       grad(2) = grad(2) / lengthScale
+
+      print*, 'cmp grad = ', grad
+      print*, ' fd grad = ', (cost([X(1) + 1D-6, X(2)]) - cost([X(1) - 1D-6, X(2)]))/2D-6, &
+                             (cost([X(1), X(2) + 1D-6]) - cost([X(1), X(2) - 1D-6]))/2D-6
     end function
   end function
 
@@ -145,6 +149,7 @@ contains
     real*8, intent(out), optional :: derivatives(2)   ! w.r.t. angle and curvature respectively
 
     ! Local variables
+    type(r2d_poly_f)      :: cell
     real*8                :: normal(2), shift, moments(3), derivatives_local(4), err_local
     real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour, grad_s(2)
     integer               :: i, j
@@ -174,12 +179,12 @@ contains
       xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
       xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
+      cell = makeBox(xc_neighbour, dx_neighbour)
       if (present(derivatives)) then
-        moments = cmpMoments(dx_neighbour, makeParabola(normal, kappa0, shift), &
-          x0=-xc_neighbour, derivative=derivatives_local, grad_s=grad_s)
+        moments = cmpMoments_(cell, makeParabola(normal, kappa0, shift), &
+          derivative=derivatives_local, grad_s=grad_s)
       else
-        moments = cmpMoments(dx_neighbour, makeParabola(normal, kappa0, shift), &
-          x0=-xc_neighbour)
+        moments = cmpMoments_(cell, makeParabola(normal, kappa0, shift))
       endif
       err_local = (moments(1) - refVolumes(i,j)) / cellVol_neighbour
 

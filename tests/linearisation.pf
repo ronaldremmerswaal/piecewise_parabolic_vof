@@ -107,7 +107,7 @@ contains
 
       shift = (radius/2) * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
  
-      shift_tau = (radius/2) * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
+      shift_tau = radius * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
       x0 = x + shift_tau * [-normal(1), normal(2)]
 
       parabola = makeParabola(normal, kappa0, shift)
@@ -118,8 +118,7 @@ contains
       moments01 = cmpMoments(poly, parabola, x0=x0, derivative=derivative_cmp, grad_s=grad_s)
       call approximate_moment_derivatives(poly, angle, kappa0, shift, x0, derivative_fd, grad_s)
 
-      ! We only care about the derivatives of the first moment (for PLVIRA and PROST)
-      @assertEqual(derivative_fd([1, 4]), derivative_cmp([1, 4]), TOLERANCE)
+      @assertEqual(derivative_fd, derivative_cmp, TOLERANCE)
     enddo
     enddo
     enddo
