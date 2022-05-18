@@ -117,9 +117,6 @@ contains
       err = lvira_error(refVolumes, angle_, kappa0_, dxs, derivatives=grad)
       grad(2) = grad(2) / lengthScale
 
-      ! print*, 'cmp grad = ', grad
-      ! print*, ' fd grad = ', (cost([X(1) + 1D-6, X(2)]) - cost([X(1) - 1D-6, X(2)]))/2D-6, &
-      !                        (cost([X(1), X(2) + 1D-6]) - cost([X(1), X(2) - 1D-6]))/2D-6
     end function
   end function
 
