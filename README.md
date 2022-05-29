@@ -8,4 +8,3 @@ Implementation of the intersection algorithm described in https://arxiv.org/abs/
   - PPIC reconstruction
     - Approximate reconstruction: validation using symmetric difference with exact domain
     - Timing (compare to PLIC)
-- Include reconstruction functions: LVIRA

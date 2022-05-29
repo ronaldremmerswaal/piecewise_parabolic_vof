@@ -1,13 +1,129 @@
 module m_reconstruction
 
   private
-  public :: mofNormal, pmofNormal, plviraNormal, prostNormal
+  public :: mofNormal, pmofNormal, lviraNormal, plviraNormal, prostNormal
 
   interface pmofNormal
     module procedure pmofNormal_poly, pmofNormal_rect
   end interface
 
 contains
+
+  function lviraNormal(refVolumes, dxs, verbose, errTol) result(normal)
+    use m_optimization
+    use m_reconstruction_util
+
+    implicit none
+
+    real*8, intent(in)    :: refVolumes(-1:1,-1:1), dxs(-1:1,2)
+    logical, intent(in), optional :: verbose
+    real*8, intent(in), optional :: errTol
+    real*8                :: normal(2)
+
+        ! Local variables:
+    real*8                :: errTol_, lviraAngle
+    logical               :: verbose_
+
+    verbose_ = merge(verbose, .false., present(verbose))
+    errTol_ = merge(errTol, 1D-8, present(errTol))
+
+    lviraAngle = lvira_angle_guess(refVolumes, dxs)
+    lviraAngle = brent_min(cost, dcost, lviraAngle, errTol_, 25, verbose_, maxStep=0.5D0)
+    normal = [dcos(lviraAngle), dsin(lviraAngle)]
+  contains
+    real*8 function cost(angle) result(err)
+
+      implicit none
+
+      real*8, intent(in)  :: angle
+
+      err = lvira_error(refVolumes, angle, dxs)
+    end function
+
+    real*8 function dcost(angle) result(derr)
+
+      implicit none
+
+      real*8, intent(in)  :: angle
+
+      real*8              :: err
+
+      err = lvira_error(refVolumes, angle, dxs, derivative=derr)
+    end function
+  end function
+
+  real*8 function lvira_error(refVolumes, angle, dxs, derivative) result(err)
+    use m_common
+    use m_reconstruction_util
+    use m_r2d_parabolic
+
+    implicit none
+
+    real*8, intent(in)    :: refVolumes(-1:1,-1:1), dxs(-1:1,2), angle
+    real*8, intent(out), optional :: derivative
+
+    ! Local variables
+    real*8                :: normal(2), shift, moments(3), derivative_local, err_local, absNormal(2)
+    real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour
+    real*8                :: shift_neighbour, shift_derivative, tangent(2), iFaceMoments(3), shift_max
+    integer               :: i, j
+
+    normal = [dcos(angle), dsin(angle)]
+    absNormal = abs(normal)
+    shift = cmpShift(normal, dxs(0,:), refVolumes(0,0))
+    
+    err = 0
+    if (present(derivative)) then      
+      derivative = 0
+      ! In general the derivative of the volume is given by
+      !   d M_0(c^l) /d \theta = M_0(I_c) d shift / d \theta - tangent \cdot M_1(I_c),
+      ! where M_0(c^l) is the liquid volume inside the corresponding cell, \theta is the normal angle
+      ! M_0(I_c) is the interface area inside c and M_1(I_c) is the first moment of the interface inside c
+
+      tangent = [-normal(2), normal(1)]
+      iFaceMoments = cmpInterfaceMoments(normal, dxs(0,:), shift)
+
+      ! In the central cell (i=j=0) we impose conservation of volume: d M_0(c^l) /d \theta = 0
+      ! which determines d shift / d \theta
+      shift_derivative = dot_product(tangent, iFaceMoments(2:3)) / iFaceMoments(1)
+    endif
+    do j=-1,1
+    do i=-1,1
+      if (i==0 .and. j==0) cycle
+
+      dx_neighbour(1) = dxs(i, 1)
+      dx_neighbour(2) = dxs(j, 2)
+      cellVol_neighbour = product(dx_neighbour)
+
+      xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
+      xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
+
+      shift_neighbour = shift - dot_product(xc_neighbour, normal)
+
+      shift_max = dot_product(dx_neighbour, absNormal)/2
+      derivative_local = 0
+      if (shift_neighbour < -shift_max) then
+        moments(1) = 0
+      elseif (shift_neighbour > shift_max) then
+        moments(1) = product(dx_neighbour)
+      else
+        if (present(derivative)) then
+          iFaceMoments = cmpInterfaceMoments(normal, dx_neighbour, shift_neighbour)
+          iFaceMoments(2:3) = iFaceMoments(2:3) + iFaceMoments(1) * xc_neighbour
+          derivative_local = iFaceMoments(1) * shift_derivative - dot_product(tangent, iFaceMoments(2:3))
+        endif
+        moments = cmpMoments(normal, dx_neighbour, shift_neighbour)
+      endif
+      err_local = (moments(1) - refVolumes(i,j)) / cellVol_neighbour
+      
+      err = err + err_local**2
+      if (present(derivative)) then
+        derivative = derivative + 2 * err_local * derivative_local / cellVol_neighbour
+      endif
+    enddo
+    enddo
+
+  end function
 
   function plviraNormal(refVolumes, kappa0, dxs, verbose, errTol) result(normal)
     use m_optimization
@@ -37,7 +153,7 @@ contains
 
       real*8, intent(in)  :: angle
 
-      err = lvira_error(refVolumes, angle, kappa0, dxs)
+      err = plvira_error(refVolumes, angle, kappa0, dxs)
     end function
 
     real*8 function dcost(angle) result(derr)
@@ -48,7 +164,7 @@ contains
 
       real*8              :: err, derivatives(2)
 
-      err = lvira_error(refVolumes, angle, kappa0, dxs, derivatives)
+      err = plvira_error(refVolumes, angle, kappa0, dxs, derivatives)
       derr = derivatives(1)
     end function
   end function
@@ -98,7 +214,7 @@ contains
       angle_ = X(1)
       kappa0_ = X(2) / lengthScale
 
-      err = lvira_error(refVolumes, angle_, kappa0_, dxs)
+      err = plvira_error(refVolumes, angle_, kappa0_, dxs)
     end function
 
     real*8 function cost_and_grad(grad, X) result(err)
@@ -114,7 +230,7 @@ contains
       angle_ = X(1)
       kappa0_ = X(2) / lengthScale
 
-      err = lvira_error(refVolumes, angle_, kappa0_, dxs, derivatives=grad)
+      err = plvira_error(refVolumes, angle_, kappa0_, dxs, derivatives=grad)
       grad(2) = grad(2) / lengthScale
 
     end function
@@ -135,7 +251,7 @@ contains
     angle = datan2(normal(2), normal(1))
   end function  
 
-  real*8 function lvira_error(refVolumes, angle, kappa0, dxs, derivatives) result(err)
+  real*8 function plvira_error(refVolumes, angle, kappa0, dxs, derivatives) result(err)
     use m_common
     use m_reconstruction_util
     use m_r2d_parabolic

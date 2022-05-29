@@ -2,7 +2,7 @@ module m_reconstruction_util
   use m_common
 
   private
-  public :: cmpMoments, cmpShift, cmpSymmDiff
+  public :: cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff
 
   real*8, parameter     :: NORMAL_TOL = 1E-12
 
@@ -16,6 +16,10 @@ module m_reconstruction_util
 
   interface cmpSymmDiff
     module procedure cmpSymmDiff2d_plane, cmpSymmDiff2d_parabolic, cmpSymmDiff2d_parabolic_polyIn
+  end interface
+
+  interface cmpInterfaceMoments
+    module procedure cmpInterfaceMoments_plane
   end interface
 
 contains
@@ -56,7 +60,6 @@ contains
     endif
   end function
 
-
   pure function cmpMoments2d_pc_ordered_plane(normal, dx, pc, max_shift_plane) result(moments)
     implicit none
 
@@ -90,6 +93,110 @@ contains
 
     if (largerThanHalf) moments(1) = product(dx) - moments(1)
   end function
+
+  function cmpInterfaceMoments_plane(normal, dx, shift) result(moments)
+    implicit none
+
+    real*8, intent(in)  :: normal(2), dx(2), shift
+    real*8              :: moments(3)
+
+    ! Local variables:
+    real*8              :: normal_(2), dx_(2), max_shift_plane, pMoment1(2)
+    integer             :: perm(2)
+
+
+    moments = 0
+    normal_ = abs(normal)
+    max_shift_plane = dot_product(normal_, dx)/2
+    if (abs(shift) >= max_shift_plane) return
+
+    if (dx(1) * normal_(1) < dx(2) * normal_(2)) then
+      dx_ = dx
+      perm = [1, 2]
+    else
+      normal_ = [normal_(2), normal_(1)]
+      dx_ = [dx(2), dx(1)]
+      perm = [2, 1]
+    endif
+
+    max_shift_plane = dot_product(normal_, dx_)/2
+    if (normal_(1) < NORMAL_TOL) then
+      moments(1) = dx_(1)
+      pMoment1(1) = 0
+      pMoment1(2) = shift * moments(1)
+      if (normal(perm(2)) < 0.0) pMoment1(2) = -pMoment1(2)
+    else
+      moments(1) = cmpInterfaceMoment0_pc_ordered_plane(normal_, dx_, shift + max_shift_plane, max_shift_plane)
+      if (moments(1) /= 0.0) then
+        pMoment1 = cmpInterfaceMoment1_pc_ordered_plane(normal_, dx_, shift + max_shift_plane, max_shift_plane)
+        if (normal(perm(1)) < 0.0) pMoment1(1) = -pMoment1(1)
+        if (normal(perm(2)) < 0.0) pMoment1(2) = -pMoment1(2)
+      endif
+    endif
+
+    moments(1+perm(1)) = pMoment1(1); moments(1+perm(2)) = pMoment1(2)
+  end function
+
+  pure function cmpInterfaceMoment0_pc_ordered_plane(normal, dx, pc, max_shift_plane) result(area)
+    implicit none
+
+    ! Input/output arguments:
+    real*8, intent(in)  :: normal(2), dx(2), pc, max_shift_plane
+    real*8              :: area
+
+    ! Local variables:
+    real*8              :: pcMod
+    logical             :: largerThanHalf
+
+    largerThanHalf = pc > max_shift_plane
+    if (largerThanHalf) then
+      pcMod = 2*max_shift_plane - pc
+    else
+      pcMod = pc
+    endif
+
+    if (pcMod <= 0.0) then
+      area = 0
+    elseif (pcMod<normal(1)*dx(1)) then
+      area = sqrt(pcMod**2/normal(1)**2 + pcMod**2/normal(2)**2)
+    else ! if (pcMod<=max_shift_plane) then
+      area = sqrt((dx(1)**2*(normal(1)**2 + normal(2)**2))/normal(2)**2)
+    endif
+  end function
+
+  pure function cmpInterfaceMoment1_pc_ordered_plane(normal, dx, pc, max_shift_plane) result(moment1)
+    implicit none
+
+    ! Input/output arguments:
+    real*8,intent(in)   :: normal(2), dx(2), pc, max_shift_plane
+    real*8              :: moment1(2)
+
+    ! Local variables:
+    real*8              :: pcMod
+    logical             :: largerThanHalf
+
+    largerThanHalf = pc > max_shift_plane
+    if (largerThanHalf) then
+      pcMod = 2*max_shift_plane - pc
+    else
+      pcMod = pc
+    endif
+
+    ! We compute moment1 w.r.t. cell corner
+    if (pcMod <= 0.0) then
+      moment1 = 0
+    elseif (pcMod<normal(1)*dx(1)) then
+      moment1(1) = -(sqrt(pcMod**2/normal(1)**2 + pcMod**2/normal(2)**2)*(dx(1) - pcMod/normal(1)))/2
+      moment1(2) = -(sqrt(pcMod**2/normal(1)**2 + pcMod**2/normal(2)**2)*(dx(2) - pcMod/normal(2)))/2
+    else ! if (pcMod<=max_shift_plane) then
+      moment1(1) = 0
+      moment1(2) = -((dx(1)*normal(1) - 2*pcMod + dx(2)*normal(2))*sqrt((dx(1)**2*(normal(1)**2 +& 
+        normal(2)**2))/normal(2)**2))/(2*normal(2))
+    endif
+
+    if (largerThanHalf) moment1 = -moment1
+  end function
+
 
   pure real*8 function cmpShift2d_plane(normal, dx, volume) result(shift)
 

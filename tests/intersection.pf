@@ -366,6 +366,45 @@ contains
   end subroutine
 
   @Test
+  subroutine test_cmpInterfaceMoments()
+    use m_r2d
+    use m_reconstruction_util
+
+    implicit none
+    
+    integer, parameter      :: NR_ANGLE = 50, NR_SHIFT = 50
+    real*8                  :: dx(2), normal(2), moments(3), moments_r2d(3)
+    real*8                  :: angle, shift, lengthScale, pi, cellVol, edge(2, 2)
+    integer                 :: adx, sdx
+    type(r2d_poly_f)        :: poly
+
+    pi = 4 * datan(1.0d0)
+    dx = [0.1D0, 0.15D0]
+    cellVol = product(dx)
+
+    do adx = 1, NR_ANGLE
+    do sdx = 1, NR_SHIFT
+      angle = 2 * pi * (adx - 1.D0) / (NR_ANGLE - 1.D0)
+      normal = [dcos(angle), dsin(angle)]
+      lengthScale = dot_product(dx, abs(normal))
+
+      shift = lengthScale * sdx / (NR_SHIFT + 1) - lengthScale/2
+
+      poly = makeBox_bounds([-dx/2, dx/2])
+      call intersect(poly, makePlane(normal, shift))
+
+      edge = get_edge(poly, normal)
+      moments_r2d(1) = norm2(edge(:,2) - edge(:,1))
+      moments_r2d(2:3) = (edge(:,2) + edge(:,1)) * moments_r2d(1) / 2
+      
+      moments = cmpInterfaceMoments(normal, dx, shift)
+
+      @assertEqual(moments_r2d, moments, TOLERANCE * sqrt(cellVol))
+    enddo
+    enddo
+  end subroutine
+
+  @Test
   subroutine test_cmpmoments_time()
     use m_reconstruction_util
     use m_r2d_parabolic
