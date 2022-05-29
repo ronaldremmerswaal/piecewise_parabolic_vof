@@ -435,11 +435,10 @@ contains
     call cpu_time(time_intersect_plane)
     time_intersect_plane = time_intersect_plane - tmp
 
-
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
       poly = makeBox_bounds([-dx/2, dx/2])
-      moments01 = cmpMoments(poly)
+      moments01 = cmpMoments_(poly, makePlane(normal, shift))
     enddo
     call cpu_time(time_intersect_r2d_plane)
     time_intersect_r2d_plane = time_intersect_r2d_plane - tmp
