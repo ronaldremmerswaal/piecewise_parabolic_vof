@@ -28,27 +28,21 @@ contains
     errTol_ = merge(errTol, 1D-8, present(errTol))
 
     lviraAngle = lvira_angle_guess(refVolumes, dxs)
-    lviraAngle = brent_min(cost, dcost, lviraAngle, errTol_, 25, verbose_, maxStep=0.5D0)
+    lviraAngle = brent_min(dcost, lviraAngle, errTol_, 25, verbose_, maxStep=0.5D0)
     normal = [dcos(lviraAngle), dsin(lviraAngle)]
   contains
-    real*8 function cost(angle) result(err)
+
+    real*8 function dcost(angle, err) result(derr)
 
       implicit none
 
       real*8, intent(in)  :: angle
+      real*8, intent(out), optional :: err
 
-      err = lvira_error(refVolumes, angle, dxs)
-    end function
+      real*8              :: err_
 
-    real*8 function dcost(angle) result(derr)
-
-      implicit none
-
-      real*8, intent(in)  :: angle
-
-      real*8              :: err
-
-      err = lvira_error(refVolumes, angle, dxs, derivative=derr)
+      err_ = lvira_error(refVolumes, angle, dxs, derivative=derr)
+      if (present(err)) err = err_
     end function
   end function
 
@@ -144,28 +138,22 @@ contains
     errTol_ = merge(errTol, 1D-8, present(errTol))
 
     plviraAngle = lvira_angle_guess(refVolumes, dxs)
-    plviraAngle = brent_min(cost, dcost, plviraAngle, errTol_, 25, verbose_, maxStep=0.5D0)
+    plviraAngle = brent_min(dcost, plviraAngle, errTol_, 25, verbose_, maxStep=0.5D0)
     normal = [dcos(plviraAngle), dsin(plviraAngle)]
   contains
-    real*8 function cost(angle) result(err)
+
+    real*8 function dcost(angle, err) result(derr)
 
       implicit none
 
       real*8, intent(in)  :: angle
+      real*8, intent(out), optional :: err
 
-      err = plvira_error(refVolumes, angle, kappa0, dxs)
-    end function
+      real*8              :: err_, derivatives(2)
 
-    real*8 function dcost(angle) result(derr)
-
-      implicit none
-
-      real*8, intent(in)  :: angle
-
-      real*8              :: err, derivatives(2)
-
-      err = plvira_error(refVolumes, angle, kappa0, dxs, derivatives)
+      err_ = plvira_error(refVolumes, angle, kappa0, dxs, derivatives)
       derr = derivatives(1)
+      if (present(err)) err = err_
     end function
   end function
 
@@ -342,38 +330,22 @@ contains
       mofAngle = 0
     endif
     
-    mofAngle =  brent_min(cost, dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
+    mofAngle =  brent_min(dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
 
     normal = [dcos(mofAngle), dsin(mofAngle)]
   contains 
 
-    real*8 function cost(angle) result(err)
-      use m_reconstruction_util
-      implicit none
-
-      real*8, intent(in)    :: angle
-      
-      ! Local variables
-      real*8                :: normal_(2), shift, difference(2)
-
-      normal_ = [dcos(angle), dsin(angle)]
-      shift = cmpShift(normal_, dx, refMoments(1), kappa0, moments=mofMoments_)
-
-      difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
-
-      err = sum(difference**2)
-    end function
-
-    real*8 function dcost(angle) result(derr)
+    real*8 function dcost(angle, err) result(derr)
       use m_reconstruction_util
       use m_r2d_parabolic
   
       implicit none
 
       real*8, intent(in)  :: angle
+      real*8, intent(out), optional :: err
 
       ! Local variables:
-      real*8              :: difference(2), derivative(4), normal_(2), shift, err
+      real*8              :: difference(2), derivative(4), normal_(2), shift, err_
 
       normal_ = [dcos(angle), dsin(angle)]
 
@@ -384,8 +356,9 @@ contains
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative(2:3) = derivative(2:3) / cost_fun_scaling
       
-      err = sum(difference**2)
+      err_ = sum(difference**2)
       derr = dot_product(derivative(2:3), difference)*2
+      if (present(err)) err = err_
     end function
 
   end function
@@ -422,39 +395,23 @@ contains
       mofAngle = 0
     endif
     
-    mofAngle =  brent_min(cost, dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
+    mofAngle =  brent_min(dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
 
     normal = [dcos(mofAngle), dsin(mofAngle)]
 
   contains 
 
-    real*8 function cost(angle) result(err)
-      use m_reconstruction_util
-      implicit none
-
-      real*8, intent(in)    :: angle
-      
-      ! Local variables
-      real*8                :: normal_(2), shift, difference(2)
-
-      normal_ = [dcos(angle), dsin(angle)]
-      shift = cmpShift(normal_, cell, refMoments(1), kappa0, x0=x0, moments=mofMoments_)
-
-      difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
-
-      err = sum(difference**2)
-    end function
-
-    real*8 function dcost(angle) result(derr)
+    real*8 function dcost(angle, err) result(derr)
       use m_reconstruction_util
       use m_r2d_parabolic
   
       implicit none
 
       real*8, intent(in)  :: angle
+      real*8, intent(out), optional :: err
 
       ! Local variables:
-      real*8              :: difference(2), derivative(4), normal_(2), shift, err
+      real*8              :: difference(2), derivative(4), normal_(2), shift, err_
 
       normal_ = [dcos(angle), dsin(angle)]
 
@@ -465,8 +422,10 @@ contains
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative(2:3) = derivative(2:3) / cost_fun_scaling
       
-      err = sum(difference**2)
+      err_ = sum(difference**2)
       derr = dot_product(derivative(2:3), difference)*2
+
+      if (present(err)) err = err_
     end function
 
   end function
