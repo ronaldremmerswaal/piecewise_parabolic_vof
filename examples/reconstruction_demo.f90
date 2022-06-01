@@ -7,7 +7,7 @@ program reconstruction_demo
   write(*, '(A)') 'In a nonrectilinear polygonal control volume:'
   call reconstruction_nonrect
 
-  contains
+contains
 
   subroutine reconstruction_rect
     ! Computation of moments / shift
@@ -129,7 +129,7 @@ program reconstruction_demo
     call init_from_pos(cell, pos(:,1:count))
 
     ! Other than the initialisation of the control volume, the rest is the same as before
-    refMoments = cmpMoments(cell, exact_interface)
+    refMoments = cmpMoments(cell, exact_interface, verts_per_segment=1000)
 
     ! We pass the optional argoment x0=xc to tell the intersection functions that our
     ! parabola is defined relative to xc, rather than 0, which is the default

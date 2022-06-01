@@ -8,3 +8,4 @@ Implementation of the intersection algorithm described in https://arxiv.org/abs/
   - PPIC reconstruction
     - Approximate reconstruction: validation using symmetric difference with exact domain
     - Timing (compare to PLIC)
+- Merge m_r2d_parabolic & m_reconstruction_util
