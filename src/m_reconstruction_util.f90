@@ -2,7 +2,7 @@ module m_reconstruction_util
   use m_common
 
   private
-  public :: cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff
+  public :: cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff, makeParabola
 
   real*8, parameter     :: NORMAL_TOL = 1E-12
 
@@ -12,6 +12,10 @@ module m_reconstruction_util
 
   interface cmpShift
     module procedure cmpShift2d_plane, cmpShift2d_parabolic, cmpShift2d_poly
+  end interface
+
+  interface makeParabola
+    module procedure makeParabola_noshift, makeParabola_noshift_poly
   end interface
 
   interface cmpSymmDiff
@@ -392,6 +396,30 @@ contains
     end function
   end function
 
+
+  function makeParabola_noshift(normal, kappa0, dx, liqVol) result(parabola)
+    use m_r2d_parabolic
+    implicit none
+    
+    real*8, intent(in)    :: normal(2), kappa0, dx(2), liqVol
+    type(r2d_parabola_f)  :: parabola
+
+
+    parabola = makeParabola(normal, kappa0, cmpShift(normal, dx, liqVol, kappa0))
+  end function
+
+  function makeParabola_noshift_poly(normal, kappa0, cell, liqVol, x0) result(parabola)
+    use m_r2d_parabolic
+    implicit none
+    
+    real*8, intent(in)    :: normal(2), kappa0, liqVol
+    real*8, intent(in), optional :: x0(2)
+    type(r2d_poly_f)      :: cell
+    type(r2d_parabola_f)  :: parabola
+
+
+    parabola = makeParabola(normal, kappa0, cmpShift(normal, cell, liqVol, kappa0, x0=x0))
+  end function
 
   real function cmpSymmDiff2d_parabolic(x, dx, parabola, levelSet) result(sd)
     use m_r2d_parabolic

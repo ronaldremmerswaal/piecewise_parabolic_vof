@@ -11,7 +11,7 @@ program reconstruction_demo
 
   subroutine reconstruction_rect
     ! Computation of moments / shift
-    use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff
+    use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
 
     ! Tools for polygon intersection
     use m_r2d_parabolic,    only: cmpMoments, makeParabola, r2d_parabola_f
@@ -68,7 +68,7 @@ program reconstruction_demo
     ! We repeat the same steps for the PMOF method, for which we use an exact curvature
     kappa0 = 1.
     normal = pmofNormal(refMoments, kappa0, dx)
-    parabola = makeParabola(normal, kappa0, cmpShift(normal, dx, refMoments(1), kappa0))
+    parabola = makeParabola(normal, kappa0, dx, refMoments(1))
     errMoments = abs(cmpMoments(dx, parabola) - refMoments)
     errSD = cmpSymmDiff(xc, dx, parabola, exact_interface)
 
@@ -85,8 +85,8 @@ program reconstruction_demo
   end subroutine
 
   subroutine reconstruction_nonrect
-    use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff
-    use m_r2d_parabolic,    only: cmpMoments, makeParabola, r2d_poly_f, init_from_pos, r2d_parabola_f
+    use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
+    use m_r2d_parabolic,    only: cmpMoments, r2d_poly_f, init_from_pos, r2d_parabola_f
     use m_reconstruction,   only: mofNormal, pmofNormal
 
     implicit none
@@ -135,7 +135,7 @@ program reconstruction_demo
     ! parabola is defined relative to xc, rather than 0, which is the default
     kappa0 = 1.
     normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
-    parabola = makeParabola(normal, kappa0, cmpShift(normal, cell, refMoments(1), kappa0, x0=xc))
+    parabola = makeParabola(normal, kappa0, cell, refMoments(1), x0=xc)
     errMoments = abs(cmpMoments(cell, parabola, x0=xc) - refMoments)
     errSD = cmpSymmDiff(cell, parabola, exact_interface, x0=xc)
 

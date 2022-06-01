@@ -476,8 +476,7 @@ contains
           normals(:,PMOF_IDX) = pmofNormal(refMoments, kappa0(PMOF_IDX), dx, errTol=errTol)
 
           do mdx=1,NR_METHODS
-            shift = cmpShift(normals(:,mdx), dx, refVolumes(0,0), kappa0(mdx))
-            parabola = makeParabola(normals(:,mdx), kappa0(mdx), shift)
+            parabola = makeParabola(normals(:,mdx), kappa0(mdx), dx, refVolumes(0,0))
             reconMoments = cmpMoments(dx, parabola)
             firstMoment_lInf(rdx,mdx) = max(firstMoment_lInf(rdx,mdx), norm2(reconMoments(2:3) - refMoments(2:3)))
             symmDiff_vol(rdx,mdx) = symmDiff_vol(rdx,mdx) + cmpSymmDiff(xc, dx, parabola, levelset)
