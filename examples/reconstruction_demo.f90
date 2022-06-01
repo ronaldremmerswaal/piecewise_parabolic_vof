@@ -14,7 +14,7 @@ program reconstruction_demo
     use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff
 
     ! Tools for polygon intersection
-    use m_r2d_parabolic,    only: cmpMoments, makeParabola
+    use m_r2d_parabolic,    only: cmpMoments, makeParabola, r2d_parabola_f
 
     ! Reconstruction methods
     use m_reconstruction,   only: mofNormal, pmofNormal
@@ -33,6 +33,9 @@ program reconstruction_demo
 
     ! We store the error in the moments as well as the moments of the symmetric difference
     real*8                  :: errMoments(3), errSD(3)
+
+    ! The reconstructed parabola
+    type(r2d_parabola_f)    :: parabola
 
     xc = [1/sqrt(2.), 1/sqrt(2.)]
     dx = [0.3, 0.3]
@@ -65,9 +68,9 @@ program reconstruction_demo
     ! We repeat the same steps for the PMOF method, for which we use an exact curvature
     kappa0 = 1.
     normal = pmofNormal(refMoments, kappa0, dx)
-    shift = cmpShift(normal, dx, refMoments(1), kappa0)
-    errMoments = abs(cmpMoments(dx, makeParabola(normal, kappa0, shift)) - refMoments)
-    errSD = cmpSymmDiff(xc, dx, normal, shift, kappa0, exact_interface)
+    parabola = makeParabola(normal, kappa0, cmpShift(normal, dx, refMoments(1), kappa0))
+    errMoments = abs(cmpMoments(dx, parabola) - refMoments)
+    errSD = cmpSymmDiff(xc, dx, parabola, exact_interface)
 
     write(*, '(A)') ''
     write(*, '(A)') 'The PMOF method'
@@ -83,7 +86,7 @@ program reconstruction_demo
 
   subroutine reconstruction_nonrect
     use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff
-    use m_r2d_parabolic,    only: cmpMoments, makeParabola, r2d_poly_f, init_from_pos
+    use m_r2d_parabolic,    only: cmpMoments, makeParabola, r2d_poly_f, init_from_pos, r2d_parabola_f
     use m_reconstruction,   only: mofNormal, pmofNormal
 
     implicit none
@@ -99,6 +102,8 @@ program reconstruction_demo
 
     real*8                  :: normal(2), shift, kappa0, angle, pi
     real*8                  :: errMoments(3), errSD(3)
+
+    type(r2d_parabola_f)    :: parabola
 
     pi = 4 * datan(1.0D0)
     pacmanRadius = 0.3D0
@@ -130,9 +135,9 @@ program reconstruction_demo
     ! parabola is defined relative to xc, rather than 0, which is the default
     kappa0 = 1.
     normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
-    shift = cmpShift(normal, cell, refMoments(1), kappa0, x0=xc)
-    errMoments = abs(cmpMoments(cell, makeParabola(normal, kappa0, shift), x0=xc) - refMoments)
-    errSD = cmpSymmDiff(cell, normal, shift, kappa0, exact_interface, x0=xc)
+    parabola = makeParabola(normal, kappa0, cmpShift(normal, cell, refMoments(1), kappa0, x0=xc))
+    errMoments = abs(cmpMoments(cell, parabola, x0=xc) - refMoments)
+    errSD = cmpSymmDiff(cell, parabola, exact_interface, x0=xc)
 
     write(*, '(A)') ''
     write(*, '(A)') 'The PMOF method can reconstruct inside non-rectilinear (and non-convex) cells as well, and'

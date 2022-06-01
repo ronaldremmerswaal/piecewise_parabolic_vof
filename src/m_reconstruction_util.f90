@@ -393,11 +393,12 @@ contains
   end function
 
 
-  real function cmpSymmDiff2d_parabolic(x, dx, normal, shift, kappa0, levelSet) result(sd)
+  real function cmpSymmDiff2d_parabolic(x, dx, parabola, levelSet) result(sd)
     use m_r2d_parabolic
     implicit none
 
-    real*8, intent(in)     :: x(2), dx(2), normal(2), shift, kappa0
+    real*8, intent(in)     :: x(2), dx(2)
+    type(r2d_parabola_f)   :: parabola
     real*8, external       :: levelSet
 
     ! Local variables
@@ -411,8 +412,8 @@ contains
     exact_liq = polyApprox(x, dx, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
-    sd_1 = cmpMoments_(exact_gas, makeParabola(normal, kappa0, shift), x0=x)
-    sd_2 = cmpMoments_(exact_liq, makeParabola(-normal, -kappa0, -shift), x0=x)
+    sd_1 = cmpMoments_(exact_gas, parabola, x0=x)
+    sd_2 = cmpMoments_(exact_liq, complement(parabola), x0=x)
     sd = sd_1(1) + sd_2(1)
   end
 
@@ -440,12 +441,12 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  real function cmpSymmDiff2d_parabolic_polyIn(cell, normal, shift, kappa0, levelSet, x0) result(sd)
+  real function cmpSymmDiff2d_parabolic_polyIn(cell, parabola, levelSet, x0) result(sd)
     use m_r2d_parabolic
     implicit none
 
     type(r2d_poly_f), intent(in) :: cell
-    real*8, intent(in)     :: normal(2), shift, kappa0
+    type(r2d_parabola_f)   :: parabola
     real*8, external       :: levelSet
     real*8, intent(in), optional :: x0(2)
 
@@ -460,8 +461,8 @@ contains
     exact_liq = polyApprox(cell, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
-    sd_1 = cmpMoments_(exact_gas, makeParabola(normal, kappa0, shift), x0=x0)
-    sd_2 = cmpMoments_(exact_liq, makeParabola(-normal, -kappa0, -shift), x0=x0)
+    sd_1 = cmpMoments_(exact_gas, parabola, x0=x0)
+    sd_2 = cmpMoments_(exact_liq, complement(parabola), x0=x0)
     sd = sd_1(1) + sd_2(1)
   end
 

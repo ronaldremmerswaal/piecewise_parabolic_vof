@@ -3,6 +3,8 @@ module m_r2d_parabolic
 
   implicit none
 
+  integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = R2D_MAX_VERTS / 3
+
   type, bind(C) :: r2d_parabola_f
     type(r2d_rvec2_f)     :: n
     real(c_double)        :: shift
@@ -64,6 +66,18 @@ contains
     normal = [dcos(angle), dsin(angle)]
     parabola = makeParabola_shift(normal, kappa0, shift)
   end function
+
+  function complement(parabola) result(parabola_complement)
+    implicit none
+    
+    type(r2d_parabola_f), intent(in) :: parabola
+    
+    type(r2d_parabola_f)  :: parabola_complement
+
+    parabola_complement%n%xyz = -parabola%n%xyz
+    parabola_complement%kappa0 = -parabola%kappa0
+    parabola_complement%shift = -parabola%shift
+  end
 
   ! Removes the part of poly for which 
   !   \eta \cdot (x - x_0) + (\kappa/2) * (\tau \cdot (x - x_0))^2 > 0
@@ -178,6 +192,28 @@ contains
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
 
+    ! Local variables   
+    integer               :: nr_sub, isub, jsub
+    real*8                :: xsub(2), dxsub(2)
+
+    if (present(verts_per_segment)) then
+      ! TODO: implement higher order integration such that few vertices are sufficient
+      if (verts_per_segment > DEFAULT_VERTS_PER_SEGMENT) then
+        ! R2D doesn't allow for more verts, so we subdivide the cell
+        nr_sub = ceiling((verts_per_segment+0.) / DEFAULT_VERTS_PER_SEGMENT)
+        dxsub = dx / nr_sub
+        moments = 0
+        do jsub=1,nr_sub
+        do isub=1,nr_sub
+          xsub(1) = x(1) - dx(1)/2 + (isub-0.5D0) * dxsub(1)
+          xsub(2) = x(2) - dx(2)/2 + (jsub-0.5D0) * dxsub(2)
+          moments = moments + cmpMoments(polyApprox_rectangularIn(xsub, dxsub, levelSet, phase))
+        enddo
+        enddo
+        return
+      endif
+    endif
+
     moments = cmpMoments(polyApprox_rectangularIn(x, dx, levelSet, phase, verts_per_segment))
   end function
 
@@ -227,7 +263,7 @@ contains
     integer               :: verts_per_segment_, phase_
     logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(2*R2D_MAX_VERTS)
 
-    verts_per_segment_ = R2D_MAX_VERTS / 3
+    verts_per_segment_ = DEFAULT_VERTS_PER_SEGMENT
     if (present(verts_per_segment)) verts_per_segment_ = min(verts_per_segment_, verts_per_segment)
 
     phase_ = merge(phase, LIQUID_PHASE, present(phase))

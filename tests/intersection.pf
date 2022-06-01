@@ -275,7 +275,7 @@ contains
     kappa0 = 0.D0
 
     ! Analytical:
-    sd = cmpSymmDiff(x, dx, normal, shift, kappa0, levelset)
+    sd = cmpSymmDiff(x, dx, makeParabola(normal, kappa0, shift), levelset)
     @assertEqual(pi / 16, sd, APPROX_TOLERANCE)
 
     ! Computed in MATLAB:
@@ -290,7 +290,7 @@ contains
       mom_gas = cmpMoments(polyApprox(x, dx, levelset, GAS_PHASE))
       mom_liq = cmpMoments(polyApprox(x, dx, levelset, LIQUID_PHASE))
 
-      sd = cmpSymmDiff(x, dx, normal, shift, kappa0, levelset)
+      sd = cmpSymmDiff(x, dx, makeParabola(normal, kappa0, shift), levelset)
 
       if (radius <= 1.) then
         @assertEqual(pi * radius**2 / 4, mom_liq(1), APPROX_TOLERANCE)
@@ -361,6 +361,42 @@ contains
       real*8, intent(in)  :: x(2)
 
       ans = dot_product(x, normal) - shift
+
+    end function
+  end subroutine
+
+  @Test 
+  subroutine test_cmpMoments_levelSet()
+    use m_r2d_parabolic
+
+    implicit none
+
+    integer, parameter    :: NR_REFINE = 15
+    real*8                :: pi, refMoments(3), errors(NR_REFINE), order
+    integer               :: nr_verts, rdx
+
+    real*8, parameter     :: RADIUS = 0.5
+
+    pi = 4 * datan(1.0D0)
+
+    do rdx=1,NR_REFINE
+      nr_verts = 2**rdx
+      refMoments = cmpMoments([0.5D0, 0.5D0], [1.D0, 1.D0], levelSet, verts_per_segment=nr_verts)
+      errors(rdx) = refMoments(1) - pi*RADIUS**2/4
+      if (rdx > 1) then
+        order = -log(errors(rdx) / errors(1)) / ((rdx-1)*log(2.0D0))
+        @assertGreaterThanOrEqual(order, 1.7D0)
+      endif
+    enddo
+
+  contains
+    ! The liquid part coincides with levelSet(x) < 0 (normal points into gas)
+    real*8 function levelSet(x) result(ans)
+      implicit none
+
+      real*8, intent(in)  :: x(2)
+
+      ans = norm2(x) - RADIUS
 
     end function
   end subroutine

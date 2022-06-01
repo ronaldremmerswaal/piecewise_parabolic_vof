@@ -4,6 +4,7 @@ module reconstruction
 
   real*8, parameter         :: TOLERANCE = 1E-10
   real*8, parameter         :: IS_INTERFACE_TOLERANCE = 1E-8
+  real*8, parameter         :: RADIUS = 0.25
 contains
   @Test
   subroutine test_exact_mof_reconstruction()
@@ -396,15 +397,161 @@ contains
 
   @Test
   subroutine test_approx_reconstruction()
+    use m_reconstruction_util
+    use m_r2d_parabolic
+    use m_reconstruction
 
-  contains
-    real*8 function levelSet(x) result(ans)
-      implicit none
+    implicit none
 
-      real*8, intent(in)  :: x(2)
+    integer, parameter    :: NR_METHODS = 5, NR_GRIDS = 3, LEVEL0 = 5
+    integer, parameter    :: LVIRA_IDX = 1, PLVIRA_IDX = 2, PROST_IDX = 3, MOF_IDX = 4, PMOF_IDX = 5
+    logical, parameter    :: IS_PARABOLIC(NR_METHODS) = [.false., .true., .true., .false., .true.]
+    integer, parameter    :: symmDiff_expectedOrder(NR_METHODS) = [2, 3, 3, 2, 3]
+    integer, parameter    :: firstMoment_expectedOrder(NR_METHODS) = 3+[1, 2, 2, 2, 4]
 
-      ! ans = shift - dot_product(x, normal) - (kappa0/2) * (dot_product(x, tangent))**2
+    real*8                :: pi, Lx, Ly, xc(2), dx(2), dxs(-1:1,2)
+    real*8                :: refMoments(3), normals(2, NR_METHODS), shift, kappa0(NR_METHODS), kappa0_exact
+    real*8                :: refVolumes(-1:1,-1:1), reconMoments(3), errTol
+    real*8, allocatable   :: volume_grid(:,:), momx_grid(:,:), momy_grid(:,:)
+    real*8                :: symmDiff_vol(NR_GRIDS, NR_METHODS), firstMoment_lInf(NR_GRIDS, NR_METHODS)
+    real*8                :: symmDiff_order, firstMoment_order
+    integer               :: i, j, N, rdx, mdx
+    type(r2d_parabola_f)  :: parabola
 
-    end function
+    pi = 4 * datan(1.0D0)
+    
+    Lx = 1.333333
+    Ly = 0.966666
+
+    symmDiff_vol = 0
+    firstMoment_lInf = 0
+
+    do rdx=1,NR_GRIDS
+      N = 2**(rdx + LEVEL0 - 1)
+      dx = [Lx, Ly] / N
+      dxs(:,1) = dx(1)
+      dxs(:,2) = dx(2)
+
+      ! Compute reference moments
+      allocate(volume_grid(1:N,1:N))
+      allocate(momx_grid(1:N,1:N))
+      allocate(momy_grid(1:N,1:N))
+
+      do j=1,N
+      do i=1,N
+        xc(1) = (i-0.5) * dx(1)
+        xc(2) = (j-0.5) * dx(2)
+        refMoments = cmpMoments(xc, dx, levelSet, verts_per_segment=N)
+        volume_grid(i,j) = refMoments(1)
+        momx_grid(i,j) = refMoments(2) - refMoments(1) * xc(1)
+        momy_grid(i,j) = refMoments(3) - refMoments(1) * xc(2)
+      enddo
+      enddo
+
+      errTol = min(1D-2, (minval(dx) / max(Lx, Ly))**2)
+
+      ! Reconstruct
+      do j=2,N-1
+      do i=2,N-1
+        
+        refMoments(1) = volume_grid(i,j)
+        
+        if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
+          xc(1) = (i-0.5) * dx(1)
+          xc(2) = (j-0.5) * dx(2)
+
+          refVolumes = volume_grid(i-1:i+1,j-1:j+1)
+          refMoments(2) = momx_grid(i,j)
+          refMoments(3) = momy_grid(i,j)
+
+          ! Approximate, but accurate
+          kappa0_exact = levelSet_curvature(xc, minval(dx) / 5)
+          kappa0 = 0.0D0
+          where (IS_PARABOLIC) kappa0 = kappa0_exact
+
+          normals(:,LVIRA_IDX) = lviraNormal(refVolumes, dxs, errTol=errTol)
+          normals(:,PLVIRA_IDX) = plviraNormal(refVolumes, kappa0(PLVIRA_IDX), dxs, errTol=errTol)
+          normals(:,PROST_IDX) = prostNormal(refVolumes, kappa0(PROST_IDX), dxs, errTol=errTol)
+          normals(:,MOF_IDX) = mofNormal(refMoments, dx)
+          normals(:,PMOF_IDX) = pmofNormal(refMoments, kappa0(PMOF_IDX), dx, errTol=errTol)
+
+          do mdx=1,NR_METHODS
+            shift = cmpShift(normals(:,mdx), dx, refVolumes(0,0), kappa0(mdx))
+            parabola = makeParabola(normals(:,mdx), kappa0(mdx), shift)
+            reconMoments = cmpMoments(dx, parabola)
+            firstMoment_lInf(rdx,mdx) = max(firstMoment_lInf(rdx,mdx), norm2(reconMoments(2:3) - refMoments(2:3)))
+            symmDiff_vol(rdx,mdx) = symmDiff_vol(rdx,mdx) + cmpSymmDiff(xc, dx, parabola, levelset)
+          enddo
+
+        endif   
+      enddo
+      enddo
+
+      print*, 'm1 err = ', firstMoment_lInf(rdx,:)
+      if (rdx > 1) then
+        print*, 'm1 order = ', -log(firstMoment_lInf(rdx,:) / firstMoment_lInf(rdx-1,:)) / (log(2.0D0))
+        do mdx=1,NR_METHODS
+          symmDiff_order = -log(symmDiff_vol(rdx,mdx) / symmDiff_vol(rdx-1,mdx)) / log(2.0D0)
+          @assertGreaterThanOrEqual(symmDiff_order, symmDiff_expectedOrder(mdx) - 1D-1)
+
+          firstMoment_order = -log(firstMoment_lInf(rdx,mdx) / firstMoment_lInf(rdx-1,mdx)) / (log(2.0D0))
+          @assertGreaterThanOrEqual(firstMoment_order, firstMoment_expectedOrder(mdx) - 5D-1)
+        enddo
+      endif
+
+      deallocate(volume_grid)
+      deallocate(momx_grid)
+      deallocate(momy_grid)
+    enddo
+
   end subroutine
+
+  real*8 function levelSet(x) result(ans)
+  
+    implicit none
+    
+    real*8, intent(in)  :: x(2)
+    
+    ! Local variables
+    real*8, parameter   :: PERT_REL_AMP = 0.1, PERT_FREQ = 5., X0(2) = [0.5, 0.5], PERT_SHIFT = 0.1
+    real*8              :: angle
+
+    angle = datan2(x(2) - X0(2), x(1) - X0(1))
+    ans = norm2(x - X0) - RADIUS * (1 + PERT_REL_AMP * dcos(PERT_SHIFT + angle * PERT_FREQ))
+
+  end function
+
+  real*8 function levelSet_curvature(x, h) result(kappa)
+    use m_optimization
+
+    implicit none
+
+    real*8, intent(in)  :: x(2), h
+
+    ! Local variables
+    real*8, parameter   :: DSTEP = 1D-6
+    real                :: lsNormal(2), lsTangent(2), lhfVals(-1:1)
+    integer             :: ldx
+
+    lsNormal = [levelSet(x + [1D-6,.0D0]) - levelSet(x - [1D-6,.0D0]), &
+                levelSet(x + [.0D0,1D-6]) - levelSet(x - [.0D0,1D-6])]
+    lsNormal = lsNormal / norm2(lsNormal)
+    lsTangent = [-lsNormal(2), lsNormal(1)]
+
+    ! Construct LHF in lsNormal direction
+    do ldx=-1,1
+      lhfVals(ldx) = brent(rootfun, -RADIUS/5, RADIUS/5, 1D-12, 50)
+    enddo
+
+    kappa = -((lhfVals(1) - 2 * lhfVals(0) + lhfVals(-1)) / h**2) / (sqrt(1 + ((lhfVals(1) - lhfVals(-1))/(2*h))**2)**3)
+    
+  contains
+    real*8 function rootfun(s) result(err)
+      implicit none
+      
+      real*8, intent(in)  :: s
+
+      err = levelSet(x + lsNormal * s + lsTangent * ldx * h)
+    end function
+  end function
 end module
