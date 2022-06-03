@@ -24,7 +24,7 @@ contains
 
     x = 0.0D0
     dx = 1.0D0
-    cutPoly = makeBox_bounds([x - dx/2, x + dx/2])
+    call makeBox_bounds(cutPoly, [x - dx/2, x + dx/2])
     shift = 0.0D0
     normal = [0.0D0, 1.0D0]
 
@@ -41,9 +41,9 @@ contains
       ! Consider boxes of any size
       dx = dx * (10.0D0**(3-bdx))
 
-      poly = makeBox_bounds([x - dx/2, x + dx/2])
+      call makeBox_bounds(poly, [x - dx/2, x + dx/2])
       do pdx=1,nrPlics
-        cutPoly = copy(poly)
+        call copy(to=cutPoly, from=poly)
 
         call random_number(normal)
         normal = normal - 0.5
@@ -90,7 +90,7 @@ contains
 
       shift = lengthScale * (sdx - 1.D0) / (NR_SHIFT - 1.D0) - lengthScale/2
 
-      poly = makeBox_bounds([-dx/2, dx/2])
+      call makeBox_bounds(poly, [-dx/2, dx/2])
       call intersect(poly, makePlane(normal, shift))
       moments_plane_r2d = cmpMoments(poly)
       
@@ -259,6 +259,7 @@ contains
     real*8                  :: mom_gas(3), mom_liq(3), mom01(3), tmp
     integer, parameter      :: NR_STEPS = 100
     integer                 :: sdx
+    type(r2d_poly_f)        :: poly
 
     ! Results from MATLAB (very accurate)
     real*8, parameter       :: sd_MATLAB(NR_STEPS) = [&   
@@ -287,8 +288,10 @@ contains
 
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
-      mom_gas = cmpMoments(polyApprox(x, dx, levelset, GAS_PHASE))
-      mom_liq = cmpMoments(polyApprox(x, dx, levelset, LIQUID_PHASE))
+      call polyApprox(poly, x, dx, levelset, GAS_PHASE)
+      mom_gas = cmpMoments(poly)
+      call polyApprox(poly, x, dx, levelset, LIQUID_PHASE)
+      mom_liq = cmpMoments(poly)
 
       sd = cmpSymmDiff(x, dx, makeParabola(normal, kappa0, shift), levelset)
 
@@ -342,7 +345,7 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      poly = makeBox_bounds([-dx/2, dx/2])
+      call makeBox_bounds(poly, [-dx/2, dx/2])
       call intersect(poly, makePlane(normal, shift))
       r2dMoments = cmpMoments(poly)
 
@@ -426,7 +429,7 @@ contains
 
       shift = lengthScale * sdx / (NR_SHIFT + 1) - lengthScale/2
 
-      poly = makeBox_bounds([-dx/2, dx/2])
+      call makeBox_bounds(poly, [-dx/2, dx/2])
       call intersect(poly, makePlane(normal, shift))
 
       edge = get_edge(poly, normal)
@@ -473,7 +476,7 @@ contains
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      poly = makeBox_bounds([-dx/2, dx/2])
+      call makeBox_bounds(poly, [-dx/2, dx/2])
       moments01 = cmpMoments_(poly, makePlane(normal, shift))
     enddo
     call cpu_time(time_intersect_r2d_plane)
@@ -487,9 +490,54 @@ contains
     time_intersect_parabola = time_intersect_parabola - tmp
 
     print*, 'INTERSECTION TIMING:'
-    print*, '... PLANE USING PPIC UTIL = ', time_intersect_plane / NR_REPETITIONS
-    print*, '... PLANE USING R2D       = ', time_intersect_r2d_plane / NR_REPETITIONS
-    print*, '... PARABOLA USING UTIL   = ', time_intersect_parabola / NR_REPETITIONS
+    print*, '... PLANE USING UTIL    = ', time_intersect_plane / NR_REPETITIONS
+    print*, '... PLANE USING R2D     = ', time_intersect_r2d_plane / NR_REPETITIONS
+    print*, '... PARABOLA USING UTIL = ', time_intersect_parabola / NR_REPETITIONS
+
+  end subroutine
+
+  @Test
+  subroutine test_cmpvolume_time()
+    use m_polygon
+
+    implicit none
+
+    ! Local variables
+    integer, parameter      :: NR_REPETITIONS = 10000
+    type(tPolygon)          :: poly
+    type(tPlane)            :: plane
+    real*8                  :: dx(2), angle, normal(2), shift, vol
+    real*8                  :: tmp, time_intersect_polygon, time_intersect_plane
+    integer                 :: rep
+
+
+    dx = [0.123D0, 0.3141592D0]
+    angle = 0.4321D0
+    normal = [dcos(angle), dsin(angle)]
+    shift = 0.0123D0
+    plane%normal = normal
+    plane%shift = shift
+
+    ! call cpu_time(tmp)
+    ! do rep=1,NR_REPETITIONS
+    !   vol = cmpVolume(normal, dx, shift)
+    ! enddo
+    ! call cpu_time(time_intersect_plane)
+    ! time_intersect_plane = time_intersect_plane - tmp
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call makeBox(poly, dx)
+      call intersect_(poly, plane)
+      vol = cmpVolume(poly)
+    enddo
+    call cpu_time(time_intersect_polygon)
+    time_intersect_polygon = time_intersect_polygon - tmp
+
+
+    print*, 'INTERSECTION TIMING:'
+    ! print*, '... PLANE USING UTIL    = ', time_intersect_plane / NR_REPETITIONS
+    print*, '... PLANE USING POLYGON = ', time_intersect_polygon / NR_REPETITIONS
 
   end subroutine
 end module

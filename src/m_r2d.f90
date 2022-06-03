@@ -105,7 +105,7 @@ module m_r2d
   end interface
 
   interface makeBox
-    module procedure makeBox_bounds, makeBox_xdx
+    module procedure makeBox_xdx, makeBox_bounds
   end interface
 contains
 
@@ -162,7 +162,7 @@ contains
     ! Local variables
     type(r2d_poly_f)      :: poly_
 
-    poly_ = copy(poly)
+    call copy(to=poly_, from=poly)
     call intersect(poly_, plane) 
     mom = reduce_1(poly_)
   end function
@@ -234,11 +234,11 @@ contains
     call r2d_split_ptr(polys, %val(size(polys, 1)), plane, out_pos, out_neg)
   end subroutine
 
-  function copy(from) result(to)
+  subroutine copy(to, from)
     implicit none
 
     type(r2d_poly_f), intent(in) :: from
-    type(r2d_poly_f)      :: to
+    type(r2d_poly_f), intent(out) :: to
 
     integer               :: v
 
@@ -248,13 +248,13 @@ contains
       to%verts(v)%pos%xyz = from%verts(v)%pos%xyz
     enddo
 
-  end function
+  end subroutine
 
-  function makeBox_bounds(rbounds) result(poly)
+  subroutine makeBox_bounds(poly, rbounds)
     implicit none
 
     real*8, intent(in)    :: rbounds(2, 2)
-    type(r2d_poly_f)      :: poly
+    type(r2d_poly_f), intent(out)      :: poly
 
     ! Local variables
     type(r2d_rvec2_f)     :: rbounds_vec(2)
@@ -263,13 +263,13 @@ contains
     rbounds_vec(2)%xyz = rbounds(:, 2)
 
     call r2d_init_box_f(poly, rbounds_vec)
-  end function
+  end subroutine
 
-  function makeBox_xdx(x, dx) result(poly)
+  subroutine makeBox_xdx(poly, x, dx)
     implicit none
     
     real*8, intent(in)    :: x(2), dx(2)
-    type(r2d_poly_f)      :: poly
+    type(r2d_poly_f), intent(out) :: poly
 
         ! Local variables
     type(r2d_rvec2_f)     :: rbounds_vec(2)
@@ -278,7 +278,7 @@ contains
     rbounds_vec(2)%xyz = x + dx/2
 
     call r2d_init_box_f(poly, rbounds_vec)
-  end function  
+  end subroutine  
 
   subroutine init_from_pos(poly, pos)
     implicit none

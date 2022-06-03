@@ -112,7 +112,7 @@ contains
 
     type(r2d_poly_f)      :: poly_
 
-    poly_ = copy(poly)
+    call copy(to=poly_, from=poly)
     moments01 = cmpMoments_parabola_poly_(poly_, parabola, x0, derivative, grad_s)
   end function
 
@@ -195,6 +195,7 @@ contains
     ! Local variables   
     integer               :: nr_sub, isub, jsub
     real*8                :: xsub(2), dxsub(2)
+    type(r2d_poly_f)      :: poly
 
     if (present(verts_per_segment)) then
       ! TODO: implement higher order integration such that few vertices are sufficient
@@ -207,14 +208,16 @@ contains
         do isub=1,nr_sub
           xsub(1) = x(1) - dx(1)/2 + (isub-0.5D0) * dxsub(1)
           xsub(2) = x(2) - dx(2)/2 + (jsub-0.5D0) * dxsub(2)
-          moments = moments + cmpMoments(polyApprox_rectangularIn(xsub, dxsub, levelSet, phase))
+          call polyApprox_rectangularIn(poly, xsub, dxsub, levelSet, phase)
+          moments = moments + cmpMoments(poly)
         enddo
         enddo
         return
       endif
     endif
 
-    moments = cmpMoments(polyApprox_rectangularIn(x, dx, levelSet, phase, verts_per_segment))
+    call polyApprox_rectangularIn(poly, x, dx, levelSet, phase, verts_per_segment)
+    moments = cmpMoments(poly)
   end function
 
   function cmpMoments_levelset_poly(poly, levelSet, phase, verts_per_segment) result(moments)
@@ -226,10 +229,13 @@ contains
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
 
-    moments = cmpMoments(polyApprox_polyIn(poly, levelSet, phase, verts_per_segment))
+    type(r2d_poly_f)      :: polyOut
+
+    call polyApprox_polyIn(polyOut, poly, levelSet, phase, verts_per_segment)
+    moments = cmpMoments(polyOut)
   end function
 
-  function polyApprox_rectangularIn(x, dx, levelSet, phase, verts_per_segment) result(poly)
+  subroutine polyApprox_rectangularIn(poly, x, dx, levelSet, phase, verts_per_segment)
     use m_common
     use m_optimization,   only: brent
   
@@ -239,12 +245,14 @@ contains
     real*8, external      :: levelSet
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
-    type(r2d_poly_f)      :: poly
+    type(r2d_poly_f), intent(out) :: poly
+    type(r2d_poly_f)      :: cell
 
-    poly = polyApprox_polyIn(makeBox(x, dx), levelSet, phase, verts_per_segment)
-  end function
+    call makeBox(cell, x, dx)
+    call polyApprox_polyIn(poly, cell, levelSet, phase, verts_per_segment)
+  end subroutine
 
-  function polyApprox_polyIn(cell, levelSet, phase, verts_per_segment) result(poly)
+  subroutine polyApprox_polyIn(poly, cell, levelSet, phase, verts_per_segment)
     use m_common
     use m_optimization,   only: brent
   
@@ -254,7 +262,7 @@ contains
     real*8, external      :: levelSet
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
-    type(r2d_poly_f)      :: poly
+    type(r2d_poly_f), intent(out) :: poly
 
     ! Local variables
     real*8                :: pos(2, R2D_MAX_VERTS), pos_skeleton(2, 2*R2D_MAX_VERTS), funVals(R2D_MAX_VERTS)
@@ -367,6 +375,6 @@ contains
 
       f = interfaceFun(x0 + step_ * dir)
     end
-  end
+  end subroutine
 
 end module

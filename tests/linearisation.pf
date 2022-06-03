@@ -102,7 +102,7 @@ contains
 
       ! Compute grad_s such that the volume of the centred cell is conserved
       grad_s = d_qnan
-      cell = makeBox([0.D0, 0.D0], dxs(0,:))
+      call makeBox(cell, [0.D0, 0.D0], dxs(0,:))
       moments01 = cmpMoments(cell, parabola, grad_s=grad_s)
 
       if (moments01(1) > IS_INTERFACE_TOL .and. product(dxs(0,:)) - moments01(1) > IS_INTERFACE_TOL) then
@@ -117,7 +117,7 @@ contains
           xc_nb(1) = i * (dxs(0,1) + dx_nb(1))/2
           xc_nb(2) = j * (dxs(0,2) + dx_nb(2))/2
     
-          cell_nb = makeBox(xc_nb, dx_nb)
+          call makeBox(cell_nb, xc_nb, dx_nb)
           moments01_nb = cmpMoments(cell_nb, parabola, derivative=derivative_cmp, grad_s=grad_s)
           call approximate_moment_derivatives(cell_nb, angle, kappa0, shift, derivative_fd, dxs(0,:))
 

@@ -283,7 +283,7 @@ contains
       xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
       xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
-      cell = makeBox(xc_neighbour, dx_neighbour)
+      call makeBox(cell, xc_neighbour, dx_neighbour)
       if (present(derivatives)) then
         moments = cmpMoments_(cell, parabola, derivative=derivatives_local, grad_s=grad_s)
       else

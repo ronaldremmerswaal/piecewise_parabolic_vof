@@ -276,8 +276,8 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    exact_gas = polyApprox(x, dx, levelSet, GAS_PHASE)
-    exact_liq = polyApprox(x, dx, levelSet, LIQUID_PHASE)
+    call polyApprox(exact_gas, x, dx, levelSet, GAS_PHASE)
+    call polyApprox(exact_liq, x, dx, levelSet, LIQUID_PHASE)
     call shift_by(exact_gas, -x)
     call shift_by(exact_liq, -x)
 
@@ -303,7 +303,7 @@ contains
     ! Local variables
     type(r2d_poly_f)      :: cell
 
-    cell = makeBox_bounds([-dx/2.0, dx/2.0])
+    call makeBox_bounds(cell, [-dx/2.0, dx/2.0])
     moments = cmpMoments_(cell, parabola, x0, derivative, grad_s)
   end function
 
@@ -346,7 +346,7 @@ contains
       return
     endif
 
-    cell = makeBox_bounds([-dx/2.0, dx/2.0])
+    call makeBox_bounds(cell, [-dx/2.0, dx/2.0])
 
     ! Use PLIC to get a good initial bracket (one side at least)
     shift_plane = cmpShift2d_plane(normal, dx, liqVol)
@@ -436,8 +436,8 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    exact_gas = polyApprox(x, dx, levelSet, GAS_PHASE)
-    exact_liq = polyApprox(x, dx, levelSet, LIQUID_PHASE)
+    call polyApprox(exact_gas, x, dx, levelSet, GAS_PHASE)
+    call polyApprox(exact_liq, x, dx, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
     sd_1 = cmpMoments_(exact_gas, parabola, x0=x)
@@ -460,8 +460,8 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    exact_gas = polyApprox(cell, levelSet, GAS_PHASE)
-    exact_liq = polyApprox(cell, levelSet, LIQUID_PHASE)
+    call polyApprox(exact_gas, cell, levelSet, GAS_PHASE)
+    call polyApprox(exact_liq, cell, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
     sd_1 = cmpMoments_(exact_gas, makePlane(normal, shift))
@@ -485,8 +485,8 @@ contains
 
     ! Construct polygonal approximation of exact gas & liquid domains
     ! (relative to the cell centroid)
-    exact_gas = polyApprox(cell, levelSet, GAS_PHASE)
-    exact_liq = polyApprox(cell, levelSet, LIQUID_PHASE)
+    call polyApprox(exact_gas, cell, levelSet, GAS_PHASE)
+    call polyApprox(exact_liq, cell, levelSet, LIQUID_PHASE)
 
     ! Compute symmetric difference
     sd_1 = cmpMoments_(exact_gas, parabola, x0=x0)
