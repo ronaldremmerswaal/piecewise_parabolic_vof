@@ -505,9 +505,9 @@ contains
     ! Local variables
     integer, parameter      :: NR_REPETITIONS = 10000
     type(tPolygon)          :: poly
-    type(tPlane)            :: plane
-    real*8                  :: dx(2), angle, normal(2), shift, vol
-    real*8                  :: tmp, time_intersect_polygon, time_intersect_plane
+    type(tParabola)         :: plane
+    real*8                  :: dx(2), angle, normal(2), shift, mom(3)
+    real*8                  :: tmp, time_intersect_polygon
     integer                 :: rep
 
 
@@ -518,25 +518,17 @@ contains
     plane%normal = normal
     plane%shift = shift
 
-    ! call cpu_time(tmp)
-    ! do rep=1,NR_REPETITIONS
-    !   vol = cmpVolume(normal, dx, shift)
-    ! enddo
-    ! call cpu_time(time_intersect_plane)
-    ! time_intersect_plane = time_intersect_plane - tmp
-
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
       call makeBox(poly, dx)
       call intersect_(poly, plane)
-      vol = cmpVolume(poly)
+      mom = cmpMoments(poly)
     enddo
     call cpu_time(time_intersect_polygon)
     time_intersect_polygon = time_intersect_polygon - tmp
 
 
     print*, 'INTERSECTION TIMING:'
-    ! print*, '... PLANE USING UTIL    = ', time_intersect_plane / NR_REPETITIONS
     print*, '... PLANE USING POLYGON = ', time_intersect_polygon / NR_REPETITIONS
 
   end subroutine
