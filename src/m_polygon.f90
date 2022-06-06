@@ -80,19 +80,7 @@ contains
     endif
   end function
 
-  subroutine intersect(iPoly, poly, parabola)
-    implicit none
-    
-    type(tPolygon), intent(in) :: poly
-    type(tParabola), intent(in) :: parabola
-
-    type(tPolygon), intent(out)        :: iPoly
-
-    call copy(out=iPoly, in=poly)
-    call intersect_(iPoly, parabola)
-  end subroutine
-
-  subroutine intersect_(poly, parabola)
+  subroutine intersect(poly, parabola)
 
     implicit none
 
@@ -105,16 +93,21 @@ contains
     logical               :: is_parabolic
     real*8                :: x_eta, x_tau
 
+    if (poly%intersected) then
+      print*, 'ERROR: a polygon cannot be intersected if it was previously intersected by a parabola'
+      return
+    endif
+
     is_parabolic = parabola%kappa0 /= 0.0
 
     ! Check for each vertex if it under or above the parabola
     inside_count = 0
     first_inside = 0
     do vdx=1,poly%nverts
-      x_eta = parabola%normal(1)*poly%verts(1,vdx) + parabola%normal(2)*poly%verts(2,vdx)
-      dist(vdx) = x_eta - parabola%shift
+      x_eta = dot_product(poly%verts(:,vdx), parabola%normal) - parabola%shift
+      dist(vdx) = x_eta
       if (is_parabolic) then
-        x_tau = -parabola%normal(2)*poly%verts(1,vdx) + parabola%normal(1)*poly%verts(2,vdx)
+        x_tau = dot_rotate(poly%verts(:,vdx), parabola%normal)
         dist(vdx) = dist(vdx) + (parabola%kappa0/2) * x_tau**2
       endif
 
@@ -143,7 +136,7 @@ contains
       ndx = vdx + 1
       if (ndx > poly%nverts) ndx = 1
 
-      if (is_parabolic) nr_roots = parabola_line_intersection(roots, parabola, buffer(:,vdx), buffer(:,ndx))
+      if (is_parabolic) nr_roots = parabola_line_intersection(roots, parabola, buffer(:,ndx), buffer(:,vdx))
 
       if (dist(vdx)<=0 .neqv. dist(ndx)<=0) then
         ! Insert new vertex (edge bisection)
@@ -155,11 +148,13 @@ contains
         
         new_count = new_count + 1
         poly%verts(:,new_count) = coeff * buffer(:,vdx) + (1 - coeff) * buffer(:,ndx)
+        print*, 'idx, vert', new_count, poly%verts(:,new_count)
       elseif (is_parabolic .and. nr_roots==2) then
         ! The edge is trisected
         do tdx=1,2
           new_count = new_count + 1
           poly%verts(:,new_count) = roots(tdx) * buffer(:,vdx) + (1 - roots(tdx)) * buffer(:,ndx)
+          print*, 'idx, vert', new_count, poly%verts(:,new_count)
         enddo
 
       endif
@@ -168,6 +163,7 @@ contains
         ! Keep old
         new_count = new_count + 1
         poly%verts(:,new_count) = buffer(:,ndx)
+        print*, 'idx, vert', new_count, poly%verts(:,new_count)
       endif
 
       vdx = ndx
@@ -274,7 +270,7 @@ contains
     integer               :: edx, vdx, ndx
     type(tParabola), pointer :: parabola
 
-    call compute_momonial(poly, 2)
+    call compute_momonial(poly, 4)
 
     parabola => poly%parabola
 
@@ -301,9 +297,10 @@ contains
         mom_corr(2) = (parabola%kappa0**2) * poly%monomials(4,edx)/8 - (coeff(1) * coeff(1) * poly%monomials(2,edx) + &
           2 * coeff(1) * coeff(2) * poly%monomials(1,edx) + coeff(2) * coeff(2) * poly%monomials(0,edx)) 
 
-        moments(1) = moments(1) + parabola%normal(1) * (mom_corr(2) + parabola%shift * vol_corr) &
+        moments(1) = moments(1) + vol_corr
+        moments(2) = moments(2) + parabola%normal(1) * (mom_corr(2) + parabola%shift * vol_corr) &
           - parabola%normal(2) * mom_corr(1);
-        moments(2) = moments(2) + parabola%normal(2) * (mom_corr(2) + parabola%shift * vol_corr) &
+        moments(3) = moments(3) + parabola%normal(2) * (mom_corr(2) + parabola%shift * vol_corr) &
           + parabola%normal(1) * mom_corr(1);
       endif
     enddo
@@ -390,10 +387,10 @@ contains
     real*8, intent(in)    :: dx(2)
     type(tPolygon), intent(out) :: poly
 
-    poly%verts(:,1) = [-dx(1), -dx(2)]
-    poly%verts(:,2) = [dx(1), -dx(2)]
-    poly%verts(:,3) = [dx(1), dx(2)]
-    poly%verts(:,4) = [-dx(1), dx(2)]
+    poly%verts(:,1) = [-dx(1)/2, -dx(2)/2]
+    poly%verts(:,2) = [dx(1)/2, -dx(2)/2]
+    poly%verts(:,3) = [dx(1)/2, dx(2)/2]
+    poly%verts(:,4) = [-dx(1)/2, dx(2)/2]
 
     poly%nverts = 4
 

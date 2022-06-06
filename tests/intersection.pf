@@ -462,7 +462,7 @@ contains
     angle = 0.4321D0
     normal = [dcos(angle), dsin(angle)]
     shift = 0.0123D0
-    kappa0 = 0.05D0
+    kappa0 = -0.05D0
 
     ! Test the time needed to intersect and compute the resulting 
     ! intersection moments (zeroth and first)
@@ -487,6 +487,8 @@ contains
       moments01 = cmpMoments(dx, makeParabola(normal, kappa0, shift))
     enddo
     call cpu_time(time_intersect_parabola)
+    call print(poly)
+    print*, 'R2D PARA MOMENTs = ', moments01
     time_intersect_parabola = time_intersect_parabola - tmp
 
     print*, 'INTERSECTION TIMING:'
@@ -503,28 +505,29 @@ contains
     implicit none
 
     ! Local variables
-    integer, parameter      :: NR_REPETITIONS = 10000
+    integer, parameter      :: NR_REPETITIONS = 1!10000
     type(tPolygon)          :: poly
     type(tParabola)         :: plane
-    real*8                  :: dx(2), angle, normal(2), shift, mom(3)
+    real*8                  :: dx(2), angle, mom(3)
     real*8                  :: tmp, time_intersect_polygon
     integer                 :: rep
 
 
     dx = [0.123D0, 0.3141592D0]
     angle = 0.4321D0
-    normal = [dcos(angle), dsin(angle)]
-    shift = 0.0123D0
-    plane%normal = normal
-    plane%shift = shift
+    
+    plane%normal = [dcos(angle), dsin(angle)]
+    plane%shift = 0.0123D0
+    plane%kappa0 = -0.05D0
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
       call makeBox(poly, dx)
-      call intersect_(poly, plane)
+      call intersect(poly, plane)
       mom = cmpMoments(poly)
     enddo
     call cpu_time(time_intersect_polygon)
+    print*, 'POLYGON MOMENTs = ', mom
     time_intersect_polygon = time_intersect_polygon - tmp
 
 
