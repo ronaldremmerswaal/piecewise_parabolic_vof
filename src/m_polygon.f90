@@ -136,25 +136,25 @@ contains
       ndx = vdx + 1
       if (ndx > poly%nverts) ndx = 1
 
-      if (is_parabolic) nr_roots = parabola_line_intersection(roots, parabola, buffer(:,ndx), buffer(:,vdx))
+      if (is_parabolic) nr_roots = parabola_line_intersection(roots, parabola, buffer(:,vdx), buffer(:,ndx))
 
       if (dist(vdx)<=0 .neqv. dist(ndx)<=0) then
         ! Insert new vertex (edge bisection)
+        new_count = new_count + 1
         if (.not. is_parabolic) then
-          coeff = abs(dist(ndx) / (dist(ndx) - dist(vdx)))
+          coeff = abs(dist(vdx) / (dist(ndx) - dist(vdx)))
         else
           coeff = roots(1)
+          poly%on_parabola(new_count) = .true.
         endif
         
-        new_count = new_count + 1
-        poly%verts(:,new_count) = coeff * buffer(:,vdx) + (1 - coeff) * buffer(:,ndx)
-        print*, 'idx, vert', new_count, poly%verts(:,new_count)
+        poly%verts(:,new_count) = (1 - coeff) * buffer(:,vdx) + coeff * buffer(:,ndx)
       elseif (is_parabolic .and. nr_roots==2) then
         ! The edge is trisected
         do tdx=1,2
           new_count = new_count + 1
-          poly%verts(:,new_count) = roots(tdx) * buffer(:,vdx) + (1 - roots(tdx)) * buffer(:,ndx)
-          print*, 'idx, vert', new_count, poly%verts(:,new_count)
+          poly%on_parabola(new_count) = .true.
+          poly%verts(:,new_count) = (1 - roots(tdx)) * buffer(:,vdx) + roots(tdx) * buffer(:,ndx)
         enddo
 
       endif
@@ -162,8 +162,8 @@ contains
       if (dist(ndx)<=0) then
         ! Keep old
         new_count = new_count + 1
+        if (is_parabolic) poly%on_parabola(new_count) = .false.
         poly%verts(:,new_count) = buffer(:,ndx)
-        print*, 'idx, vert', new_count, poly%verts(:,new_count)
       endif
 
       vdx = ndx
