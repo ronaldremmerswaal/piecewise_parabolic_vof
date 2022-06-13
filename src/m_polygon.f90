@@ -422,11 +422,7 @@ contains
     else
       poly%parabola = complement(parabola)
     endif
-       
-    if (poly%nverts < 2) then 
-      poly%nverts = 0
-      poly%intersected = .false.
-    endif
+   
   end subroutine
 
   subroutine compute_momonial(poly, nr)

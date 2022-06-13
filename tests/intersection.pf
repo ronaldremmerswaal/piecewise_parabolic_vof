@@ -234,27 +234,28 @@ contains
     enddo
     @assertEqual(moments01_para, moments01_parts, TOLERANCE)
 
-    ! ! A special case which fails
-    ! pos(:, 1) = [0.0000000000000000D0     ,  -7.8125000000000000D-003]
-    ! pos(:, 2) = [0.0000000000000000D0     ,   7.8125000000000000D-003]
-    ! pos(:, 3) = [3.4458603408377459D-003,   6.7317744943550615D-003]
-    ! pos(:, 4) = [3.1726489965236038D-003,  -7.8125000000000017D-003]
-    ! ! pos5(:, 5) = [0.0000000000000000     ,  -7.8125000000000000E-003]
+    ! A special case which fails
+    x0 =        [7.8125000000000000D-003,   0.0000000000000000D0]
+    pos(:, 1) = [0.0000000000000000D0     ,  -7.8125000000000000D-003] - x0
+    pos(:, 2) = [0.0000000000000000D0     ,   7.8125000000000000D-003] - x0
+    pos(:, 3) = [3.4458603408377459D-003,   6.7317744943550615D-003] - x0
+    pos(:, 4) = [3.1726489965236038D-003,  -7.8125000000000017D-003] - x0
+    ! pos5(:, 5) = [0.0000000000000000     ,  -7.8125000000000000E-003]
 
-    ! x0 =        [7.8125000000000000D-003,   0.0000000000000000D0]
-    ! normal =    [-0.99897516533599229D0   ,   4.5261672990808480D-002]
-    ! shift = 7.6984592557472181D-003
-    ! kappa0 = 13.746906323304344D0
+    normal =    [-0.99897516533599229D0   ,   4.5261672990808480D-002]
+    shift = 7.6984592557472181D-003
+    kappa0 = 13.746906323304344D0
 
-    ! ! Approximate with 1E5 points
-    ! moments01_exact = -[4.623807682389947D-05,  0.810186449104417D-07,  -0.200835995785912D-07]
+    ! Approximate with 1E5 points
+    moments01_exact = -[4.623807682389947D-05,  0.810186449104417D-07,  -0.200835995785912D-07]
+    moments01_exact(2:3) = moments01_exact(2:3) - moments01_exact(1) * x0
 
 
-    ! call init_from_pos(poly, pos)
-    ! call intersect(poly, makeParabola(normal, kappa0, shift), x0=x0)
-    ! moments01_para = cmpMoments(poly)
+    call init(poly, pos)
+    call intersect(poly, makeParabola(normal, kappa0, shift))
+    moments01_para = cmpMoments(poly)
 
-    ! @assertEqual(moments01_para, moments01_exact, TOLERANCE)
+    @assertEqual(moments01_para, moments01_exact, TOLERANCE)
 
   end subroutine
 
