@@ -12,9 +12,11 @@ module m_polygon
     real*8                :: verts(2,MAX_NR_VERTS)
     integer               :: nverts = 0
 
-    logical               :: intersected = .false. ! NB intersected by a parabola
-    logical               :: on_parabola(MAX_NR_VERTS)
+    logical               :: intersected = .false.
     type(tParabola)       :: parabola
+
+    logical               :: parabolic = .false.
+    logical               :: on_parabola(MAX_NR_VERTS)
 
     real*8                :: x_tau(2,MAX_NR_PARA_EDGES)
     real*8                :: x_eta(2,MAX_NR_PARA_EDGES)
@@ -48,7 +50,7 @@ contains
 
     vol = vol/2
 
-    if (poly%intersected) then
+    if (poly%intersected .and. poly%parabolic) then
       vol = vol + parabola_volume_correction(poly)
     endif
   end function
@@ -75,9 +77,191 @@ contains
     mom(1) = mom(1)/2
     mom(2:3) = mom(2:3)/6
 
-    if (poly%intersected) then
+    if (poly%intersected .and. poly%parabolic) then
       mom = mom + parabola_moments_correction(poly)
     endif
+  end function
+
+  subroutine cmpMonomialSums(monomials_sum, poly, nr)
+    implicit none
+
+    real*8, intent(out)   :: monomials_sum(0:)
+    type(tPolygon), intent(inout) :: poly
+    integer, intent(in)   :: nr
+
+    ! Local variables
+    integer               :: edx, vdx, ndx
+
+    if (.not. poly%intersected) then
+      print*, 'ERROR: monomials cannot be computed because polygon was not yet intersected'
+      return
+    endif
+
+    call compute_momonial(poly, nr)
+
+    monomials_sum = 0
+    edx = 0 ! Parabolic edge index
+    do vdx=1,poly%nverts
+      ndx = vdx + 1
+      if (vdx==poly%nverts) ndx = 1
+      
+      if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
+        edx = edx + 1
+
+        monomials_sum(0:nr) = monomials_sum(0:nr) + poly%monomials(0:nr,edx)
+      endif
+    enddo
+
+  end subroutine
+
+  real*8 function cmpDerivative_volAngle(poly, shiftAngleDerivative) result(der)
+    implicit none
+
+    type(tPolygon), intent(inout) :: poly
+    real*8, intent(in), optional :: shiftAngleDerivative
+
+    ! Local variables
+    real*8                :: monomials_sum(0:3)
+
+    if (.not. poly%intersected) then
+      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+    endif
+    
+    der = 0
+    if (.not. present(shiftAngleDerivative)) then 
+      ! Force zero volume
+      return
+      ! shiftAngleDerivative = cmpDerivative_shiftAngle(poly)
+    endif
+    
+    if (poly%parabolic) then
+      call cmpMonomialSums(monomials_sum, poly, 3)
+    else
+      call cmpMonomialSums(monomials_sum, poly, 1)
+    endif
+
+    der = monomials_sum(0) * shiftAngleDerivative - monomials_sum(1)
+    if (poly%parabolic) then
+      der = der + monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 - &
+        (monomials_sum(3) * poly%parabola%kappa0**2) / 2
+    endif
+    
+  end function
+  
+  real*8 function cmpDerivative_volKappa(poly, shiftKappaDerivative) result(der)
+    implicit none
+
+    type(tPolygon), intent(inout) :: poly
+    real*8, intent(in), optional :: shiftKappaDerivative
+
+    ! Local variables
+    real*8                :: monomials_sum(0:3)
+
+    if (.not. poly%intersected) then
+      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+    endif
+    
+    der = 0
+    if (.not. present(shiftKappaDerivative)) then 
+      ! Force zero volume
+      return
+      ! shiftKappaDerivative = cmpDerivative_shiftKappa(poly)
+    endif
+    
+    call cmpMonomialSums(monomials_sum, poly, 2)
+
+    der = monomials_sum(0) * shiftKappaDerivative - monomials_sum(2)/2
+    
+  end function
+  
+  function cmpDerivative_firstMomentAngle(poly, shiftAngleDerivative) result(der)
+    implicit none
+
+    type(tPolygon), intent(inout) :: poly
+    real*8, intent(in), optional :: shiftAngleDerivative
+    real*8                :: der(2)
+
+    ! Local variables
+    real*8                :: shiftAngleDerivative_, der1_eta, der1_tau, monomials_sum(0:5)
+
+    if (.not. poly%intersected) then
+      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+    endif
+    
+    if (present(shiftAngleDerivative)) then 
+      shiftAngleDerivative_ = shiftAngleDerivative
+    else
+      ! Force zero volume
+      shiftAngleDerivative_ = cmpDerivative_shiftAngle(poly)
+    endif
+    
+    if (poly%parabolic) then
+      call cmpMonomialSums(monomials_sum, poly, 5)
+    else
+      call cmpMonomialSums(monomials_sum, poly, 2)
+    endif
+
+    der1_eta = poly%parabola%shift * shiftAngleDerivative_ * monomials_sum(0) 
+    if (poly%parabolic) then
+      der1_eta = der1_eta + monomials_sum(3) * poly%parabola%kappa0 / 2 - &
+        monomials_sum(2) * shiftAngleDerivative_ * poly%parabola%kappa0 / 2 - &
+        poly%parabola%shift * monomials_sum(1) + &
+        poly%parabola%kappa0 * (monomials_sum(1) * poly%parabola%shift**2 + &
+        monomials_sum(5) * poly%parabola%kappa0**2 / 4 - &
+        poly%parabola%shift * poly%parabola%kappa0 * monomials_sum(3))
+    endif
+
+    der1_tau = shiftAngleDerivative_ * monomials_sum(1) - monomials_sum(2)
+    if (poly%parabolic) then
+      der1_tau = der1_tau + poly%parabola%kappa0 * poly%parabola%shift * monomials_sum(2) -&
+        monomials_sum(4) * poly%parabola%kappa0**2 / 2
+    endif
+    
+    der(1) = poly%parabola%normal(1) * der1_eta - poly%parabola%normal(2) * der1_tau
+    der(2) = poly%parabola%normal(2) * der1_eta + poly%parabola%normal(1) * der1_tau
+  end function
+
+  real*8 function cmpDerivative_shiftAngle(poly) result(der)
+    implicit none
+
+    type(tPolygon), intent(inout) :: poly
+
+    ! Local variables
+    real*8                :: monomials_sum(0:3)
+
+    if (.not. poly%intersected) then
+      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+    endif
+
+    if (poly%parabolic) then
+      call cmpMonomialSums(monomials_sum, poly, 3)
+    else
+      call cmpMonomialSums(monomials_sum, poly, 1)
+    endif
+
+    der = monomials_sum(1)
+    if (poly%parabolic) then
+      der = der - monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 &
+        + (monomials_sum(3) * poly%parabola%kappa0**2) / 2 + monomials_sum(1)
+    endif
+    der = der / monomials_sum(0)
+  end function
+
+  real*8 function cmpDerivative_shiftKappa(poly) result(der)
+    implicit none
+
+    type(tPolygon), intent(inout) :: poly
+
+    ! Local variables
+    real*8                :: monomials_sum(0:2)
+
+    if (.not. poly%intersected) then
+      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+    endif
+
+    call cmpMonomialSums(monomials_sum, poly, 2)
+
+    der = (monomials_sum(2)/2) / monomials_sum(0);
   end function
 
   subroutine intersect(poly, parabola)
@@ -145,8 +329,8 @@ contains
           coeff = abs(dist(vdx) / (dist(ndx) - dist(vdx)))
         else
           coeff = roots(1)
-          poly%on_parabola(new_count) = .true.
         endif
+        poly%on_parabola(new_count) = .true.
         
         poly%verts(:,new_count) = (1 - coeff) * buffer(:,vdx) + coeff * buffer(:,ndx)
       elseif (is_parabolic .and. nr_roots==2) then
@@ -162,7 +346,7 @@ contains
       if (dist(ndx)<=0) then
         ! Keep old
         new_count = new_count + 1
-        if (is_parabolic) poly%on_parabola(new_count) = .false.
+        poly%on_parabola(new_count) = .false.
         poly%verts(:,new_count) = buffer(:,ndx)
       endif
 
@@ -171,10 +355,9 @@ contains
 
     poly%nverts = new_count
 
-    if (is_parabolic) then 
-      poly%intersected = .true.
-      poly%parabola = parabola
-    endif
+    poly%parabolic = is_parabolic
+    poly%intersected = .true.
+    poly%parabola = parabola
        
   end subroutine
 
@@ -412,14 +595,18 @@ contains
       out%parabola%shift = in%parabola%shift
       out%parabola%kappa0 = in%parabola%kappa0
 
-      out%on_parabola(1:out%nverts) = in%on_parabola(1:out%nverts)
+      out%parabolic = in%parabolic
+      if (out%parabolic) then
+        out%on_parabola(1:out%nverts) = in%on_parabola(1:out%nverts)
+  
+        out%x_tau = in%x_tau
+        out%x_eta = in%x_eta
+        
+        out%avail_monomial = in%avail_monomial
+        if (out%avail_monomial>=0) out%x_tau_power = in%x_tau_power
+        out%monomials = in%monomials
+      endif
 
-      out%x_tau = in%x_tau
-      out%x_eta = in%x_eta
-      
-      out%avail_monomial = in%avail_monomial
-      if (out%avail_monomial>=0) out%x_tau_power = in%x_tau_power
-      out%monomials = in%monomials
     endif
 
   end subroutine
