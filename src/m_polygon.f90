@@ -294,8 +294,8 @@ contains
         ! Corrections to first moment in parabola coordinates
         mom_corr(1) = -(parabola%kappa0/2) * poly%monomials(3,edx) - (coeff(1) * poly%monomials(2,edx) + &
           coeff(2) * poly%monomials(1,edx))
-        mom_corr(2) = (parabola%kappa0**2) * poly%monomials(4,edx)/8 - (coeff(1) * coeff(1) * poly%monomials(2,edx) + &
-          2 * coeff(1) * coeff(2) * poly%monomials(1,edx) + coeff(2) * coeff(2) * poly%monomials(0,edx)) 
+        mom_corr(2) = parabola%kappa0**2 * poly%monomials(4,edx)/8 - (coeff(1)**2 * poly%monomials(2,edx) + &
+          2 * coeff(1) * coeff(2) * poly%monomials(1,edx) + coeff(2)**2 * poly%monomials(0,edx))/2 
 
         moments(1) = moments(1) + vol_corr
         moments(2) = moments(2) + parabola%normal(1) * (mom_corr(2) + parabola%shift * vol_corr) &
