@@ -137,7 +137,6 @@ contains
 
       ! Ensure that |s - κ/8| < 1/2
       kappa0 = -4.0D0 + 8 * (shift + (kdx - 1.D0) / (NR_KAPPA - 1.D0))
-      print*, 'kappa0, shift = ', kappa0, shift
       moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
 
       moments01_exact(1) = 0.5D0 + shift - kappa0 / 24
@@ -160,8 +159,8 @@ contains
     xStar = dsqrt(2 * (shift - dx(2)/2)/kappa0)
     moments01_exact(1) = moments01_exact(1) - 2 * ((-dx(2)/2 + shift) * xStar - (kappa0/6) * xStar**3)
     moments01_exact(2) = 0.D0
-    ! @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
-    ! @assertEqual(moments01_exact(2), moments01_para(2), TOLERANCE)
+    @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
+    @assertEqual(moments01_exact(2), moments01_para(2), TOLERANCE)
 
     ! And the complement... (this splits the polygon into three piececs, two of which contribute to the volume)
     normal = -normal

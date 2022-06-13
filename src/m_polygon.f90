@@ -308,9 +308,9 @@ contains
     type(tParabola), intent(in) :: parabola
 
     ! Local variables
-    real*8                :: dist(MAX_NR_VERTS), buffer(2,MAX_NR_VERTS), coeff, roots(2)
-    integer               :: edx, vdx, ndx, inside_count, first_inside, new_count, nr_roots, tdx
-    logical               :: is_parabolic, edge_is_bisected, edge_could_be_trisected
+    real*8                :: dist(MAX_NR_VERTS), buffer(2,MAX_NR_VERTS), coeffs(2)
+    integer               :: edx, vdx, ndx, inside_count, first_inside, new_count, nr_coeffs, tdx, prev_idx, next_idx
+    logical               :: is_parabolic, edge_is_bisected, edge_could_be_trisected, new_vertex(2)
     real*8                :: x_eta, x_tau
 
     if (poly%intersected .and. poly%parabolic) then
@@ -340,8 +340,7 @@ contains
         if (first_inside == 0) first_inside = vdx
       endif
     enddo
-    print*, ''
-    print*, 'dists = ', dist(1:poly%nverts)
+
     if (.not. is_parabolic) then
       if (inside_count==0) then
         poly%nverts = 0
@@ -356,12 +355,13 @@ contains
 
     ! Loop over edges of old polygon: insert new vertices and keep some old vertices
     new_count = 0
-    nr_roots = 0
+    nr_coeffs = 0
     vdx = merge(first_inside, 1, first_inside>0)
     do edx=1,poly%nverts
       ndx = vdx + 1
       if (ndx > poly%nverts) ndx = 1
 
+      new_vertex = .false.
       edge_is_bisected = dist(vdx)<=0 .neqv. dist(ndx)<=0
       edge_could_be_trisected = .false.
       if (is_parabolic) then 
@@ -369,45 +369,50 @@ contains
           edge_could_be_trisected = dist(vdx) <= 0
         endif
         if (edge_is_bisected .or. edge_could_be_trisected) then
-          nr_roots = parabola_line_intersection(roots, parabola, buffer(:,vdx), buffer(:,ndx))
-          print*, 'roots = ', roots
+          nr_coeffs = parabola_line_intersection(coeffs, parabola, buffer(:,vdx), buffer(:,ndx))
         endif
       endif
 
       if (edge_is_bisected) then
         ! Insert new vertex (edge bisection)
-        new_count = new_count + 1
         if (.not. is_parabolic) then
-          coeff = abs(dist(vdx) / (dist(ndx) - dist(vdx)))
+          coeffs(1) = abs(dist(vdx) / (dist(ndx) - dist(vdx)))
         else
-          if (abs(roots(2) - .5) < abs(roots(1) - .5)) then 
-            coeff = roots(2)
-          else
-            coeff = roots(1)
+          if (abs(coeffs(2) - .5) < abs(coeffs(1) - .5)) then 
+            coeffs(1) = coeffs(2)
           endif
         endif
-        poly%on_parabola(new_count) = .true.
-        
-        poly%verts(:,new_count) = (1 - coeff) * buffer(:,vdx) + coeff * buffer(:,ndx)
-        print*, 'new  bi vert = ', poly%verts(:,new_count)
-      elseif (edge_could_be_trisected .and. nr_roots==2) then
-        ! The edge is trisected
-        if (roots(2) < roots(1)) roots = roots([2, 1])
-        do tdx=1,2
-          new_count = new_count + 1
-          poly%on_parabola(new_count) = .true.
-          poly%verts(:,new_count) = (1 - roots(tdx)) * buffer(:,vdx) + roots(tdx) * buffer(:,ndx)
-          print*, 'new tri vert = ', poly%verts(:,new_count)
-        enddo
+        new_vertex(1) = .true.
+      elseif (edge_could_be_trisected) then
+        if (nr_coeffs==2) then
+          new_vertex = .true.
+        else
+          if (coeffs(2) < coeffs(1)) coeffs = coeffs([2, 1])
+          if (abs(coeffs(1)) < 1D-14 .and. abs(coeffs(2)-1) < 1D-14) then
+            prev_idx = merge(vdx - 1, poly%nverts, vdx>1)
+            next_idx = merge(ndx + 1, 1, ndx<poly%nverts)
+
+            new_vertex(1) = dist(prev_idx)<=0 .eqv. dist(vdx)<=0
+            new_vertex(2) = dist(next_idx)<=0 .eqv. dist(ndx)<=0
+          endif
+        endif
+
 
       endif
+
+      do tdx=1,2
+        if (new_vertex(tdx)) then
+          new_count = new_count + 1
+          poly%on_parabola(new_count) = .true.
+          poly%verts(:,new_count) = (1 - coeffs(tdx)) * buffer(:,vdx) + coeffs(tdx) * buffer(:,ndx)
+        endif
+      enddo
 
       if (dist(ndx)<=0) then
         ! Keep old
         new_count = new_count + 1
         poly%on_parabola(new_count) = .false.
         poly%verts(:,new_count) = buffer(:,ndx)
-        print*, 'old     vert = ', poly%verts(:,new_count)
       endif
 
       vdx = ndx
