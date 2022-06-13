@@ -520,7 +520,7 @@ contains
     type(tPolygon)          :: poly
     type(tParabola)         :: plane
     real*8                  :: dx(2), angle, mom(3)
-    real*8                  :: tmp, time_intersect_polygon
+    real*8                  :: tmp, time_intersect_polygon, time_intersect_polygon_plane, time_intersect_polygon_plane_sub
     integer                 :: rep
 
 
@@ -541,9 +541,33 @@ contains
     
     time_intersect_polygon = time_intersect_polygon - tmp
 
+    plane%kappa0 = 0
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call makeBox(poly, dx)
+      call intersect(poly, plane)
+      mom = cmpMoments(poly)
+    enddo
+    call cpu_time(time_intersect_polygon_plane)
+    
+    time_intersect_polygon_plane = time_intersect_polygon_plane - tmp
+
+    
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call makeBox(poly, dx)
+      call intersect(poly, plane)
+      call cmpMoments_poly_SUB(mom, poly)
+    enddo
+    call cpu_time(time_intersect_polygon_plane_sub)
+    
+    time_intersect_polygon_plane_sub = time_intersect_polygon_plane_sub - tmp
+
 
     print*, 'INTERSECTION TIMING:'
     print*, '... PARABOLA USING POLYGON = ', time_intersect_polygon / NR_REPETITIONS
+    print*, '... PLANE    USING POLYGON = ', time_intersect_polygon_plane / NR_REPETITIONS
+    print*, '... PLANESUB USING POLYGON = ', time_intersect_polygon_plane_sub / NR_REPETITIONS
 
   end subroutine
 end module

@@ -9,21 +9,30 @@ module m_polygon
   end type
 
   type tPolygon
+    ! Polygon is stored as a list of positions
     real*8                :: verts(2,MAX_NR_VERTS)
     integer               :: nverts = 0
 
+    ! When a polygon is intersected with a parabola we store the corresponding parabola
+    ! which is needed for computing moments/derivatives
     logical               :: intersected = .false.
+    logical               :: parabolic = .false.
     type(tParabola)       :: parabola
 
-    logical               :: parabolic = .false.
+    ! For each vertex we store whether or not it was part of the original polygon
     logical               :: on_parabola(MAX_NR_VERTS)
 
+    ! We compute the complement if the parabola has kappa0 > 0, in which case the moments
+    ! of the original polygon must be stored
     logical               :: complement = .false. 
     real*8                :: original_moments(3)
 
+    ! The tangential and normal coordinates of the vertices which lie on the parabola
+    ! (needed for computation of moments/derivatives)
     real*8                :: x_tau(2,MAX_NR_PARA_EDGES)
     real*8                :: x_eta(2,MAX_NR_PARA_EDGES)
     
+    ! Integrated powers of x_tau, which are needed for computation of moments/derivatives
     integer               :: avail_monomial = -1
     real*8                :: x_tau_power(2,MAX_NR_PARA_EDGES)
     real*8                :: monomials(0:MAX_MONOMIAL,MAX_NR_PARA_EDGES)
@@ -152,6 +161,37 @@ contains
       endif
     endif
   end function
+
+  subroutine cmpMoments_poly_SUB(mom, poly)
+    implicit none
+    
+    type(tPolygon), intent(inout) :: poly
+    real*8, intent(out)           :: mom(3)
+
+    ! Local variables
+    integer               :: vdx, ndx
+    real*8                :: areaTerm
+
+    mom = 0
+    do vdx=1,poly%nverts
+      ndx = vdx + 1
+      if (ndx > poly%nverts) ndx = 1
+
+      areaTerm = poly%verts(1,vdx)*poly%verts(2,ndx) - poly%verts(2,vdx)*poly%verts(1,ndx)
+      mom(1) = mom(1) + areaTerm
+      mom(2:3) = mom(2:3) + areaTerm * (poly%verts(:,vdx) + poly%verts(:,ndx))
+    enddo
+
+    mom(1) = mom(1)/2
+    mom(2:3) = mom(2:3)/6
+
+    if (poly%intersected .and. poly%parabolic) then
+      mom = mom + parabola_moments_correction(poly)
+      if (poly%complement) then
+        mom = poly%original_moments - mom
+      endif
+    endif
+  end subroutine
 
   real*8 function cmpDerivative_volAngle(poly, shiftAngleDerivative) result(der)
     implicit none
