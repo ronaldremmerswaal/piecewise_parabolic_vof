@@ -2,7 +2,7 @@ module m_recon_util
   use m_common
 
   private
-  public :: cmpVolume, cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff, makeParabola
+  public :: cmpVolume, cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff, makeParabola, cmpSymmDiffVolume
 
   real*8, parameter     :: NORMAL_TOL = 1E-12
 
@@ -24,6 +24,10 @@ module m_recon_util
 
   interface cmpSymmDiff
     module procedure cmpSymmDiff2d_plane, cmpSymmDiff2d_parabolic, cmpSymmDiff2d_parabolic_polyIn
+  end interface
+
+  interface cmpSymmDiffVolume
+    module procedure cmpSymmDiffVolume2d_dxIn, cmpSymmDiffVolume2d_polyIn
   end interface
 
   interface cmpInterfaceMoments
@@ -405,6 +409,49 @@ contains
     moments = cmpMoments_(cell, parabola, x0, derivative, grad_s)
   end function
 
+  real*8 function cmpSymmDiffVolume2d_dxIn(x, dx, parabola, levelSet) result(sd)
+    use m_polygon
+    implicit none
+
+    real*8, intent(in)    :: x(2), dx(2)
+    type(tParabola), intent(in) :: parabola
+    real*8, external      :: levelSet
+    
+    type(tPolygon)        :: cell
+
+    call makeBox(cell, x, dx)
+    sd = cmpSymmDiffVolume(cell, parabola, levelset, x0=x)
+  end
+
+  real*8 function cmpSymmDiffVolume2d_polyIn(cell, parabola, levelSet, x0) result(sd)
+    use m_polygon
+    implicit none
+
+    type(tPolygon), intent(in) :: cell
+    type(tParabola), intent(in) :: parabola
+    real*8, external      :: levelSet
+    real*8, optional, intent(in) :: x0(2)
+
+    ! Local variables
+    type(tPolygon)        :: exact_gas, exact_liq
+
+
+    ! Construct polygonal approximation of exact gas & liquid domains
+    ! (relative to the cell centroid)
+    call polyApprox(exact_gas, cell, levelSet, GAS_PHASE)
+    call polyApprox(exact_liq, cell, levelSet, LIQUID_PHASE)
+    if (present(x0)) then
+      call shift_by(exact_gas, -x0)
+      call shift_by(exact_liq, -x0)  
+    endif
+
+    ! Compute symmetric difference
+    call intersect(exact_gas, parabola)
+    call intersect(exact_liq, complement(parabola))
+
+    sd = cmpVolume(exact_gas) + cmpVolume(exact_liq)
+  end
+
   real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, volume, intersected) result(shift)
     use m_polygon
     use m_optimization,   only: brent
@@ -499,14 +546,15 @@ contains
 
 
   function makeParabola_noshift(normal, kappa0, dx, liqVol) result(parabola)
-    use m_r2d_parabolic
+    use m_polygon
     implicit none
     
     real*8, intent(in)    :: normal(2), kappa0, dx(2), liqVol
-    type(r2d_parabola_f)  :: parabola
+    type(tParabola)       :: parabola
 
-
-    parabola = makeParabola(normal, kappa0, cmpShift(normal, dx, liqVol, kappa0))
+    parabola%normal = normal
+    parabola%kappa0 = kappa0
+    parabola%shift = cmpShift(normal, dx, liqVol, kappa0)
   end function
 
   function makeParabola_noshift_poly(normal, kappa0, cell, liqVol, x0) result(parabola)
@@ -543,30 +591,6 @@ contains
     ! Compute symmetric difference
     sd_1 = cmpMoments_(exact_gas, parabola, x0=x)
     sd_2 = cmpMoments_(exact_liq, complement(parabola), x0=x)
-    sd = sd_1(1) + sd_2(1)
-  end
-
-  real*8 function cmpSymmDiff2d_polyIn(cell, normal, shift, levelSet) result(sd)
-    use m_r2d_parabolic
-    implicit none
-
-    type(r2d_poly_f), intent(in) :: cell
-    real*8, intent(in)     :: normal(2), shift
-    real*8, external       :: levelSet
-
-    ! Local variables
-    real*8                :: sd_1(3), sd_2(3)
-    type(r2d_poly_f)      :: exact_gas, exact_liq
-
-
-    ! Construct polygonal approximation of exact gas & liquid domains
-    ! (relative to the cell centroid)
-    call polyApprox(exact_gas, cell, levelSet, GAS_PHASE)
-    call polyApprox(exact_liq, cell, levelSet, LIQUID_PHASE)
-
-    ! Compute symmetric difference
-    sd_1 = cmpMoments_(exact_gas, makePlane(normal, shift))
-    sd_2 = cmpMoments_(exact_liq, makePlane(-normal, shift))
     sd = sd_1(1) + sd_2(1)
   end
 
@@ -616,6 +640,10 @@ contains
     type(tPolygon)        :: cell_copy
 
     relTol_ = merge(relTol, 1D-15, present(relTol))
+
+    min_eta_dist = 0
+    max_eta_dist = 0
+    max_tau_dist_sq = 0
     
     tau = [-normal(2), normal(1)]
     do vdx=1,cell%nverts
@@ -724,6 +752,10 @@ contains
     integer               :: vdx
 
     relTol_ = merge(relTol, 1D-15, present(relTol))
+    
+    min_eta_dist = 0
+    max_eta_dist = 0
+    max_tau_dist_sq = 0
     
     tau = [-normal(2), normal(1)]
     do vdx=1,cell%nverts

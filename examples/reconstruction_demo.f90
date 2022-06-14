@@ -11,37 +11,41 @@ contains
 
   subroutine reconstruction_rect
     ! Computation of moments / shift
-    use m_recon_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
+    use m_recon_util,     only: cmpMoments, cmpShift, cmpSymmDiffVolume, makeParabola
 
     ! Tools for polygon intersection
-    use m_r2d_parabolic,    only: cmpMoments, makeParabola, r2d_parabola_f
+    use m_polygon,        only: cmpMoments, makePlane, makeParabola, tParabola, tPolygon, polyApprox
 
     ! Reconstruction methods
-    use m_recon,   only: mofNormal, pmofNormal
+    use m_recon,          only: mofNormal, pmofNormal
 
     implicit none
 
     ! The zeroth (refMoments(1)) and first moment (refMoments(2:3)) are stored in refMoments
-    real*8                  :: refMoments(3)
+    real*8                :: refMoments(3)
 
     ! The centroid and mesh widths of the rectangular control volume
-    real*8                  :: xc(2), dx(2)
+    real*8                :: xc(2), dx(2)
 
     ! The PLIC/PPIC reconstruction is defined using the normal, shift and curvature:
     !   normal \cdot (x - x_c) - shift + (kappa0/2) * ((tangent \cdot (x - x_c)))^2
-    real*8                  :: normal(2), shift, kappa0
+    real*8                :: normal(2), shift, kappa0
 
     ! We store the error in the moments as well as the moments of the symmetric difference
-    real*8                  :: errMoments(3), errSD(3)
+    real*8                :: errMoments(3), errSD(3)
 
     ! The reconstructed parabola
-    type(r2d_parabola_f)    :: parabola
+    type(tParabola)       :: parabola
+
+    ! Temporary polygon
+    type(tPolygon)        :: poly
 
     xc = [1/sqrt(2.), 1/sqrt(2.)]
     dx = [0.3, 0.3]
 
     ! Compute the reference zeroth and first moment (equivalent to the volume fraction and centroid)
-    refMoments = cmpMoments(xc, dx, exact_interface)
+    call polyApprox(poly, xc, dx, exact_interface)
+    refMoments = cmpMoments(poly)
 
     ! Note that the moments should be relative to xc:
     refMoments(2:3) = refMoments(2:3) - xc * refMoments(1)
@@ -57,7 +61,7 @@ contains
     errMoments = abs(cmpMoments(normal, dx, shift) - refMoments)
 
     ! The symmetric difference between the exact and approximate liquid domain can be approximated as follows
-    errSD = cmpSymmDiff(xc, dx, normal, shift, exact_interface)
+    errSD = cmpSymmDiffVolume(xc, dx, makePlane(normal, shift), exact_interface)
 
     write(*, '(A,1PD9.3,A,1PD9.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
     write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
@@ -70,7 +74,7 @@ contains
     normal = pmofNormal(refMoments, kappa0, dx)
     parabola = makeParabola(normal, kappa0, dx, refMoments(1))
     errMoments = abs(cmpMoments(dx, parabola) - refMoments)
-    errSD = cmpSymmDiff(xc, dx, parabola, exact_interface)
+    errSD = cmpSymmDiffVolume(xc, dx, parabola, exact_interface)
 
     write(*, '(A)') ''
     write(*, '(A)') 'The PMOF method'

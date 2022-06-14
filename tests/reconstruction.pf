@@ -406,12 +406,12 @@ contains
   @Test
   subroutine test_approx_reconstruction()
     use m_recon_util
-    use m_r2d_parabolic
+    use m_polygon
     use m_recon
 
     implicit none
 
-    integer, parameter    :: NR_METHODS = 5, NR_GRIDS = 3, LEVEL0 = 5
+    integer, parameter    :: NR_METHODS = 5, NR_GRIDS = 2, LEVEL0 = 5
     integer, parameter    :: LVIRA_IDX = 1, PLVIRA_IDX = 2, PROST_IDX = 3, MOF_IDX = 4, PMOF_IDX = 5
     logical, parameter    :: IS_PARABOLIC(NR_METHODS) = [.false., .true., .true., .false., .true.]
     integer, parameter    :: symmDiff_expectedOrder(NR_METHODS) = [2, 3, 3, 2, 3]
@@ -424,7 +424,8 @@ contains
     real*8                :: symmDiff_vol(NR_GRIDS, NR_METHODS), firstMoment_lInf(NR_GRIDS, NR_METHODS)
     real*8                :: symmDiff_order, firstMoment_order
     integer               :: i, j, N, rdx, mdx
-    type(r2d_parabola_f)  :: parabola
+    type(tParabola)       :: parabola
+    type(tPolygon)        :: cell
 
     pi = 4 * datan(1.0D0)
     
@@ -449,7 +450,9 @@ contains
       do i=1,N
         xc(1) = (i-0.5) * dx(1)
         xc(2) = (j-0.5) * dx(2)
-        refMoments = cmpMoments(xc, dx, levelSet, verts_per_segment=N)
+        
+        call polyApprox(cell, xc, dx, levelSet, verts_per_segment=N)
+        refMoments = cmpMoments(cell)
         volume_grid(i,j) = refMoments(1)
         momx_grid(i,j) = refMoments(2) - refMoments(1) * xc(1)
         momy_grid(i,j) = refMoments(3) - refMoments(1) * xc(2)
@@ -487,7 +490,7 @@ contains
             parabola = makeParabola(normals(:,mdx), kappa0(mdx), dx, refVolumes(0,0))
             reconMoments = cmpMoments(dx, parabola)
             firstMoment_lInf(rdx,mdx) = max(firstMoment_lInf(rdx,mdx), norm2(reconMoments(2:3) - refMoments(2:3)))
-            symmDiff_vol(rdx,mdx) = symmDiff_vol(rdx,mdx) + cmpSymmDiff(xc, dx, parabola, levelset)
+            symmDiff_vol(rdx,mdx) = symmDiff_vol(rdx,mdx) + cmpSymmDiffVolume(xc, dx, parabola, levelset)
           enddo
 
         endif   

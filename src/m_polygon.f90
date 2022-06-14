@@ -1,8 +1,8 @@
 module m_polygon
-  integer, parameter      :: MAX_NR_VERTS = 2**7
+  integer, parameter      :: MAX_NR_VERTS = 2**8
   integer, parameter      :: MAX_NR_PARA_EDGES = 2**2
   integer, parameter      :: MAX_MONOMIAL = 5
-  integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = MAX_NR_VERTS / 3
+  integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = MAX_NR_VERTS / 4
 
   type tParabola
     real*8                :: normal(2), shift
@@ -792,6 +792,20 @@ contains
 
     poly%verts(1:nverts,:) = pos(1:nverts,:)
     poly%nverts = nverts
+  end subroutine
+
+  subroutine shift_by(poly, pos)
+    implicit none
+
+    type(tPolygon), intent(out) :: poly
+    real*8, intent(in)    :: pos(2)
+
+    ! Local variables
+    integer               :: vdx
+
+    do vdx=1,poly%nverts
+      poly%verts(:,vdx) = poly%verts(:,vdx) + pos
+    enddo
   end subroutine
 
   subroutine split(polys, parabola, out_pos, out_neg)

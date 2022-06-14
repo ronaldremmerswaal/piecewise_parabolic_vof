@@ -265,16 +265,16 @@ contains
   @Test
   subroutine test_symmetricDifference
     use m_recon_util
-    use m_r2d_parabolic
+    use m_polygon
 
     implicit none
 
-    real*8, parameter       :: APPROX_TOLERANCE = 5D-5 ! This is related to R2D_MAX_VERTS being relatively small
+    real*8, parameter       :: APPROX_TOLERANCE = 5D-5 ! This is related to MAX_NR_VERTS being relatively small
     real*8                  :: radius, x(2), dx(2), normal(2), kappa0, sd, pi, angle, shift
-    real*8                  :: mom_gas(3), mom_liq(3), mom01(3), tmp
+    real*8                  :: vol_gas, vol_liq, mom01(3), tmp
     integer, parameter      :: NR_STEPS = 100
     integer                 :: sdx
-    type(r2d_poly_f)        :: poly
+    type(tPolygon)          :: poly
 
     ! Results from MATLAB (very accurate)
     real*8, parameter       :: sd_MATLAB(NR_STEPS) = [&   
@@ -291,7 +291,7 @@ contains
     kappa0 = 0.D0
 
     ! Analytical:
-    sd = cmpSymmDiff(x, dx, makeParabola(normal, kappa0, shift), levelset)
+    sd = cmpSymmDiffVolume(x, dx, makeParabola(normal, kappa0, shift), levelset)
     @assertEqual(pi / 16, sd, APPROX_TOLERANCE)
 
     ! Computed in MATLAB:
@@ -304,23 +304,24 @@ contains
       radius = 0.5D0 + (sdx - 1.0D0) * (dsqrt(2.D0) - 0.5D0) / (NR_STEPS - 1.0D0)
 
       call polyApprox(poly, x, dx, levelset, GAS_PHASE)
-      mom_gas = cmpMoments(poly)
+      vol_gas = cmpVolume(poly)
       call polyApprox(poly, x, dx, levelset, LIQUID_PHASE)
-      mom_liq = cmpMoments(poly)
+      vol_liq = cmpVolume(poly)
 
-      sd = cmpSymmDiff(x, dx, makeParabola(normal, kappa0, shift), levelset)
+      sd = cmpSymmDiffVolume(x, dx, makeParabola(normal, kappa0, shift), levelset)
 
       if (radius <= 1.) then
-        @assertEqual(pi * radius**2 / 4, mom_liq(1), APPROX_TOLERANCE)
+        @assertEqual(pi * radius**2 / 4, vol_liq, APPROX_TOLERANCE)
       elseif (sdx == NR_STEPS) then
-        @assertEqual(1.0, mom_liq(1), APPROX_TOLERANCE)
+        @assertEqual(product(dx), vol_liq, APPROX_TOLERANCE)
 
         mom01 = cmpMoments(dx, makeParabola(-normal, kappa0, shift))
-        @assertEqual(1.0 - mom01(1), sd, APPROX_TOLERANCE)
+        @assertEqual(product(dx) - mom01(1), sd, APPROX_TOLERANCE)
       endif
 
-      @assertEqual(product(dx), mom_gas(1) + mom_liq(1), TOLERANCE)
+      @assertEqual(product(dx), vol_gas + vol_liq, TOLERANCE)
 
+      print*, sd_MATLAB(sdx), sd
       @assertEqual(sd_MATLAB(sdx), sd, APPROX_TOLERANCE)
     enddo
 
