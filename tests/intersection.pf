@@ -338,14 +338,14 @@ contains
 
   @Test 
   subroutine test_cmpMoments()
-    use m_r2d_parabolic
+    use m_polygon
 
     implicit none
 
     real*8                :: angle, normal(2), shift, max_shift_plane, dx(2), pi
     real*8                :: refMoments(3), r2dMoments(3)
     integer               :: adx, sdx
-    type(r2d_poly_f)      :: poly
+    type(tPolygon)        :: poly
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
 
@@ -361,11 +361,12 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      call makeBox_bounds(poly, [-dx/2, dx/2])
+      call makeBox(poly, dx)
       call intersect(poly, makePlane(normal, shift))
       r2dMoments = cmpMoments(poly)
 
-      refMoments = cmpMoments([0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+      call polyApprox(poly, [0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
+      refMoments = cmpMoments(poly)
 
       @assertEqual(r2dMoments, refMoments, TOLERANCE)
       @assertLessThanOrEqual(abs(refMoments(2:3)/refMoments(1)), dx/2)
@@ -384,41 +385,41 @@ contains
     end function
   end subroutine
 
-  @Test 
-  subroutine test_cmpMoments_levelSet()
-    use m_r2d_parabolic
+  ! @Test 
+  ! subroutine test_cmpMoments_levelSet()
+  !   use m_r2d_parabolic
 
-    implicit none
+  !   implicit none
 
-    integer, parameter    :: NR_REFINE = 15
-    real*8                :: pi, refMoments(3), errors(NR_REFINE), order
-    integer               :: nr_verts, rdx
+  !   integer, parameter    :: NR_REFINE = 15
+  !   real*8                :: pi, refMoments(3), errors(NR_REFINE), order
+  !   integer               :: nr_verts, rdx
 
-    real*8, parameter     :: RADIUS = 0.5
+  !   real*8, parameter     :: RADIUS = 0.5
 
-    pi = 4 * datan(1.0D0)
+  !   pi = 4 * datan(1.0D0)
 
-    do rdx=1,NR_REFINE
-      nr_verts = 2**rdx
-      refMoments = cmpMoments([0.5D0, 0.5D0], [1.D0, 1.D0], levelSet, verts_per_segment=nr_verts)
-      errors(rdx) = refMoments(1) - pi*RADIUS**2/4
-      if (rdx > 1) then
-        order = -log(errors(rdx) / errors(1)) / ((rdx-1)*log(2.0D0))
-        @assertGreaterThanOrEqual(order, 1.7D0)
-      endif
-    enddo
+  !   do rdx=1,NR_REFINE
+  !     nr_verts = 2**rdx
+  !     refMoments = cmpMoments([0.5D0, 0.5D0], [1.D0, 1.D0], levelSet, verts_per_segment=nr_verts)
+  !     errors(rdx) = refMoments(1) - pi*RADIUS**2/4
+  !     if (rdx > 1) then
+  !       order = -log(errors(rdx) / errors(1)) / ((rdx-1)*log(2.0D0))
+  !       @assertGreaterThanOrEqual(order, 1.7D0)
+  !     endif
+  !   enddo
 
-  contains
-    ! The liquid part coincides with levelSet(x) < 0 (normal points into gas)
-    real*8 function levelSet(x) result(ans)
-      implicit none
+  ! contains
+  !   ! The liquid part coincides with levelSet(x) < 0 (normal points into gas)
+  !   real*8 function levelSet(x) result(ans)
+  !     implicit none
 
-      real*8, intent(in)  :: x(2)
+  !     real*8, intent(in)  :: x(2)
 
-      ans = norm2(x) - RADIUS
+  !     ans = norm2(x) - RADIUS
 
-    end function
-  end subroutine
+  !   end function
+  ! end subroutine
 
   @Test
   subroutine test_cmpInterfaceMoments()
@@ -462,16 +463,18 @@ contains
   @Test
   subroutine test_cmpmoments_time()
     use m_recon_util
-    use m_r2d_parabolic
+    use m_polygon
 
     implicit none
 
     ! Local variables
     integer, parameter      :: NR_REPETITIONS = 10000
-    type(r2d_poly_f)        :: poly
     real*8                  :: dx(2), angle, normal(2), shift, kappa0, moments01(3)
-    real*8                  :: tmp, time_intersect_plane, time_intersect_r2d_plane, time_intersect_parabola
+    real*8                  :: tmp, time_intersect_plane, time_intersect_plane_poly, &
+    time_intersect_parabola, time_intersect_plane_poly_sub
     integer                 :: rep
+    type(tPolygon)          :: poly
+    type(tParabola)         :: parabola, plane
 
 
     dx = [0.123D0, 0.3141592D0]
@@ -479,6 +482,9 @@ contains
     normal = [dcos(angle), dsin(angle)]
     shift = 0.0123D0
     kappa0 = -0.05D0
+
+    parabola = makeParabola(normal, kappa0, shift)
+    plane = makePlane(normal, shift)
 
     ! Test the time needed to intersect and compute the resulting 
     ! intersection moments (zeroth and first)
@@ -492,86 +498,37 @@ contains
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      call makeBox_bounds(poly, [-dx/2, dx/2])
-      moments01 = cmpMoments_(poly, makePlane(normal, shift))
+      call makeBox(poly, dx)
+      call intersect(poly, plane)
+      moments01 = cmpMoments(poly)
     enddo
-    call cpu_time(time_intersect_r2d_plane)
-    time_intersect_r2d_plane = time_intersect_r2d_plane - tmp
+    call cpu_time(time_intersect_plane_poly)
+    time_intersect_plane_poly = time_intersect_plane_poly - tmp
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      moments01 = cmpMoments(dx, makeParabola(normal, kappa0, shift))
+      call makeBox(poly, dx)
+      call intersect(poly, parabola)
+      moments01 = cmpMoments(poly)
     enddo
     call cpu_time(time_intersect_parabola)
-
     time_intersect_parabola = time_intersect_parabola - tmp
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call makeBox(poly, dx)
+      call intersect(poly, plane)
+      call cmpMoments_poly_SUB(moments01, poly)
+    enddo
+    call cpu_time(time_intersect_plane_poly_sub)
+    time_intersect_plane_poly_sub = time_intersect_plane_poly_sub - tmp
 
     print*, 'INTERSECTION TIMING:'
     print*, '... PLANE USING UTIL    = ', time_intersect_plane / NR_REPETITIONS
-    print*, '... PLANE USING R2D     = ', time_intersect_r2d_plane / NR_REPETITIONS
-    print*, '... PARABOLA USING UTIL = ', time_intersect_parabola / NR_REPETITIONS
+    print*, '... PLANE USING POLY    = ', time_intersect_plane_poly / NR_REPETITIONS
+    print*, '... PLANE USING POLY SUB= ', time_intersect_plane_poly_sub / NR_REPETITIONS
+    print*, '... PARABOLA USING POLY = ', time_intersect_parabola / NR_REPETITIONS
 
   end subroutine
 
-  @Test
-  subroutine test_new_cmpmoments_time()
-    use m_polygon
-
-    implicit none
-
-    ! Local variables
-    integer, parameter      :: NR_REPETITIONS = 10000
-    type(tPolygon)          :: poly
-    type(tParabola)         :: plane
-    real*8                  :: dx(2), angle, mom(3)
-    real*8                  :: tmp, time_intersect_polygon, time_intersect_polygon_plane, time_intersect_polygon_plane_sub
-    integer                 :: rep
-
-
-    dx = [0.123D0, 0.3141592D0]
-    angle = 0.4321D0
-    
-    plane%normal = [dcos(angle), dsin(angle)]
-    plane%shift = 0.0123D0
-    plane%kappa0 = -0.05D0
-
-    call cpu_time(tmp)
-    do rep=1,NR_REPETITIONS
-      call makeBox(poly, dx)
-      call intersect(poly, plane)
-      mom = cmpMoments(poly)
-    enddo
-    call cpu_time(time_intersect_polygon)
-    
-    time_intersect_polygon = time_intersect_polygon - tmp
-
-    plane%kappa0 = 0
-    call cpu_time(tmp)
-    do rep=1,NR_REPETITIONS
-      call makeBox(poly, dx)
-      call intersect(poly, plane)
-      mom = cmpMoments(poly)
-    enddo
-    call cpu_time(time_intersect_polygon_plane)
-    
-    time_intersect_polygon_plane = time_intersect_polygon_plane - tmp
-
-    
-    call cpu_time(tmp)
-    do rep=1,NR_REPETITIONS
-      call makeBox(poly, dx)
-      call intersect(poly, plane)
-      call cmpMoments_poly_SUB(mom, poly)
-    enddo
-    call cpu_time(time_intersect_polygon_plane_sub)
-    
-    time_intersect_polygon_plane_sub = time_intersect_polygon_plane_sub - tmp
-
-
-    print*, 'INTERSECTION TIMING:'
-    print*, '... PARABOLA USING POLYGON = ', time_intersect_polygon / NR_REPETITIONS
-    print*, '... PLANE    USING POLYGON = ', time_intersect_polygon_plane / NR_REPETITIONS
-    print*, '... PLANESUB USING POLYGON = ', time_intersect_polygon_plane_sub / NR_REPETITIONS
-
-  end subroutine
 end module
