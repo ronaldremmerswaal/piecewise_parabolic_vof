@@ -421,44 +421,47 @@ contains
   !   end function
   ! end subroutine
 
-  ! @Test
-  ! subroutine test_cmpInterfaceMoments()
-  !   use m_r2d
-  !   use m_recon_util
+  @Test
+  subroutine test_cmpInterfaceMoments()
+    use m_polygon
+    use m_recon_util
 
-  !   implicit none
+    implicit none
     
-  !   integer, parameter      :: NR_ANGLE = 50, NR_SHIFT = 50
-  !   real*8                  :: dx(2), normal(2), moments(3), moments_poly(3)
-  !   real*8                  :: angle, shift, lengthScale, pi, cellVol, edge(2, 2)
-  !   integer                 :: adx, sdx
-  !   type(r2d_poly_f)        :: poly
+    integer, parameter      :: NR_ANGLE = 50, NR_SHIFT = 50
+    real*8                  :: dx(2), normal(2), moments(3), moments_poly(3)
+    real*8                  :: angle, shift, lengthScale, pi, cellVol, edge(2, 2)
+    integer                 :: adx, sdx
+    type(tPolygon)          :: poly
+    type(tParabola)         :: plane
 
-  !   pi = 4 * datan(1.0d0)
-  !   dx = [0.1D0, 0.15D0]
-  !   cellVol = product(dx)
+    pi = 4 * datan(1.0d0)
+    dx = [0.1D0, 0.15D0]
+    cellVol = product(dx)
 
-  !   do adx = 1, NR_ANGLE
-  !   do sdx = 1, NR_SHIFT
-  !     angle = 2 * pi * (adx - 1.D0) / (NR_ANGLE - 1.D0)
-  !     normal = [dcos(angle), dsin(angle)]
-  !     lengthScale = dot_product(dx, abs(normal))
+    do adx = 1, NR_ANGLE
+    do sdx = 1, NR_SHIFT
+      angle = 2 * pi * (adx - 1.D0) / (NR_ANGLE - 1.D0)
+      normal = [dcos(angle), dsin(angle)]
+      lengthScale = dot_product(dx, abs(normal))
 
-  !     shift = lengthScale * sdx / (NR_SHIFT + 1) - lengthScale/2
+      shift = lengthScale * sdx / (NR_SHIFT + 1) - lengthScale/2
 
-  !     call makeBox_bounds(poly, [-dx/2, dx/2])
-  !     call intersect(poly, makePlane(normal, shift))
+      plane = makePlane(normal, shift)
 
-  !     edge = get_edge(poly, normal)
-  !     moments_poly(1) = norm2(edge(:,2) - edge(:,1))
-  !     moments_poly(2:3) = (edge(:,2) + edge(:,1)) * moments_poly(1) / 2
+      call makeBox(poly, dx)
+      call intersect(poly, plane)
+
+      edge = get_edge(poly, normal)
+      moments_poly(1) = norm2(edge(:,2) - edge(:,1))
+      moments_poly(2:3) = (edge(:,2) + edge(:,1)) * moments_poly(1) / 2
       
-  !     moments = cmpInterfaceMoments(normal, dx, shift)
+      moments = cmpInterfaceMoments(normal, dx, shift)
 
-  !     @assertEqual(moments_poly, moments, TOLERANCE * sqrt(cellVol))
-  !   enddo
-  !   enddo
-  ! end subroutine
+      @assertEqual(moments_poly, moments, TOLERANCE * sqrt(cellVol))
+    enddo
+    enddo
+  end subroutine
 
   @Test
   subroutine test_cmpmoments_time()

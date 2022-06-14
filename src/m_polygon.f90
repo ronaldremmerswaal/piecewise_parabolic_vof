@@ -778,6 +778,36 @@ contains
     enddo
   end subroutine
 
+    ! Returns the first edge (2 positions) whose normal equals normal
+  function get_edge(poly, normal) result(edge)
+    implicit none
+
+    type(tPolygon), intent(in) :: poly
+    real*8, intent(in)    :: normal(2)
+
+    real*8                :: edge(2, 2)   
+
+    ! Local variables
+    integer               :: vdx, ndx
+    real*8                :: difference(2), nrm
+
+    ! TODO make use of poly%on_parabola if normal not given
+
+    do vdx=1,poly%nverts
+      ndx = vdx + 1
+      if (ndx > poly%nverts) ndx = 1
+      edge(:,1) = poly%verts(:,vdx)
+      edge(:,2) = poly%verts(:,ndx)
+
+      difference = edge(:,2) - edge(:,1)
+      nrm = norm2(difference)
+      if (nrm > 0) then
+        if (abs(dot_product([difference(2), -difference(1)]/nrm, normal) - 1) < 1D-12) return
+      endif
+    enddo
+    edge = 0
+  end function
+
   subroutine init(poly, pos)
     implicit none
 
