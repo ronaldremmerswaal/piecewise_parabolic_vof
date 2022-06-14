@@ -2,7 +2,7 @@ module m_polygon
   integer, parameter      :: MAX_NR_VERTS = 2**8
   integer, parameter      :: MAX_NR_PARA_EDGES = 2**2
   integer, parameter      :: MAX_MONOMIAL = 5
-  integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = MAX_NR_VERTS / 4
+  integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = int(MAX_NR_VERTS / 3)
 
   type tParabola
     real*8                :: normal(2), shift

@@ -2,7 +2,7 @@ module intersection
   use m_common
   use funit
   
-  real*8, parameter       :: TOLERANCE = 1D-14
+  real*8, parameter       :: TOLERANCE = 1.1D-14
 contains
   
   @Test
@@ -51,7 +51,7 @@ contains
 
         call random_number(pc)
         pc = pc * dot_product(abs(normal), dx)
-        shift = pc - dot_product(abs(normal), dx) / 2.0
+        shift = pc - dot_product(abs(normal), dx) / 2
 
         call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
         mom_poly = cmpMoments(cutPoly)
