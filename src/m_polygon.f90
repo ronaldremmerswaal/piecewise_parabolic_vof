@@ -45,7 +45,7 @@ module m_polygon
   end interface
 
   interface cmpVolume
-    module procedure cmpVolume_poly
+    module procedure cmpVolume_poly, cmpVolume_dx
   end interface
 
   interface cmpMoments
@@ -53,16 +53,30 @@ module m_polygon
   end interface
 
   interface makeParabola
-    module procedure makeParabola_poly
+    module procedure makeParabola_poly, makeParabola_angle_poly
+  end interface
+
+  interface makePlane
+    module procedure makePlane_def, makePlane_angle
   end interface
 contains
-  function makePlane(normal, shift) result(plane)
+  function makePlane_def(normal, shift) result(plane)
     implicit none
     
     real*8, intent(in)    :: normal(2), shift
     type(tParabola)       :: plane
 
     plane%normal = normal
+    plane%shift = shift
+  end function
+
+  function makePlane_angle(angle, shift) result(plane)
+    implicit none
+    
+    real*8, intent(in)    :: angle, shift
+    type(tParabola)       :: plane
+
+    plane%normal = [dcos(angle), dsin(angle)]
     plane%shift = shift
   end function
 
@@ -73,6 +87,17 @@ contains
     type(tParabola)       :: parabola
 
     parabola%normal = normal
+    parabola%kappa0 = kappa0
+    parabola%shift = shift
+  end function
+
+  function makeParabola_angle_poly(angle, kappa0, shift) result(parabola)
+    implicit none
+    
+    real*8, intent(in)    :: angle, kappa0, shift
+    type(tParabola)       :: parabola
+
+    parabola%normal = [dcos(angle), dsin(angle)]
     parabola%kappa0 = kappa0
     parabola%shift = shift
   end function
@@ -113,6 +138,22 @@ contains
         vol = poly%original_moments(1) - vol
       endif
     endif
+  end function
+
+  ! TODO belongs in util
+  real*8 function cmpVolume_dx(dx, parabola) result(vol)
+    implicit none
+    
+    real*8, intent(in)    :: dx(2)
+    type(tParabola), intent(in) :: parabola
+
+    ! Local variables
+    type(tPolygon)        :: poly
+
+    call makeBox(poly, dx)
+    call intersect(poly, parabola)
+    vol = cmpVolume(poly)
+
   end function
 
   ! TODO belongs in util
@@ -277,11 +318,10 @@ contains
     ! we write the derivative in terms of its normal and tangential components
 	  ! the normal component is given by
 	  ! 	int [grad_s - τ + κ τ(s - κ/2 τ^2)][s - κ/2 τ^2] dτ
-    der1_eta = poly%parabola%shift * shiftAngleDerivative_ * poly%monomials_sum(0) 
+    der1_eta = poly%parabola%shift * shiftAngleDerivative_ * poly%monomials_sum(0) - poly%parabola%shift * poly%monomials_sum(1)
     if (poly%parabolic) then
       der1_eta = der1_eta + poly%monomials_sum(3) * poly%parabola%kappa0 / 2 - &
-        poly%monomials_sum(2) * shiftAngleDerivative_ * poly%parabola%kappa0 / 2 - &
-        poly%parabola%shift * poly%monomials_sum(1) + &
+        poly%monomials_sum(2) * shiftAngleDerivative_ * poly%parabola%kappa0 / 2 + &
         poly%parabola%kappa0 * (poly%monomials_sum(1) * poly%parabola%shift**2 + &
         poly%monomials_sum(5) * poly%parabola%kappa0**2 / 4 - &
         poly%parabola%shift * poly%parabola%kappa0 * poly%monomials_sum(3))
@@ -528,7 +568,7 @@ contains
     type(tPolygon), intent(inout) :: poly
 
     ! Local variables
-    real*8                :: coeff(2)
+    real*8                :: coeff(2), dtau
     integer               :: edx, vdx, ndx
 
     call compute_momonial(poly, 2)
@@ -542,12 +582,15 @@ contains
       if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
         edx = edx + 1
 
+        dtau = poly%x_tau(2,edx) - poly%x_tau(1,edx)
+        if (dtau==0) cycle
+
         ! in the local coordinates the polygon face is given by
         ! x_η = c_1 * x_τ + c_2
-        coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / (poly%x_tau(2,edx) - poly%x_tau(1,edx))
+        coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / dtau
         coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
     
-        vol = -(poly%parabola%kappa0/2) * poly%monomials(2,edx) - &
+        vol = vol - (poly%parabola%kappa0/2) * poly%monomials(2,edx) - &
           coeff(1) * poly%monomials(1,edx) - coeff(2) * poly%monomials(0,edx)
       endif
     enddo

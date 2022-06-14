@@ -73,7 +73,7 @@ contains
     implicit none
 
     integer, parameter      :: NR_ANGLE = 50, NR_SHIFT = 50
-    real*8                  :: dx(2), normal(2), moments_plane(3), moments_parabola(3), moments_plane_poly(3)
+    real*8                  :: dx(2), normal(2), moments_plane(3), moments_parabola(3), moments_plane_poly(3), vol_parabola
     real*8                  :: angle, shift, lengthScale, pi, cellVol
     integer                 :: adx, sdx
     type(tPolygon)          :: poly
@@ -96,10 +96,12 @@ contains
       
       call makeBox(poly, dx)
       call intersect(poly, makeParabola(normal, 1D-16, shift))
+      vol_parabola = cmpVolume(poly)
       moments_parabola = cmpMoments(poly)
       
       moments_plane = cmpMoments(normal, dx, shift)
 
+      @assertEqual(moments_plane(1), vol_parabola, TOLERANCE * cellVol)
       @assertEqual(moments_plane, moments_parabola, TOLERANCE * cellVol)
       @assertEqual(moments_plane_poly, moments_parabola, TOLERANCE * cellVol)
     enddo
@@ -118,7 +120,7 @@ contains
 
     integer, parameter      :: NR_KAPPA = 100, NR_SHIFT = 100
     real*8                  :: normal(2), dx(2), shift, pc, kappa0, pos(2,4), angle, lengthScale, volumes(8), pos5(2, 5), x0(2)
-    real*8                  :: moments01_plane(3), moments01_para(3), moments01_exact(3), tmp(3), moments01_parts(3)
+    real*8                  :: moments01_plane(3), moments01_para(3), moments01_exact(3), tmp(3), moments01_parts(3), volume_para
     real*8                  :: A, B, C, xStar, roots(2), root_imag
     type(tPolygon)          :: poly, polys1(1), polys2(2), polys4(4), polys8(8)
     integer                 :: kdx, adx, sdx, ii
@@ -138,6 +140,7 @@ contains
       ! Ensure that |s - κ/8| < 1/2
       kappa0 = -4.0D0 + 8 * (shift + (kdx - 1.D0) / (NR_KAPPA - 1.D0))
       moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
+      volume_para = cmpVolume(dx, makeParabola(normal, kappa0, shift))
 
       moments01_exact(1) = 0.5D0 + shift - kappa0 / 24
       moments01_exact(2) = 0.0D0
