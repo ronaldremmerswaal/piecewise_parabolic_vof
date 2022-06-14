@@ -63,10 +63,10 @@ contains
     ! The symmetric difference between the exact and approximate liquid domain can be approximated as follows
     errSD = cmpSymmDiffVolume(xc, dx, makePlane(normal, shift), exact_interface)
 
-    write(*, '(A,1PD9.3,A,1PD9.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
-    write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
+    write(*, '(A,1PD10.3,A,1PD10.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
+    write(*, '(A,1PD10.3,A,1PD10.3,A,1PD10.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
       ' and (', errMoments(2), ', ', errMoments(3), '), respectively'
-    write(*, '(A,1PD9.3)') '... whereas the area of the symmetric difference is given by ', errSD(1)
+    write(*, '(A,1PD10.3)') '... whereas the area of the symmetric difference is given by ', errSD(1)
     
 
     ! We repeat the same steps for the PMOF method, for which we use an exact curvature
@@ -78,10 +78,10 @@ contains
 
     write(*, '(A)') ''
     write(*, '(A)') 'The PMOF method'
-    write(*, '(A,1PD9.3,A,1PD9.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
-    write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
+    write(*, '(A,1PD10.3,A,1PD10.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
+    write(*, '(A,1PD10.3,A,1PD10.3,A,1PD10.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
       ' and (', errMoments(2), ', ', errMoments(3), '), respectively'
-    write(*, '(A,1PD9.3)') '... whereas the area of the symmetric difference is given by ', errSD(1)
+    write(*, '(A,1PD10.3)') '... whereas the area of the symmetric difference is given by ', errSD(1)
 
     ! Note that both methods conserve volume, but PMOF yields a better approximation;
     ! both in terms of the error of the first moment (or centroid) as well as the area
@@ -147,10 +147,10 @@ contains
 
     write(*, '(A)') ''
     write(*, '(A)') 'The PMOF method can reconstruct inside non-rectilinear (and non-convex) cells as well, and'
-    write(*, '(A,1PD9.3,A,1PD9.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
-    write(*, '(A,1PD9.3,A,1PD9.3,A,1PD9.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
+    write(*, '(A,1PD10.3,A,1PD10.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
+    write(*, '(A,1PD10.3,A,1PD10.3,A,1PD10.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
       ' and (', errMoments(2), ', ', errMoments(3), '), respectively'
-    write(*, '(A,1PD9.3)') '... whereas the area of the symmetric difference is given by ', errSD(1)
+    write(*, '(A,1PD10.3)') '... whereas the area of the symmetric difference is given by ', errSD(1)
   end subroutine
 
 
