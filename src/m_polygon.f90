@@ -476,10 +476,10 @@ contains
         endif
         new_vertex(1) = .true.
       elseif (edge_could_be_trisected) then
+        if (coeffs(2) < coeffs(1)) coeffs = coeffs([2, 1])
         if (nr_coeffs==2) then
           new_vertex = .true.
         else
-          if (coeffs(2) < coeffs(1)) coeffs = coeffs([2, 1])
           if (abs(coeffs(1)) < 1D-14 .and. abs(coeffs(2)-1) < 1D-14) then
             prev_idx = merge(vdx - 1, poly%nverts, vdx>1)
             next_idx = merge(ndx + 1, 1, ndx<poly%nverts)
@@ -708,7 +708,8 @@ contains
 
   ! Given a parabola and a line connecting the points pos1, pos2; find the intersection
   integer function parabola_line_intersection(roots, parabola, pos1, pos2) result(nr_roots)
-    use m_poly_roots,     only: real_roots_2
+    use m_common
+    use m_poly_roots,     only: polynomial_roots_deg2
     implicit none
     
     type(tParabola), intent(in) :: parabola
@@ -716,7 +717,7 @@ contains
     real*8, intent(out)   :: roots(2)
 
     ! Local variables
-    real*8                :: coeff(3)            
+    real*8                :: coeff(3), imag            
     logical               :: root_is_good(2)
     integer               :: rdx
 
@@ -727,16 +728,20 @@ contains
       + dot_relative(pos2, parabola%normal, pos1)
     coeff(3) = dot_product(pos1, parabola%normal) - parabola%shift + (parabola%kappa0/2) * dot_rotate(pos1, parabola%normal)**2
 
-    call real_roots_2(roots, coeff)
+    call polynomial_roots_deg2(coeff, roots, imag)
 
     nr_roots = 0
-    do rdx=1,2
-      root_is_good(rdx) = .not. isnan(roots(rdx)) .and. roots(rdx) >= 0 .and. roots(rdx) <= 1
-      if (root_is_good(rdx)) nr_roots = nr_roots + 1
-    enddo
-  
-    if (root_is_good(2) .and. .not. root_is_good(1)) then 
-      roots = roots([2, 1])
+    if (imag/=0) then
+      roots = d_qnan
+    else
+      do rdx=1,2
+        root_is_good(rdx) = .not. isnan(roots(rdx)) .and. roots(rdx) >= 0 .and. roots(rdx) <= 1
+        if (root_is_good(rdx)) nr_roots = nr_roots + 1
+      enddo
+    
+      if (root_is_good(2) .and. .not. root_is_good(1)) then 
+        roots = roots([2, 1])
+      endif
     endif
   end function
 
