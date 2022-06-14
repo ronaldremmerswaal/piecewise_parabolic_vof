@@ -16,7 +16,7 @@ contains
     integer, parameter     :: nrBoxes = 8, nrPlics = 100
 
     type(tPolygon)         :: poly, cutPoly
-    real*8                 :: dx(2), x(2), mom_util(3), mom_r2d(3), normal(2), pc, shift
+    real*8                 :: dx(2), x(2), mom_util(3), mom_poly(3), normal(2), pc, shift
     integer                :: bdx, pdx, SEED(33)
 
     SEED = 1
@@ -29,11 +29,11 @@ contains
     normal = [0.0D0, 1.0D0]
 
     call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
-    mom_r2d = cmpMoments(cutPoly)
+    mom_poly = cmpMoments(cutPoly)
 
     mom_util = cmpMoments(normal, dx, shift)
 
-    @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
+    @assertEqual(mom_poly, mom_util, TOLERANCE * product(dx))
 
     do bdx=1,nrBoxes
       call random_number(dx)
@@ -54,11 +54,11 @@ contains
         shift = pc - dot_product(abs(normal), dx) / 2.0
 
         call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
-        mom_r2d = cmpMoments(cutPoly)
+        mom_poly = cmpMoments(cutPoly)
 
         mom_util = cmpMoments(normal, dx, shift)
 
-        @assertEqual(mom_r2d, mom_util, TOLERANCE * product(dx))
+        @assertEqual(mom_poly, mom_util, TOLERANCE * product(dx))
       enddo
     enddo
   endsubroutine test_moments2d
@@ -343,7 +343,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, max_shift_plane, dx(2), pi
-    real*8                :: refMoments(3), r2dMoments(3)
+    real*8                :: refMoments(3), polyMoments(3)
     integer               :: adx, sdx
     type(tPolygon)        :: poly
 
@@ -363,12 +363,12 @@ contains
 
       call makeBox(poly, dx)
       call intersect(poly, makePlane(normal, shift))
-      r2dMoments = cmpMoments(poly)
+      polyMoments = cmpMoments(poly)
 
       call polyApprox(poly, [0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
       refMoments = cmpMoments(poly)
 
-      @assertEqual(r2dMoments, refMoments, TOLERANCE)
+      @assertEqual(polyMoments, refMoments, TOLERANCE)
       @assertLessThanOrEqual(abs(refMoments(2:3)/refMoments(1)), dx/2)
 
     enddo
@@ -429,7 +429,7 @@ contains
     implicit none
     
     integer, parameter      :: NR_ANGLE = 50, NR_SHIFT = 50
-    real*8                  :: dx(2), normal(2), moments(3), moments_r2d(3)
+    real*8                  :: dx(2), normal(2), moments(3), moments_poly(3)
     real*8                  :: angle, shift, lengthScale, pi, cellVol, edge(2, 2)
     integer                 :: adx, sdx
     type(r2d_poly_f)        :: poly
@@ -450,12 +450,12 @@ contains
       call intersect(poly, makePlane(normal, shift))
 
       edge = get_edge(poly, normal)
-      moments_r2d(1) = norm2(edge(:,2) - edge(:,1))
-      moments_r2d(2:3) = (edge(:,2) + edge(:,1)) * moments_r2d(1) / 2
+      moments_poly(1) = norm2(edge(:,2) - edge(:,1))
+      moments_poly(2:3) = (edge(:,2) + edge(:,1)) * moments_poly(1) / 2
       
       moments = cmpInterfaceMoments(normal, dx, shift)
 
-      @assertEqual(moments_r2d, moments, TOLERANCE * sqrt(cellVol))
+      @assertEqual(moments_poly, moments, TOLERANCE * sqrt(cellVol))
     enddo
     enddo
   end subroutine

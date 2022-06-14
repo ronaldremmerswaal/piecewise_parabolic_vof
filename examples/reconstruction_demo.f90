@@ -89,8 +89,8 @@ contains
   end subroutine
 
   subroutine reconstruction_nonrect
-    use m_recon_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
-    use m_r2d_parabolic,    only: cmpMoments, r2d_poly_f, init_from_pos, r2d_parabola_f
+    use m_recon_util, only: cmpSymmDiff, makeParabola
+    use m_polygon,    only: cmpMoments, tPolygon, init, tParabola, polyApprox
     use m_recon,   only: mofNormal, pmofNormal
 
     implicit none
@@ -98,7 +98,7 @@ contains
     real*8                  :: refMoments(3)
 
     ! The control volume is now a polygon
-    type(r2d_poly_f)        :: cell
+    type(tPolygon)          :: cell, poly
 
     real*8                  :: pos(2,32), xc(2), pacmanRadius
     integer                 :: vdx, count
@@ -107,7 +107,7 @@ contains
     real*8                  :: normal(2), kappa0, angle, pi
     real*8                  :: errMoments(3), errSD(3)
 
-    type(r2d_parabola_f)    :: parabola
+    type(tParabola)         :: parabola
 
     pi = 4 * datan(1.0D0)
     pacmanRadius = 0.3D0
@@ -130,19 +130,20 @@ contains
         midPointAdded = .true.
       endif
     enddo
-    call init_from_pos(cell, pos(:,1:count))
+    call init(cell, pos(:,1:count))
 
     ! Other than the initialisation of the control volume, the rest is the same as before
-    refMoments = cmpMoments(cell, exact_interface, verts_per_segment=1000)
+    call polyApprox(poly, cell, exact_interface)
+    refMoments = cmpMoments(poly)
 
     ! We pass the optional argoment x0=xc to tell the intersection functions that our
     ! parabola is defined relative to xc, rather than 0, which is the default
     kappa0 = 1.
-    print*, 'TODO using m_polygon'
+    print*, 'TODO'
     ! normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
-    parabola = makeParabola(normal, kappa0, cell, refMoments(1), x0=xc)
-    errMoments = abs(cmpMoments(cell, parabola, x0=xc) - refMoments)
-    errSD = cmpSymmDiff(cell, parabola, exact_interface, x0=xc)
+    ! parabola = makeParabola(normal, kappa0, cell, refMoments(1))
+    ! errMoments = abs(cmpMoments(cell, parabola, x0=xc) - refMoments)
+    ! errSD = cmpSymmDiff(cell, parabola, exact_interface, x0=xc)
 
     write(*, '(A)') ''
     write(*, '(A)') 'The PMOF method can reconstruct inside non-rectilinear (and non-convex) cells as well, and'

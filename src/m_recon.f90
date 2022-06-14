@@ -49,7 +49,6 @@ contains
   real*8 function lvira_error(refVolumes, angle, dxs, derivative) result(err)
     use m_common
     use m_recon_util
-    use m_r2d_parabolic
 
     implicit none
 
@@ -364,6 +363,35 @@ contains
   end function
 
   function pmofNormal_poly(refMoments, kappa0, cell, x0, verbose, errTol) result(normal)
+    use m_polygon
+
+    implicit none
+
+    real*8, intent(in)    :: refMoments(3), kappa0
+    type(tPolygon)        :: cell
+    logical, optional     :: verbose
+    real*8, intent(in), optional :: x0(2), errTol
+    real*8                :: normal(2)
+
+    ! Local variables
+    type(tPolygon)        :: shifted_cell
+    real*8                :: shifted_refMoments(3)
+
+    if (.not. present(x0)) then
+      normal = pmofNormal_poly_sub(refMoments, kappa0, cell, verbose=verbose, errTol=errTol)
+    else
+      ! The parabola is always relative to x0 = 0, so if this is not the case, we shift the cell
+      call copy(out=shifted_cell, in=cell)
+      call shift_by(shifted_cell, -x0)
+
+      shifted_refMoments = refMoments
+      shifted_refMoments(2:3) = shifted_refMoments(2:3) - x0 * shifted_refMoments(1)
+
+      normal = pmofNormal_poly_sub(shifted_refMoments, kappa0, shifted_cell, verbose=verbose, errTol=errTol)
+    endif
+  end function
+
+  function pmofNormal_poly_sub(refMoments, kappa0, cell, verbose, errTol) result(normal)
     use m_optimization
     use m_recon_util
     use m_polygon
@@ -373,7 +401,7 @@ contains
     real*8, intent(in)    :: refMoments(3), kappa0
     type(tPolygon)        :: cell
     logical, optional     :: verbose
-    real*8, intent(in), optional :: x0(2), errTol
+    real*8, intent(in), optional :: errTol
     real*8                :: normal(2)
 
     ! Local variables:
@@ -403,8 +431,7 @@ contains
 
     real*8 function dcost(angle, err) result(derr)
       use m_recon_util
-      use m_r2d_parabolic
-  
+
       implicit none
 
       real*8, intent(in)  :: angle
@@ -416,7 +443,7 @@ contains
 
       normal_ = [dcos(angle), dsin(angle)]
 
-      shift = cmpShift(normal_, cell, refMoments(1), kappa0, intersected=intersected) !x0=x0)
+      shift = cmpShift(normal_, cell, refMoments(1), kappa0, intersected=intersected)
       
       mofMoments_ = cmpMoments(intersected)
 
