@@ -89,7 +89,7 @@ contains
   end subroutine
 
   subroutine reconstruction_nonrect
-    use m_recon_util, only: cmpSymmDiff, makeParabola
+    use m_recon_util, only: makeParabola
     use m_polygon,    only: cmpMoments, tPolygon, init, tParabola, polyApprox
     use m_recon,   only: mofNormal, pmofNormal
 

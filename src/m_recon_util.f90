@@ -7,7 +7,7 @@ module m_recon_util
   real*8, parameter     :: NORMAL_TOL = 1E-12
 
   interface cmpMoments
-    module procedure cmpMoments2d_plane, cmpMoments2d_parabolic, cmpMoments_dx
+    module procedure cmpMoments2d_plane, cmpMoments_dx
   end interface
 
   interface cmpVolume
@@ -15,15 +15,11 @@ module m_recon_util
   end interface
 
   interface cmpShift
-    module procedure cmpShift2d_plane, cmpShift2d_parabolic, cmpShift2d_poly, cmpShift2d_poly_r2d
+    module procedure cmpShift2d_plane, cmpShift2d_parabolic, cmpShift2d_poly
   end interface
 
   interface makeParabola
-    module procedure makeParabola_noshift, makeParabola_noshift_poly
-  end interface
-
-  interface cmpSymmDiff
-    module procedure cmpSymmDiff2d_plane, cmpSymmDiff2d_parabolic, cmpSymmDiff2d_parabolic_polyIn
+    module procedure makeParabola_noshift
   end interface
 
   interface cmpSymmDiffVolume
@@ -364,51 +360,6 @@ contains
 
   end function
 
-  real*8 function cmpSymmDiff2d_plane(x, dx, normal, shift, levelSet) result(sd)
-    use m_r2d_parabolic
-    implicit none
-
-    real*8, intent(in)     :: x(2), dx(2), normal(2), shift
-    real*8, external       :: levelSet
-
-    ! Local variables
-    real*8                :: sd_1(3), sd_2(3)
-    type(r2d_poly_f)      :: exact_gas, exact_liq
-
-
-    ! Construct polygonal approximation of exact gas & liquid domains
-    ! (relative to the cell centroid)
-    call polyApprox(exact_gas, x, dx, levelSet, GAS_PHASE)
-    call polyApprox(exact_liq, x, dx, levelSet, LIQUID_PHASE)
-    call shift_by(exact_gas, -x)
-    call shift_by(exact_liq, -x)
-
-    ! Compute symmetric difference
-    call intersect(exact_gas, makePlane(normal, shift))
-    sd_1 = cmpMoments(exact_gas)
-    call intersect(exact_liq, makePlane(-normal, -shift))
-    sd_2 = cmpMoments(exact_liq)
-    sd = sd_1(1) + sd_2(1)
-  end
-
-  function cmpMoments2d_parabolic(dx, parabola, x0, derivative, grad_s) result(moments)
-    use m_r2d_parabolic
-
-    implicit none
-
-    real*8, intent(in)    :: dx(2)
-    type(r2d_parabola_f), intent(in) :: parabola
-    real*8, intent(in), optional :: x0(2)
-    real*8, intent(inout), optional :: derivative(4), grad_s(2)
-    real*8                :: moments(3)
-
-    ! Local variables
-    type(r2d_poly_f)      :: cell
-
-    call makeBox_bounds(cell, [-dx/2.0, dx/2.0])
-    moments = cmpMoments_(cell, parabola, x0, derivative, grad_s)
-  end function
-
   real*8 function cmpSymmDiffVolume2d_dxIn(x, dx, parabola, levelSet) result(sd)
     use m_polygon
     implicit none
@@ -525,7 +476,7 @@ contains
 
     relTol_ = merge(relTol, 1D-15, present(relTol))
 
-    shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, 30, err_l, err_r)
+    shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, 52, err_l, err_r)
     if (present(volume)) volume = volume_
     if (present(intersected)) call copy(out=intersected, in=cell)
   contains
@@ -556,68 +507,6 @@ contains
     parabola%kappa0 = kappa0
     parabola%shift = cmpShift(normal, dx, liqVol, kappa0)
   end function
-
-  function makeParabola_noshift_poly(normal, kappa0, cell, liqVol, x0) result(parabola)
-    use m_r2d_parabolic
-    implicit none
-    
-    real*8, intent(in)    :: normal(2), kappa0, liqVol
-    real*8, intent(in), optional :: x0(2)
-    type(r2d_poly_f)      :: cell
-    type(r2d_parabola_f)  :: parabola
-
-
-    parabola = makeParabola(normal, kappa0, cmpShift(normal, cell, liqVol, kappa0, x0=x0))
-  end function
-
-  real*8 function cmpSymmDiff2d_parabolic(x, dx, parabola, levelSet) result(sd)
-    use m_r2d_parabolic
-    implicit none
-
-    real*8, intent(in)     :: x(2), dx(2)
-    type(r2d_parabola_f)   :: parabola
-    real*8, external       :: levelSet
-
-    ! Local variables
-    real*8                :: sd_1(3), sd_2(3)
-    type(r2d_poly_f)      :: exact_gas, exact_liq
-
-
-    ! Construct polygonal approximation of exact gas & liquid domains
-    ! (relative to the cell centroid)
-    call polyApprox(exact_gas, x, dx, levelSet, GAS_PHASE)
-    call polyApprox(exact_liq, x, dx, levelSet, LIQUID_PHASE)
-
-    ! Compute symmetric difference
-    sd_1 = cmpMoments_(exact_gas, parabola, x0=x)
-    sd_2 = cmpMoments_(exact_liq, complement(parabola), x0=x)
-    sd = sd_1(1) + sd_2(1)
-  end
-
-  real*8 function cmpSymmDiff2d_parabolic_polyIn(cell, parabola, levelSet, x0) result(sd)
-    use m_r2d_parabolic
-    implicit none
-
-    type(r2d_poly_f), intent(in) :: cell
-    type(r2d_parabola_f)   :: parabola
-    real*8, external       :: levelSet
-    real*8, intent(in), optional :: x0(2)
-
-    ! Local variables
-    real*8                :: sd_1(3), sd_2(3)
-    type(r2d_poly_f)      :: exact_gas, exact_liq
-
-
-    ! Construct polygonal approximation of exact gas & liquid domains
-    ! (relative to the cell centroid)
-    call polyApprox(exact_gas, cell, levelSet, GAS_PHASE)
-    call polyApprox(exact_liq, cell, levelSet, LIQUID_PHASE)
-
-    ! Compute symmetric difference
-    sd_1 = cmpMoments_(exact_gas, parabola, x0=x0)
-    sd_2 = cmpMoments_(exact_liq, complement(parabola), x0=x0)
-    sd = sd_1(1) + sd_2(1)
-  end
 
   real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, x0, relTol, volume, intersected) result(shift)
     use m_polygon
@@ -715,7 +604,7 @@ contains
     endif
 
     shift = brent(volume_error_function, shift_l, shift_r, &
-      (max_eta_dist - min_eta_dist) * relTol_, 30, err_l, err_r)
+      (max_eta_dist - min_eta_dist) * relTol_, 52, err_l, err_r)
     if (present(volume)) volume = volume_
     if (present(intersected)) call copy(out=intersected, in=cell_copy)
 
@@ -730,112 +619,6 @@ contains
         call intersect(cell_copy, makeParabola(normal, kappa0, shift_tmp))
         volume_ = cmpVolume(cell_copy)!, x0=x0)
         err = volume_ - liqVol
-      end function
-  end function
-
-  real*8 function cmpShift2d_poly_r2d(normal, cell, liqVol, kappa0, x0, relTol, moments) result(shift)
-    use m_r2d_parabolic
-    use m_optimization,   only: brent
-
-    implicit none
-
-    real*8, intent(in)    :: normal(2), liqVol, kappa0
-    type(r2d_poly_f), intent(in) :: cell
-    real*8, optional, intent(in) :: x0(2), relTol
-    real*8, optional, intent(out) :: moments(3)
-
-    ! Local variables
-    real*8                :: moments_(3), cellMoments(3), shift0, err0
-    real*8                :: shift_l, shift_r, err_l, err_r, eta_dist, tau_dist_sq
-    real*8                :: min_eta_dist, max_eta_dist, max_tau_dist_sq
-    real*8                :: relTol_, tau(2), pos(2)
-    integer               :: vdx
-
-    relTol_ = merge(relTol, 1D-15, present(relTol))
-    
-    min_eta_dist = 0
-    max_eta_dist = 0
-    max_tau_dist_sq = 0
-    
-    tau = [-normal(2), normal(1)]
-    do vdx=1,cell%nverts
-      pos = cell%verts(vdx)%pos%xyz
-      if (present(x0)) pos = pos - x0
-      eta_dist = dot_product(normal, pos)
-      tau_dist_sq = dot_product(tau, pos)**2
-      if (vdx == 1) then
-        min_eta_dist = eta_dist
-        max_eta_dist = eta_dist
-        max_tau_dist_sq = tau_dist_sq
-      else
-        if (eta_dist < min_eta_dist) min_eta_dist = eta_dist
-        if (eta_dist > max_eta_dist) max_eta_dist = eta_dist
-        if (tau_dist_sq > max_tau_dist_sq) max_tau_dist_sq = tau_dist_sq
-      endif
-    enddo
-
-    cellMoments = cmpMoments(cell)
-    if (liqVol <= 0.0) then
-      if (kappa0 > 0) then
-        shift = min_eta_dist
-      else
-        shift = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
-      endif
-      if (present(moments)) moments = 0.0D0
-      return
-    elseif (liqVol >= cellMoments(1)) then
-      if (kappa0 > 0) then
-        shift = kappa0 * max_tau_dist_sq / 2 + max_eta_dist
-      else
-        shift = max_eta_dist
-      endif
-      if (present(moments)) moments = cellMoments
-      return
-    endif
-    
-    shift0 = (min_eta_dist + max_eta_dist) / 2
-    err0 = volume_error_function(shift0)
-    
-    if (err0 == 0) then
-      shift = shift0
-      if (present(moments)) moments = moments_
-      return
-    elseif (err0 > 0) then
-      shift_r = shift0
-      err_r = err0
-
-      if (kappa0 > 0) then
-        shift_l = min_eta_dist
-      else
-        shift_l = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
-      endif
-
-      err_l = -liqVol
-    else
-      shift_l = shift0
-      err_l = err0
-
-      if (kappa0 > 0) then
-        shift_r = kappa0 * max_tau_dist_sq / 2 + max_eta_dist
-      else
-        shift_r = max_eta_dist
-      endif
-      err_r = cellMoments(1) - liqVol
-    endif
-
-    shift = brent(volume_error_function, shift_l, shift_r, &
-      (max_eta_dist - min_eta_dist) * relTol_, 30, err_l, err_r)
-    if (present(moments)) moments = moments_
-
-    contains
-
-      real*8 function volume_error_function(shift_tmp) result(err)
-        implicit none
-
-        real*8, intent(in)    :: shift_tmp
-
-        moments_ = cmpMoments(cell, makeParabola(normal, kappa0, shift_tmp), x0=x0)
-        err = moments_(1) - liqVol
       end function
   end function
 end module
