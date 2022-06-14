@@ -1,5 +1,5 @@
 module m_polygon
-  integer, parameter      :: MAX_NR_VERTS = 2**8
+  integer, parameter      :: MAX_NR_VERTS = 2**9
   integer, parameter      :: MAX_NR_PARA_EDGES = 2**2
   integer, parameter      :: MAX_MONOMIAL = 5
   integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = MAX_NR_VERTS / 4
@@ -827,7 +827,7 @@ contains
   subroutine shift_by(poly, pos)
     implicit none
 
-    type(tPolygon), intent(out) :: poly
+    type(tPolygon), intent(inout) :: poly
     real*8, intent(in)    :: pos(2)
 
     ! Local variables

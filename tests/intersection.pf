@@ -292,7 +292,7 @@ contains
 
     ! Analytical:
     sd = cmpSymmDiffVolume(x, dx, makeParabola(normal, kappa0, shift), levelset)
-    @assertEqual(pi / 16, sd, APPROX_TOLERANCE)
+    @assertEqual(pi * radius**2 / 4, sd, APPROX_TOLERANCE)
 
     ! Computed in MATLAB:
     do sdx=1,NR_STEPS
@@ -321,7 +321,6 @@ contains
 
       @assertEqual(product(dx), vol_gas + vol_liq, TOLERANCE)
 
-      print*, sd_MATLAB(sdx), sd
       @assertEqual(sd_MATLAB(sdx), sd, APPROX_TOLERANCE)
     enddo
 

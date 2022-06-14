@@ -399,7 +399,7 @@ contains
     ! Compute symmetric difference
     call intersect(exact_gas, parabola)
     call intersect(exact_liq, complement(parabola))
-
+    
     sd = cmpVolume(exact_gas) + cmpVolume(exact_liq)
   end
 
@@ -449,8 +449,10 @@ contains
     shift_plane = cmpShift2d_plane(normal, dx, liqVol)
     plane_err = volume_error_function(shift_plane)
 
+    relTol_ = merge(relTol, 1D-14, present(relTol))
+
     ! Try to get a better bracket with an (educated) guess
-    if (plane_err == 0.0) then
+    if (abs(plane_err) < cellVol * relTol_) then
       ! iff kappa0 == 0.0
       shift = shift_plane
       if (present(volume)) volume = volume_
@@ -473,8 +475,6 @@ contains
       shift_r = kappa0 * max_shift_plane_tau**2 / 2 + max_shift_plane_eta
       err_r = cellVol - liqVol
     endif
-
-    relTol_ = merge(relTol, 1D-15, present(relTol))
 
     shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, 52, err_l, err_r)
     if (present(volume)) volume = volume_

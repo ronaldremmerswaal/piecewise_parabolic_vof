@@ -484,7 +484,7 @@ contains
           normals(:,PLVIRA_IDX) = plviraNormal(refVolumes, kappa0(PLVIRA_IDX), dxs, errTol=errTol)
           normals(:,PROST_IDX) = prostNormal(refVolumes, kappa0(PROST_IDX), dxs, errTol=errTol)
           normals(:,MOF_IDX) = mofNormal(refMoments, dx)
-          normals(:,PMOF_IDX) = pmofNormal(refMoments, kappa0(PMOF_IDX), dx, errTol=errTol)
+          normals(:,PMOF_IDX) = pmofNormal(refMoments, kappa0(PMOF_IDX), dx, errTol=errTol, verbose=.true.)
 
           do mdx=1,NR_METHODS
             parabola = makeParabola(normals(:,mdx), kappa0(mdx), dx, refVolumes(0,0))
