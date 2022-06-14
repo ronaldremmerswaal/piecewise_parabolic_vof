@@ -1,17 +1,21 @@
-module m_reconstruction_util
+module m_recon_util
   use m_common
 
   private
-  public :: cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff, makeParabola
+  public :: cmpVolume, cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff, makeParabola
 
   real*8, parameter     :: NORMAL_TOL = 1E-12
 
   interface cmpMoments
-    module procedure cmpMoments2d_plane, cmpMoments2d_parabolic
+    module procedure cmpMoments2d_plane, cmpMoments2d_parabolic, cmpMoments_dx
+  end interface
+
+  interface cmpVolume
+    module procedure cmpVolume2d_plane, cmpVolume_dx
   end interface
 
   interface cmpShift
-    module procedure cmpShift2d_plane, cmpShift2d_parabolic, cmpShift2d_poly
+    module procedure cmpShift2d_plane, cmpShift2d_parabolic, cmpShift2d_poly, cmpShift2d_poly_r2d
   end interface
 
   interface makeParabola
@@ -27,6 +31,35 @@ module m_reconstruction_util
   end interface
 
 contains
+
+   function cmpVolume2d_plane(normal, dx, shift) result(volume)
+    implicit none
+
+    real*8, intent(in)  :: normal(2), dx(2), shift
+    real*8              :: volume
+
+    ! Local variables:
+    real*8              :: normal_(2), dx_(2), max_shift_plane
+    integer             :: perm(2)
+
+    normal_ = abs(normal)
+    if (dx(1) * normal_(1) < dx(2) * normal_(2)) then
+      dx_ = dx
+      perm = [1, 2]
+    else
+      normal_ = [normal_(2), normal_(1)]
+      dx_ = [dx(2), dx(1)]
+      perm = [2, 1]
+    endif
+
+    max_shift_plane = dot_product(normal_, dx_)/2
+    if (normal_(1) < NORMAL_TOL) then
+      volume = ((shift + max_shift_plane) / normal_(2)) * dx_(1)
+    else
+      volume = cmpVolume2d_pc_ordered_plane(normal_, dx_, shift + max_shift_plane, max_shift_plane)
+    endif
+
+  end function
 
    function cmpMoments2d_plane(normal, dx, shift) result(moments)
     implicit none
@@ -64,6 +97,35 @@ contains
     endif
   end function
 
+  pure function cmpVolume2d_pc_ordered_plane(normal, dx, pc, max_shift_plane) result(volume)
+    implicit none
+
+    real*8, intent(in)  :: normal(2), dx(2), pc, max_shift_plane
+    real*8              :: volume
+
+    ! Local variables:
+    real*8              :: pcMod
+    logical             :: largerThanHalf
+
+    largerThanHalf = pc > max_shift_plane
+    if (largerThanHalf) then
+      pcMod = 2*max_shift_plane - pc
+    else
+      pcMod = pc
+    endif
+
+    ! We compute moment w.r.t. cell corner
+    if (pcMod <= 0.0) then
+      volume = 0.0
+    elseif (pcMod<normal(1)*dx(1)) then
+      volume = pcMod**2/(2.0*normal(1)*normal(2))
+    else ! if (pcMod<=max_shift_plane) then
+      volume = pcMod*dx(1)/normal(2) - normal(1)*dx(1)**2/(2.0*normal(2))
+    endif
+
+    if (largerThanHalf) volume = product(dx) - volume
+  end function
+
   pure function cmpMoments2d_pc_ordered_plane(normal, dx, pc, max_shift_plane) result(moments)
     implicit none
 
@@ -98,6 +160,40 @@ contains
     if (largerThanHalf) moments(1) = product(dx) - moments(1)
   end function
 
+  real*8 function cmpVolume_dx(dx, parabola) result(vol)
+    use m_polygon
+    implicit none
+    
+    real*8, intent(in)    :: dx(2)
+    type(tParabola), intent(in) :: parabola
+
+    ! Local variables
+    type(tPolygon)        :: poly
+
+    call makeBox(poly, dx)
+    call intersect(poly, parabola)
+    vol = cmpVolume(poly)
+
+  end function
+
+  function cmpMoments_dx(dx, parabola) result(mom)
+    use m_polygon
+    implicit none
+    
+    real*8, intent(in)    :: dx(2)
+    type(tParabola), intent(in) :: parabola
+    real*8                :: mom(3)
+
+    ! Local variables
+    type(tPolygon)        :: poly
+
+    call makeBox(poly, dx)
+    call intersect(poly, parabola)
+    mom = cmpMoments(poly)
+
+  end function
+
+
   function cmpInterfaceMoments_plane(normal, dx, shift) result(moments)
     implicit none
 
@@ -131,7 +227,9 @@ contains
       if (normal(perm(2)) < 0.0) pMoment1(2) = -pMoment1(2)
     else
       moments(1) = cmpInterfaceMoment0_pc_ordered_plane(normal_, dx_, shift + max_shift_plane, max_shift_plane)
-      if (moments(1) /= 0.0) then
+      if (moments(1)==0) then
+        pMoment1 = 0
+      else
         pMoment1 = cmpInterfaceMoment1_pc_ordered_plane(normal_, dx_, shift + max_shift_plane, max_shift_plane)
         if (normal(perm(1)) < 0.0) pMoment1(1) = -pMoment1(1)
         if (normal(perm(2)) < 0.0) pMoment1(2) = -pMoment1(2)
@@ -262,7 +360,7 @@ contains
 
   end function
 
-  real function cmpSymmDiff2d_plane(x, dx, normal, shift, levelSet) result(sd)
+  real*8 function cmpSymmDiff2d_plane(x, dx, normal, shift, levelSet) result(sd)
     use m_r2d_parabolic
     implicit none
 
@@ -307,19 +405,19 @@ contains
     moments = cmpMoments_(cell, parabola, x0, derivative, grad_s)
   end function
 
-  real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, moments) result(shift)
-    use m_r2d_parabolic
+  real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, volume) result(shift)
+    use m_polygon
     use m_optimization,   only: brent
 
     implicit none
 
     real*8, intent(in)    :: normal(2), dx(2), liqVol, kappa0
     real*8, optional, intent(in) :: relTol
-    real*8, optional, intent(out) :: moments(3)
+    real*8, optional, intent(out) :: volume
 
     ! Local variables
-    type(r2d_poly_f)      :: cell
-    real*8                :: moments_(3), cellVol, shift_plane, plane_err
+    type(tPolygon)        :: cell
+    real*8                :: volume_, cellVol, shift_plane, plane_err
     real*8                :: max_shift_plane_eta, max_shift_plane_tau
     real*8                :: shift_l, shift_r, err_l, err_r
     real*8                :: relTol_
@@ -334,7 +432,7 @@ contains
       else
         shift = kappa0 * max_shift_plane_tau**2 / 2. - max_shift_plane_eta
       endif
-      if (present(moments)) moments = 0.0D0
+      if (present(volume)) volume = 0.0D0
       return
     elseif (liqVol >= cellVol) then
       if (kappa0 > 0) then
@@ -342,11 +440,11 @@ contains
       else
         shift = max_shift_plane_eta
       endif
-      if (present(moments)) moments = [cellVol, 0.0D0, 0.0D0]
+      if (present(volume)) volume = cellVol
       return
     endif
 
-    call makeBox_bounds(cell, [-dx/2.0, dx/2.0])
+    call makeBox(cell, dx)
 
     ! Use PLIC to get a good initial bracket (one side at least)
     shift_plane = cmpShift2d_plane(normal, dx, liqVol)
@@ -356,7 +454,7 @@ contains
     if (plane_err == 0.0) then
       ! iff kappa0 == 0.0
       shift = shift_plane
-      if (present(moments)) moments = moments_
+      if (present(volume)) volume = volume_
       return
     endif
 
@@ -379,7 +477,7 @@ contains
     relTol_ = merge(relTol, 1D-15, present(relTol))
 
     shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, 30, err_l, err_r)
-    if (present(moments)) moments = moments_
+    if (present(volume)) volume = volume_
 
   contains
 
@@ -388,11 +486,14 @@ contains
 
       real*8, intent(in)    :: shift_tmp
 
-      ! Local variables
-      integer             :: idx
+      type(tPolygon)        :: cell_copy
 
-      moments_ = cmpMoments(cell, makeParabola(normal, kappa0, shift_tmp))
-      err = moments_(1) - liqVol
+      call copy(out=cell_copy, in=cell)
+
+      call intersect(cell_copy, makeParabola(normal, kappa0, shift_tmp))
+      volume_ = cmpVolume(cell_copy)
+
+      err = volume_ - liqVol
     end function
   end function
 
@@ -421,7 +522,7 @@ contains
     parabola = makeParabola(normal, kappa0, cmpShift(normal, cell, liqVol, kappa0, x0=x0))
   end function
 
-  real function cmpSymmDiff2d_parabolic(x, dx, parabola, levelSet) result(sd)
+  real*8 function cmpSymmDiff2d_parabolic(x, dx, parabola, levelSet) result(sd)
     use m_r2d_parabolic
     implicit none
 
@@ -445,7 +546,7 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  real function cmpSymmDiff2d_polyIn(cell, normal, shift, levelSet) result(sd)
+  real*8 function cmpSymmDiff2d_polyIn(cell, normal, shift, levelSet) result(sd)
     use m_r2d_parabolic
     implicit none
 
@@ -469,7 +570,7 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  real function cmpSymmDiff2d_parabolic_polyIn(cell, parabola, levelSet, x0) result(sd)
+  real*8 function cmpSymmDiff2d_parabolic_polyIn(cell, parabola, levelSet, x0) result(sd)
     use m_r2d_parabolic
     implicit none
 
@@ -494,7 +595,113 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, x0, relTol, moments) result(shift)
+  real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, x0, relTol, volume) result(shift)
+    use m_polygon
+    use m_optimization,   only: brent
+
+    implicit none
+
+    real*8, intent(in)    :: normal(2), liqVol, kappa0
+    type(tPolygon), intent(inout) :: cell
+    real*8, optional, intent(in) :: x0(2), relTol
+    real*8, optional, intent(out) :: volume
+
+    ! Local variables
+    real*8                :: volume_, cellVolume, shift0, err0
+    real*8                :: shift_l, shift_r, err_l, err_r, eta_dist, tau_dist_sq
+    real*8                :: min_eta_dist, max_eta_dist, max_tau_dist_sq
+    real*8                :: relTol_, tau(2), pos(2)
+    integer               :: vdx
+
+    relTol_ = merge(relTol, 1D-15, present(relTol))
+    
+    tau = [-normal(2), normal(1)]
+    do vdx=1,cell%nverts
+      pos = cell%verts(:,vdx)
+      if (present(x0)) pos = pos - x0
+      eta_dist = dot_product(normal, pos)
+      tau_dist_sq = dot_product(tau, pos)**2
+      if (vdx == 1) then
+        min_eta_dist = eta_dist
+        max_eta_dist = eta_dist
+        max_tau_dist_sq = tau_dist_sq
+      else
+        if (eta_dist < min_eta_dist) min_eta_dist = eta_dist
+        if (eta_dist > max_eta_dist) max_eta_dist = eta_dist
+        if (tau_dist_sq > max_tau_dist_sq) max_tau_dist_sq = tau_dist_sq
+      endif
+    enddo
+
+    cellVolume = cmpVolume(cell)
+    if (liqVol <= 0.0) then
+      if (kappa0 > 0) then
+        shift = min_eta_dist
+      else
+        shift = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
+      endif
+      if (present(volume)) volume = 0.0D0
+      return
+    elseif (liqVol >= cellVolume) then
+      if (kappa0 > 0) then
+        shift = kappa0 * max_tau_dist_sq / 2 + max_eta_dist
+      else
+        shift = max_eta_dist
+      endif
+      if (present(volume)) volume = cellVolume
+      return
+    endif
+    
+    shift0 = (min_eta_dist + max_eta_dist) / 2
+    err0 = volume_error_function(shift0)
+    
+    if (err0 == 0) then
+      shift = shift0
+      if (present(volume)) volume = volume_
+      return
+    elseif (err0 > 0) then
+      shift_r = shift0
+      err_r = err0
+
+      if (kappa0 > 0) then
+        shift_l = min_eta_dist
+      else
+        shift_l = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
+      endif
+
+      err_l = -liqVol
+    else
+      shift_l = shift0
+      err_l = err0
+
+      if (kappa0 > 0) then
+        shift_r = kappa0 * max_tau_dist_sq / 2 + max_eta_dist
+      else
+        shift_r = max_eta_dist
+      endif
+      err_r = cellVolume - liqVol
+    endif
+
+    shift = brent(volume_error_function, shift_l, shift_r, &
+      (max_eta_dist - min_eta_dist) * relTol_, 30, err_l, err_r)
+    if (present(volume)) volume = volume_
+
+    contains
+
+      real*8 function volume_error_function(shift_tmp) result(err)
+        implicit none
+
+        real*8, intent(in)    :: shift_tmp
+
+        type(tPolygon)        :: cell_copy
+
+        call copy(out=cell_copy, in=cell)
+        call intersect(cell_copy, makeParabola(normal, kappa0, shift_tmp))
+        volume_ = cmpVolume(cell_copy)!, x0=x0)
+        err = volume_ - liqVol
+      end function
+  end function
+
+  real*8 function cmpShift2d_poly_r2d(normal, cell, liqVol, kappa0, x0, relTol, moments) result(shift)
     use m_r2d_parabolic
     use m_optimization,   only: brent
 
@@ -536,13 +743,13 @@ contains
       if (kappa0 > 0) then
         shift = min_eta_dist
       else
-        shift = kappa0 * tau_dist_sq / 2 + min_eta_dist
+        shift = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
       endif
       if (present(moments)) moments = 0.0D0
       return
     elseif (liqVol >= cellMoments(1)) then
       if (kappa0 > 0) then
-        shift = kappa0 * tau_dist_sq / 2 + max_eta_dist
+        shift = kappa0 * max_tau_dist_sq / 2 + max_eta_dist
       else
         shift = max_eta_dist
       endif
@@ -564,7 +771,7 @@ contains
       if (kappa0 > 0) then
         shift_l = min_eta_dist
       else
-        shift_l = kappa0 * tau_dist_sq / 2 + min_eta_dist
+        shift_l = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
       endif
 
       err_l = -liqVol
@@ -573,7 +780,7 @@ contains
       err_l = err0
 
       if (kappa0 > 0) then
-        shift_r = kappa0 * tau_dist_sq / 2 + max_eta_dist
+        shift_r = kappa0 * max_tau_dist_sq / 2 + max_eta_dist
       else
         shift_r = max_eta_dist
       endif

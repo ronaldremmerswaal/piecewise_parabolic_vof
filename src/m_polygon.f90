@@ -41,15 +41,15 @@ module m_polygon
 
 
   interface makeBox
-    module procedure makeBox_bounds, makeBox_dx
+    module procedure makeBox_dx, makeBox_xdx
   end interface
 
   interface cmpVolume
-    module procedure cmpVolume_poly, cmpVolume_dx
+    module procedure cmpVolume_poly
   end interface
 
   interface cmpMoments
-    module procedure cmpMoments_poly, cmpMoments_dx
+    module procedure cmpMoments_poly
   end interface
 
   interface makeParabola
@@ -140,39 +140,6 @@ contains
     endif
   end function
 
-  ! TODO belongs in util
-  real*8 function cmpVolume_dx(dx, parabola) result(vol)
-    implicit none
-    
-    real*8, intent(in)    :: dx(2)
-    type(tParabola), intent(in) :: parabola
-
-    ! Local variables
-    type(tPolygon)        :: poly
-
-    call makeBox(poly, dx)
-    call intersect(poly, parabola)
-    vol = cmpVolume(poly)
-
-  end function
-
-  ! TODO belongs in util
-  function cmpMoments_dx(dx, parabola) result(mom)
-    implicit none
-    
-    real*8, intent(in)    :: dx(2)
-    type(tParabola), intent(in) :: parabola
-    real*8                :: mom(3)
-
-    ! Local variables
-    type(tPolygon)        :: poly
-
-    call makeBox(poly, dx)
-    call intersect(poly, parabola)
-    mom = cmpMoments(poly)
-
-  end function
-
   function cmpMoments_poly(poly) result(mom)
     implicit none
     
@@ -240,16 +207,22 @@ contains
     type(tPolygon), intent(inout) :: poly
     real*8, intent(in), optional :: shiftAngleDerivative
 
+    ! Local variables
+    real*8                :: shiftAngleDerivative_    
+
     if (.not. poly%intersected) then
-      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
     endif
     
-    der = 0
     if (.not. present(shiftAngleDerivative)) then 
-      ! Force zero volume
+      der = 0
+      ! Force zero volume, so derivative is always zero
       return
-      ! shiftAngleDerivative = cmpDerivative_shiftAngle(poly)
+      ! shiftAngleDerivative_ = cmpDerivative_shiftAngle(poly)
     endif
+
+    shiftAngleDerivative_ = shiftAngleDerivative
+    if (poly%complement) shiftAngleDerivative_ = -shiftAngleDerivative_
     
     if (poly%parabolic) then
       call compute_momonial(poly, 3)
@@ -257,12 +230,13 @@ contains
       call compute_momonial(poly, 1)
     endif
 
-    der = poly%monomials_sum(0) * shiftAngleDerivative - poly%monomials_sum(1)
+    der = poly%monomials_sum(0) * shiftAngleDerivative_ - poly%monomials_sum(1)
     if (poly%parabolic) then
       der = der + poly%monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 - &
         (poly%monomials_sum(3) * poly%parabola%kappa0**2) / 2
     endif
     
+    if (poly%complement) der = -der
   end function
   
   real*8 function cmpDerivative_volKappa(poly, shiftKappaDerivative) result(der)
@@ -272,12 +246,14 @@ contains
     real*8, intent(in), optional :: shiftKappaDerivative
 
     if (.not. poly%intersected) then
-      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      der = 0
+      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      return
     endif
     
-    der = 0
     if (.not. present(shiftKappaDerivative)) then 
       ! Force zero volume
+      der = 0
       return
       ! shiftKappaDerivative = cmpDerivative_shiftKappa(poly)
     endif
@@ -299,7 +275,9 @@ contains
     real*8                :: shiftAngleDerivative_, der1_eta, der1_tau
 
     if (.not. poly%intersected) then
-      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      der = 0
+      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      return
     endif
     
     if (present(shiftAngleDerivative)) then 
@@ -314,6 +292,8 @@ contains
     else
       call compute_momonial(poly, 2)
     endif
+
+    if (poly%complement) shiftAngleDerivative_ = -shiftAngleDerivative_
 
     ! we write the derivative in terms of its normal and tangential components
 	  ! the normal component is given by
@@ -337,6 +317,8 @@ contains
     
     der(1) = poly%parabola%normal(1) * der1_eta - poly%parabola%normal(2) * der1_tau
     der(2) = poly%parabola%normal(2) * der1_eta + poly%parabola%normal(1) * der1_tau
+
+    if (poly%complement) der = -der
   end function
 
     ! The derivative of the shift w.r.t. to the normal angle is given by
@@ -347,7 +329,9 @@ contains
     type(tPolygon), intent(inout) :: poly
 
     if (.not. poly%intersected) then
-      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      der = 0
+      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      return
     endif
 
     if (poly%parabolic) then
@@ -359,9 +343,11 @@ contains
     der = poly%monomials_sum(1)
     if (poly%parabolic) then
       der = der - poly%monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 &
-        + (poly%monomials_sum(3) * poly%parabola%kappa0**2) / 2 + poly%monomials_sum(1)
+        + (poly%monomials_sum(3) * poly%parabola%kappa0**2) / 2
     endif
     der = der / poly%monomials_sum(0)
+
+    if (poly%complement) der = -der
   end function
 
   ! The derivative of the shift w.r.t. to the curvature is given by
@@ -372,7 +358,9 @@ contains
     type(tPolygon), intent(inout) :: poly
 
     if (.not. poly%intersected) then
-      print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      der = 0
+      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      return
     endif
 
     call compute_momonial(poly, 2)
@@ -704,20 +692,20 @@ contains
     dr = (va(1) - vr(1))*vb(1) + (va(2) - vr(2))*vb(2)
   end function
 
-  subroutine makeBox_bounds(poly, rbounds)
-    implicit none
+  ! subroutine makeBox_bounds(poly, rbounds)
+  !   implicit none
 
-    real*8, intent(in)    :: rbounds(2, 2)
-    type(tPolygon), intent(out) :: poly
+  !   real*8, intent(in)    :: rbounds(2, 2)
+  !   type(tPolygon), intent(out) :: poly
 
-    poly%verts(:,1) = [rbounds(1,1), rbounds(2,1)]
-    poly%verts(:,2) = [rbounds(1,2), rbounds(2,1)]
-    poly%verts(:,3) = [rbounds(1,2), rbounds(2,2)]
-    poly%verts(:,4) = [rbounds(1,1), rbounds(2,2)]
+  !   poly%verts(:,1) = [rbounds(1,1), rbounds(2,1)]
+  !   poly%verts(:,2) = [rbounds(1,2), rbounds(2,1)]
+  !   poly%verts(:,3) = [rbounds(1,2), rbounds(2,2)]
+  !   poly%verts(:,4) = [rbounds(1,1), rbounds(2,2)]
 
-    poly%nverts = 4
+  !   poly%nverts = 4
 
-  end subroutine
+  ! end subroutine
 
   subroutine makeBox_dx(poly, dx)
     implicit none
@@ -733,6 +721,21 @@ contains
     poly%nverts = 4
 
   end subroutine
+
+  subroutine makeBox_xdx(poly, x, dx)
+    implicit none
+    
+    real*8, intent(in)    :: x(2), dx(2)
+    type(tPolygon), intent(out) :: poly
+
+    poly%verts(:,1) = x + [-dx(1)/2, -dx(2)/2]
+    poly%verts(:,2) = x + [dx(1)/2, -dx(2)/2]
+    poly%verts(:,3) = x + [dx(1)/2, dx(2)/2]
+    poly%verts(:,4) = x + [-dx(1)/2, dx(2)/2]
+
+    poly%nverts = 4
+
+  end subroutine  
 
   subroutine init(poly, pos)
     implicit none

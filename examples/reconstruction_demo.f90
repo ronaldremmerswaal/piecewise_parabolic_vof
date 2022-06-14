@@ -11,13 +11,13 @@ contains
 
   subroutine reconstruction_rect
     ! Computation of moments / shift
-    use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
+    use m_recon_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
 
     ! Tools for polygon intersection
     use m_r2d_parabolic,    only: cmpMoments, makeParabola, r2d_parabola_f
 
     ! Reconstruction methods
-    use m_reconstruction,   only: mofNormal, pmofNormal
+    use m_recon,   only: mofNormal, pmofNormal
 
     implicit none
 
@@ -85,9 +85,9 @@ contains
   end subroutine
 
   subroutine reconstruction_nonrect
-    use m_reconstruction_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
+    use m_recon_util, only: cmpMoments, cmpShift, cmpSymmDiff, makeParabola
     use m_r2d_parabolic,    only: cmpMoments, r2d_poly_f, init_from_pos, r2d_parabola_f
-    use m_reconstruction,   only: mofNormal, pmofNormal
+    use m_recon,   only: mofNormal, pmofNormal
 
     implicit none
 
@@ -100,7 +100,7 @@ contains
     integer                 :: vdx, count
     logical                 :: midPointAdded
 
-    real*8                  :: normal(2), shift, kappa0, angle, pi
+    real*8                  :: normal(2), kappa0, angle, pi
     real*8                  :: errMoments(3), errSD(3)
 
     type(r2d_parabola_f)    :: parabola

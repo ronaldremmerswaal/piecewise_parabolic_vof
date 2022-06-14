@@ -1,4 +1,4 @@
-module m_reconstruction
+module m_recon
 
   private
   public :: mofNormal, pmofNormal, lviraNormal, plviraNormal, prostNormal
@@ -11,7 +11,7 @@ contains
 
   function lviraNormal(refVolumes, dxs, verbose, errTol) result(normal)
     use m_optimization
-    use m_reconstruction_util
+    use m_recon_util
 
     implicit none
 
@@ -48,7 +48,7 @@ contains
 
   real*8 function lvira_error(refVolumes, angle, dxs, derivative) result(err)
     use m_common
-    use m_reconstruction_util
+    use m_recon_util
     use m_r2d_parabolic
 
     implicit none
@@ -121,7 +121,7 @@ contains
 
   function plviraNormal(refVolumes, kappa0, dxs, verbose, errTol) result(normal)
     use m_optimization
-    use m_reconstruction_util
+    use m_recon_util
 
     implicit none
 
@@ -159,7 +159,7 @@ contains
 
   function prostNormal(refVolumes, kappa0, dxs, verbose, errTol) result(normal)
     use m_optimization
-    use m_reconstruction_util
+    use m_recon_util
 
     implicit none
 
@@ -171,7 +171,6 @@ contains
 
         ! Local variables:
     real*8                :: prostAngle, XSOL(2), lengthScale
-    logical               :: verbose_
     type(optimOpts)       :: opts = optimOpts(maxFEval=100)
     type(lsOpts)          :: ls = lsOpts(decreaseCondition=1E-3)
     type(optimInfo)       :: info
@@ -241,7 +240,7 @@ contains
 
   real*8 function plvira_error(refVolumes, angle, kappa0, dxs, derivatives) result(err)
     use m_common
-    use m_reconstruction_util
+    use m_recon_util
     use m_r2d_parabolic
 
     implicit none
@@ -302,7 +301,7 @@ contains
 
   function pmofNormal_rect(refMoments, kappa0, dx, verbose, errTol) result(normal)
     use m_optimization
-    use m_reconstruction_util
+    use m_recon_util
 
     implicit none
 
@@ -312,7 +311,7 @@ contains
     real*8                :: normal(2)
 
     ! Local variables:
-    real*8                :: cost_fun_scaling, centNorm, mofAngle, tmp(1)
+    real*8                :: cost_fun_scaling, centNorm, mofAngle
     real*8                :: cellVol, mofMoments_(3), errTol_
     logical               :: verbose_
 
@@ -336,7 +335,7 @@ contains
   contains 
 
     real*8 function dcost(angle, err) result(derr)
-      use m_reconstruction_util
+      use m_recon_util
       use m_r2d_parabolic
   
       implicit none
@@ -365,7 +364,7 @@ contains
 
   function pmofNormal_poly(refMoments, kappa0, cell, x0, verbose, errTol) result(normal)
     use m_optimization
-    use m_reconstruction_util
+    use m_recon_util
     use m_r2d_parabolic
 
     implicit none
@@ -377,9 +376,9 @@ contains
     real*8                :: normal(2)
 
     ! Local variables:
-    real*8                :: cost_fun_scaling, centNorm, mofAngle, tmp(1)
+    real*8                :: cost_fun_scaling, centNorm, mofAngle
     real*8                :: cellMoments(3), mofMoments_(3), errTol_
-    logical               :: largerThanHalf, verbose_
+    logical               :: verbose_
 
     verbose_ = merge(verbose, .false., present(verbose))
     errTol_ = merge(errTol, 1D-8, present(errTol))
@@ -402,7 +401,7 @@ contains
   contains 
 
     real*8 function dcost(angle, err) result(derr)
-      use m_reconstruction_util
+      use m_recon_util
       use m_r2d_parabolic
   
       implicit none
