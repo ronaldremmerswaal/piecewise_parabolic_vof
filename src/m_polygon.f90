@@ -824,9 +824,13 @@ contains
     integer               :: nverts
 
     nverts = size(pos, 2)
-    if (nverts > MAX_NR_VERTS .or. size(pos, 1) /= 2) return
+    if (nverts > MAX_NR_VERTS .or. size(pos, 1) /= 2) then
+      poly%nverts = 0
+      print*, 'ERROR: cannot initialise polygon, wrong input'
+      return
+    endif
 
-    poly%verts(1:nverts,:) = pos(1:nverts,:)
+    poly%verts(1:2,1:nverts) = pos(1:2,1:nverts)
     poly%nverts = nverts
   end subroutine
 
@@ -910,11 +914,12 @@ contains
   
     implicit none
 
+    type(tPolygon), intent(out) :: poly
     real*8, intent(in)    :: x(2), dx(2)
     procedure(levelset_fun) :: levelSet
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
-    type(tPolygon), intent(out) :: poly
+
     type(tPolygon)        :: cell
 
     call makeBox(cell, x, dx)
@@ -937,7 +942,7 @@ contains
     real*8                :: pos(2, MAX_NR_VERTS), pos_skeleton(2, MAX_NR_VERTS), funVals(MAX_NR_VERTS)
     real*8                :: x0(2), dir(2), step, tDir(2), bbox(2, 2), lengthScale
     integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
-    integer               :: verts_per_segment_, phase_
+    integer               :: verts_per_segment_, phase_, tmp
     logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(MAX_NR_VERTS)
 
     verts_per_segment_ = DEFAULT_VERTS_PER_SEGMENT
@@ -971,7 +976,7 @@ contains
         ! Find and add new position
         x0 = cell%verts(:,vdx)
         dir = cell%verts(:,vdx_next) - x0
-        step = brent(interfaceFun_step, 0.0D0, 1.0D0, 1D-15, 30, funVals(vdx), funVals(vdx_next))
+        step = brent(interfaceFun_step, 0.0D0, 1.0D0, 1D-15, 52, funVals(vdx), funVals(vdx_next))
         nrPos_skelelton = nrPos_skelelton + 1
         pos_skeleton(:,nrPos_skelelton) = x0 + step * dir
         is_on_interface(nrPos_skelelton) = .true.
@@ -993,6 +998,7 @@ contains
     ! Now we add a refined approximation on edges that are on the interface
     nrPos = 0
     vdx = 1
+    tmp = 0
     do edx=1,nrPos_skelelton
       vdx_next = merge(1, vdx + 1, vdx == nrPos_skelelton)
 
@@ -1014,14 +1020,14 @@ contains
           pos(:,nrPos) = pos_skeleton(:,vdx_next)
         else
           ! Refine the face
-
+          tmp = tmp + 1
           ! Make dir normal to the face
           dir = [-tDir(2), tDir(1)]
           do rdx=1,verts_per_segment_
             x0 = pos_skeleton(:,vdx) + rdx * tDir / verts_per_segment_
 
             ! We impose here that the radius of curvature of the interface is bounded from below by half (relative to the mesh spacing)
-            step = brent(interfaceFun_step, -.5D0, .5D0, 1D-15, 30)
+            step = brent(interfaceFun_step, -.5D0, .5D0, 1D-15, 52)
 
             nrPos = nrPos + 1
             pos(:,nrPos) = x0 + step * dir
