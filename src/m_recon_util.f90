@@ -366,7 +366,7 @@ contains
 
     real*8, intent(in)    :: x(2), dx(2)
     type(tParabola), intent(in) :: parabola
-    real*8, external      :: levelSet
+    procedure(levelset_fun) :: levelSet
     
     type(tPolygon)        :: cell
 
@@ -380,7 +380,7 @@ contains
 
     type(tPolygon), intent(in) :: cell
     type(tParabola), intent(in) :: parabola
-    real*8, external      :: levelSet
+    procedure(levelset_fun) :: levelSet
     real*8, optional, intent(in) :: x0(2)
 
     ! Local variables

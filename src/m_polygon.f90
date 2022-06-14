@@ -40,6 +40,12 @@ module m_polygon
     real*8                :: monomials_sum(0:MAX_MONOMIAL)
   end type
 
+  abstract interface
+    real*8 function levelset_fun(x)
+      real*8, intent(in)  :: x(2)
+    end function
+  end interface
+
 
   interface makeBox
     module procedure makeBox_dx, makeBox_xdx
@@ -905,7 +911,7 @@ contains
     implicit none
 
     real*8, intent(in)    :: x(2), dx(2)
-    real*8, external      :: levelSet
+    procedure(levelset_fun) :: levelSet
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
     type(tPolygon), intent(out) :: poly
@@ -922,7 +928,7 @@ contains
     implicit none
 
     type(tPolygon), intent(in) :: cell
-    real*8, external      :: levelSet
+    procedure(levelset_fun) :: levelSet
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
     type(tPolygon), intent(out) :: poly
@@ -1003,7 +1009,7 @@ contains
       else
 
         tDir = pos_skeleton(:,vdx_next) - pos_skeleton(:,vdx)
-        if (norm2(tDir) < 1E-15 * lengthScale) then
+        if (norm2(tDir) < 1D-15 * lengthScale) then
           nrPos = nrPos + 1
           pos(:,nrPos) = pos_skeleton(:,vdx_next)
         else
