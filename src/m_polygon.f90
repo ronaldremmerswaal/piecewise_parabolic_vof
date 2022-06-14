@@ -1,5 +1,5 @@
 module m_polygon
-  integer, parameter      :: MAX_NR_VERTS = 2**9
+  integer, parameter      :: MAX_NR_VERTS = 2**8
   integer, parameter      :: MAX_NR_PARA_EDGES = 2**2
   integer, parameter      :: MAX_MONOMIAL = 5
   integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = MAX_NR_VERTS / 4
@@ -30,6 +30,7 @@ module m_polygon
 
     ! The tangential and normal coordinates of the vertices which lie on the parabola
     ! (needed for computation of moments/derivatives)
+    integer               :: nedges = 0
     real*8                :: x_tau(2,MAX_NR_PARA_EDGES)
     real*8                :: x_eta(2,MAX_NR_PARA_EDGES)
     
@@ -536,6 +537,11 @@ contains
       print*, 'ERROR in compute_momonial: too many monomials requested'
     endif
 
+    if (poly%nedges > MAX_NR_PARA_EDGES) then
+      print*, 'ERROR: cannot store monomial integral, too many edges'
+      return
+    endif
+
     if (old_nr<0) old_nr = -1
 
     ! We compute integral of x_tau^mdx over edges which are parabola
@@ -579,32 +585,67 @@ contains
     type(tPolygon), intent(inout) :: poly
 
     ! Local variables
-    real*8                :: coeff(2), dtau
-    integer               :: edx, vdx, ndx
-
-    call compute_momonial(poly, 2)
+    real*8                :: coeff(2), dtau, x_tau(2), x_eta(2), monomials(0:2), x_tau_power(2)
+    integer               :: edx, vdx, ndx, mdx
 
     vol = 0
-    edx = 0 ! Parabolic edge index
-    do vdx=1,poly%nverts
-      ndx = vdx + 1
-      if (vdx==poly%nverts) ndx = 1
+    if (poly%nedges <= MAX_NR_PARA_EDGES) then
+      call compute_momonial(poly, 2)
+
+      edx = 0 ! Parabolic edge index
+      do vdx=1,poly%nverts
+        ndx = vdx + 1
+        if (vdx==poly%nverts) ndx = 1
+        
+        if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
+          edx = edx + 1
+
+          dtau = poly%x_tau(2,edx) - poly%x_tau(1,edx)
+          if (dtau==0) cycle
+
+          ! in the local coordinates the polygon face is given by
+          ! x_η = c_1 * x_τ + c_2
+          coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / dtau
+          coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
       
-      if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
-        edx = edx + 1
+          vol = vol - (poly%parabola%kappa0/2) * poly%monomials(2,edx) - &
+            coeff(1) * poly%monomials(1,edx) - coeff(2) * poly%monomials(0,edx)
+        endif
+      enddo
+    else
+      ! Symmetric difference may yield many parabolic edges, so we accomodate for this (volume only)
 
-        dtau = poly%x_tau(2,edx) - poly%x_tau(1,edx)
-        if (dtau==0) cycle
+      edx = 0 ! Parabolic edge index
+      do vdx=1,poly%nverts
+        ndx = vdx + 1
+        if (vdx==poly%nverts) ndx = 1
+        
+        if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
+          x_tau(1) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
+          x_tau(2) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
 
-        ! in the local coordinates the polygon face is given by
-        ! x_η = c_1 * x_τ + c_2
-        coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / dtau
-        coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
-    
-        vol = vol - (poly%parabola%kappa0/2) * poly%monomials(2,edx) - &
-          coeff(1) * poly%monomials(1,edx) - coeff(2) * poly%monomials(0,edx)
-      endif
-    enddo
+          x_eta(1) = dot_product(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
+          x_eta(2) = dot_product(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
+
+          x_tau_power = 1
+          do mdx=0,2
+            x_tau_power = x_tau_power * x_tau
+            monomials(mdx) = (x_tau_power(2) - x_tau_power(1)) / (mdx+1)
+          enddo
+
+          dtau = x_tau(2) - x_tau(1)
+          if (dtau==0) cycle
+
+          ! in the local coordinates the polygon face is given by
+          ! x_η = c_1 * x_τ + c_2
+          coeff(1) = (x_eta(2) - x_eta(1)) / dtau
+          coeff(2) = (x_eta(2) + x_eta(1)) / 2 - coeff(1) * (x_tau(1) + x_tau(2)) / 2
+      
+          vol = vol - (poly%parabola%kappa0/2) * monomials(2) - &
+            coeff(1) * monomials(1) - coeff(2) * monomials(0)
+        endif
+      enddo
+    endif
   end function
 
   function parabola_moments_correction(poly) result(moments)
@@ -714,21 +755,6 @@ contains
 
     dr = (va(1) - vr(1))*vb(1) + (va(2) - vr(2))*vb(2)
   end function
-
-  ! subroutine makeBox_bounds(poly, rbounds)
-  !   implicit none
-
-  !   real*8, intent(in)    :: rbounds(2, 2)
-  !   type(tPolygon), intent(out) :: poly
-
-  !   poly%verts(:,1) = [rbounds(1,1), rbounds(2,1)]
-  !   poly%verts(:,2) = [rbounds(1,2), rbounds(2,1)]
-  !   poly%verts(:,3) = [rbounds(1,2), rbounds(2,2)]
-  !   poly%verts(:,4) = [rbounds(1,1), rbounds(2,2)]
-
-  !   poly%nverts = 4
-
-  ! end subroutine
 
   subroutine makeBox_dx(poly, dx)
     implicit none
@@ -843,6 +869,11 @@ contains
     ! Local variables
     integer               :: vdx
 
+    if (poly%intersected) then
+      print*, 'ERROR: cannot sift polygon which has already been intersected'
+      return
+    endif
+
     do vdx=1,poly%nverts
       poly%verts(:,vdx) = poly%verts(:,vdx) + pos
     enddo
@@ -887,17 +918,18 @@ contains
       out%parabola%kappa0 = in%parabola%kappa0
 
       out%parabolic = in%parabolic
-      if (out%parabolic) then
-        out%on_parabola(1:out%nverts) = in%on_parabola(1:out%nverts)
+      out%on_parabola(1:out%nverts) = in%on_parabola(1:out%nverts)
+      out%nedges = in%nedges
 
+      if (out%parabolic) then
         out%complement = in%complement
         if (in%complement) out%original_moments = in%original_moments
   
-        out%x_tau = in%x_tau
-        out%x_eta = in%x_eta
-        
         out%avail_monomial = in%avail_monomial
         if (out%avail_monomial>=0) then 
+          out%x_tau(:,1:out%nedges) = in%x_tau(:,1:out%nedges)
+          out%x_eta(:,1:out%nedges) = in%x_eta(:,1:out%nedges)
+
           out%x_tau_power = in%x_tau_power
           out%monomials = in%monomials
           out%monomials_sum = in%monomials_sum
@@ -1037,7 +1069,7 @@ contains
 
       vdx = vdx_next
     enddo
-    
+
     call init(poly, pos(:,1:nrPos))
   contains
 

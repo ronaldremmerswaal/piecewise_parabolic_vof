@@ -5,6 +5,8 @@ module m_recon_util
   public :: cmpVolume, cmpMoments, cmpInterfaceMoments, cmpShift, cmpSymmDiff, makeParabola, cmpSymmDiffVolume
 
   real*8, parameter     :: NORMAL_TOL = 1E-12
+  real*8, parameter     :: DEFAULT_SHIFT_TOL = 1E-15
+  integer, parameter    :: MAX_SHIFT_ITERS = 30
 
   interface cmpMoments
     module procedure cmpMoments2d_plane, cmpMoments_dx
@@ -449,7 +451,7 @@ contains
     shift_plane = cmpShift2d_plane(normal, dx, liqVol)
     plane_err = volume_error_function(shift_plane)
 
-    relTol_ = merge(relTol, 1D-14, present(relTol))
+    relTol_ = merge(relTol, DEFAULT_SHIFT_TOL, present(relTol))
 
     ! Try to get a better bracket with an (educated) guess
     if (abs(plane_err) < cellVol * relTol_) then
@@ -476,7 +478,7 @@ contains
       err_r = cellVol - liqVol
     endif
 
-    shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, 52, err_l, err_r)
+    shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, MAX_SHIFT_ITERS, err_l, err_r)
     if (present(volume)) volume = volume_
     if (present(intersected)) call copy(out=intersected, in=cell)
   contains
@@ -528,7 +530,7 @@ contains
     integer               :: vdx
     type(tPolygon)        :: cell_copy
 
-    relTol_ = merge(relTol, 1D-15, present(relTol))
+    relTol_ = merge(relTol, DEFAULT_SHIFT_TOL, present(relTol))
 
     min_eta_dist = 0
     max_eta_dist = 0
@@ -604,7 +606,7 @@ contains
     endif
 
     shift = brent(volume_error_function, shift_l, shift_r, &
-      (max_eta_dist - min_eta_dist) * relTol_, 52, err_l, err_r)
+      (max_eta_dist - min_eta_dist) * relTol_, MAX_SHIFT_ITERS, err_l, err_r)
     if (present(volume)) volume = volume_
     if (present(intersected)) call copy(out=intersected, in=cell_copy)
 
