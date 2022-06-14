@@ -10,4 +10,4 @@ set_target_properties (ppic PROPERTIES
 
 target_include_directories(ppic PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
-target_link_libraries(ppic optim r3d)
+target_link_libraries(ppic optim)

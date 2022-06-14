@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(ppic C Fortran) 
+project(ppic Fortran) 
 
 # Unit testing
 set(ENABLE_UNIT_TESTS_PPIC False CACHE BOOL "build and run ppic tests")
@@ -48,5 +48,4 @@ endif()
 # Add directiories
 add_subdirectory(examples)
 add_subdirectory(external/Optimization_f90)
-add_subdirectory(external/r3d)
 add_subdirectory(src)
