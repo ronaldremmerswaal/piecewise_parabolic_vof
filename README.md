@@ -1,7 +1,8 @@
 # Piecewise parabolic interface calculation for geometric VOF methods
 
 ## Description
-Implementation of the intersection algorithm described in https://arxiv.org/abs/2111.09627, which is based on the two-dimensional part of https://github.com/devonmpowell/r3d.
+Implementation of the intersection algorithm described in https://arxiv.org/abs/2111.09627.
 
 ## TODO
-- Merge m_r2d_parabolic & m_recon_util
+- Let makeParabola/makePlane be subroutine
+- Let parabola contain x0

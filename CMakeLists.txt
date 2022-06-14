@@ -36,6 +36,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
   set(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS}")
   set(CMAKE_Fortran_FLAGS_DEBUG   "-g -traceback -check bounds -debug all")
   set(CMAKE_Fortran_FLAGS_RELEASE "-Ofast")
+  set(CMAKE_Fortran_FLAGS_PROFILE "-Ofast -p")
 endif()
 
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
