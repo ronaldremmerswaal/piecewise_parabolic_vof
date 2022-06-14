@@ -519,6 +519,15 @@ contains
     else
       poly%parabola = complement(parabola)
     endif
+
+    poly%nedges = 0
+    do vdx=1,poly%nverts
+      ndx = vdx + 1
+      if (ndx > poly%nverts) ndx = 1
+      if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
+        poly%nedges = poly%nedges + 1
+      endif
+    enddo
    
   end subroutine
 
@@ -614,7 +623,6 @@ contains
       enddo
     else
       ! Symmetric difference may yield many parabolic edges, so we accomodate for this (volume only)
-
       edx = 0 ! Parabolic edge index
       do vdx=1,poly%nverts
         ndx = vdx + 1

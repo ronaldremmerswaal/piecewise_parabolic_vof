@@ -78,10 +78,11 @@ contains
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
         recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false.)
-        @assertEqual(normal, recNormal, TOLERANCE)
-
         recShift = cmpShift(recNormal, dx, refMoments(1), kappa0, volume=recVolume)
+
+        @assertEqual(normal, recNormal, TOLERANCE)
         @assertEqual(refMoments(1), recVolume, TOLERANCE * product(dx))
+        @assertEqual(shift, recShift, TOLERANCE * sqrt(product(dx)))
       endif
     enddo
     enddo
