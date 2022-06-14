@@ -57,7 +57,7 @@ contains
     real*8, intent(out), optional :: derivative
 
     ! Local variables
-    real*8                :: normal(2), shift, moments(3), derivative_local, err_local, absNormal(2)
+    real*8                :: normal(2), shift, volume, derivative_local, err_local, absNormal(2)
     real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour
     real*8                :: shift_neighbour, shift_derivative, tangent(2), iFaceMoments(3), shift_max
     integer               :: i, j
@@ -97,18 +97,18 @@ contains
       shift_max = dot_product(dx_neighbour, absNormal)/2
       derivative_local = 0
       if (shift_neighbour < -shift_max) then
-        moments(1) = 0
+        volume = 0
       elseif (shift_neighbour > shift_max) then
-        moments(1) = product(dx_neighbour)
+        volume = product(dx_neighbour)
       else
         if (present(derivative)) then
           iFaceMoments = cmpInterfaceMoments(normal, dx_neighbour, shift_neighbour)
           iFaceMoments(2:3) = iFaceMoments(2:3) + iFaceMoments(1) * xc_neighbour
           derivative_local = iFaceMoments(1) * shift_derivative - dot_product(tangent, iFaceMoments(2:3))
         endif
-        moments = cmpMoments(normal, dx_neighbour, shift_neighbour)
+        volume = cmpVolume(normal, dx_neighbour, shift_neighbour)
       endif
-      err_local = (moments(1) - refVolumes(i,j)) / cellVol_neighbour
+      err_local = (volume - refVolumes(i,j)) / cellVol_neighbour
       
       err = err + err_local**2
       if (present(derivative)) then
@@ -241,7 +241,7 @@ contains
   real*8 function plvira_error(refVolumes, angle, kappa0, dxs, derivatives) result(err)
     use m_common
     use m_recon_util
-    use m_r2d_parabolic
+    use m_polygon
 
     implicit none
 
@@ -249,27 +249,25 @@ contains
     real*8, intent(out), optional :: derivatives(2)   ! w.r.t. angle and curvature respectively
 
     ! Local variables
-    type(r2d_poly_f)      :: cell
-    type(r2d_parabola_f)  :: parabola
-    real*8                :: normal(2), shift, moments(3), derivatives_local(4), err_local
+    type(tPolygon)        :: cell
+    type(tParabola)       :: parabola
+    real*8                :: normal(2), shift, volume, derivatives_local(2), err_local
     real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour, grad_s(2)
     integer               :: i, j
 
     normal = [dcos(angle), dsin(angle)]
-    shift = cmpShift(normal, dxs(0,:), refVolumes(0,0), kappa0)
+    shift = cmpShift(normal, dxs(0,:), refVolumes(0,0), kappa0, intersected=cell)
 
     parabola = makeParabola(normal, kappa0, shift)
     
     err = 0
     if (present(derivatives)) then 
       derivatives = 0
-      
-      ! Setting grad_s to NAN tells r2d_clip_parabola_cmpMoments that grad_s should be computed
-      ! and returned
-      grad_s = d_qnan
-      
-      ! Compute ds/dangle, which ensures that the centred volume is conserved
-      moments = cmpMoments(dxs(0,:), parabola, grad_s=grad_s)
+       
+      ! Compute derivatives which ensure that the centred volume is conserved
+      grad_s(1) = cmpDerivative_shiftAngle(cell)
+      grad_s(2) = cmpDerivative_shiftKappa(cell)
+
     endif
     do j=-1,1
     do i=-1,1
@@ -283,17 +281,18 @@ contains
       xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
       call makeBox(cell, xc_neighbour, dx_neighbour)
-      if (present(derivatives)) then
-        moments = cmpMoments_(cell, parabola, derivative=derivatives_local, grad_s=grad_s)
-      else
-        moments = cmpMoments_(cell, parabola)
-      endif
-      err_local = (moments(1) - refVolumes(i,j)) / cellVol_neighbour
+      call intersect(cell, parabola)
+
+      volume = cmpVolume(cell)
+      err_local = (volume - refVolumes(i,j)) / cellVol_neighbour
 
       err = err + err_local**2
-      if (present(derivatives)) then
+      if (present(derivatives) .and. volume > 0 .and. volume < cellVol_neighbour) then
+        derivatives_local(1) = cmpDerivative_volAngle(cell, shiftAngleDerivative=grad_s(1))
+        derivatives_local(2) = cmpDerivative_volKappa(cell, shiftKappaDerivative=grad_s(2))
+
         derivatives(1) = derivatives(1) + 2 * err_local * derivatives_local(1) / cellVol_neighbour
-        derivatives(2) = derivatives(2) + 2 * err_local * derivatives_local(4) / cellVol_neighbour
+        derivatives(2) = derivatives(2) + 2 * err_local * derivatives_local(2) / cellVol_neighbour
       endif
     enddo
     enddo

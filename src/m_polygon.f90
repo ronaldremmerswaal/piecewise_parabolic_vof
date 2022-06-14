@@ -212,6 +212,8 @@ contains
 
     if (.not. poly%intersected) then
       ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      der = 0
+      return
     endif
     
     if (.not. present(shiftAngleDerivative)) then 
@@ -340,6 +342,11 @@ contains
       call compute_momonial(poly, 1)
     endif
 
+    if (poly%monomials_sum(0)==0) then
+      der = 0
+      return
+    endif
+
     der = poly%monomials_sum(1)
     if (poly%parabolic) then
       der = der - poly%monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 &
@@ -364,6 +371,11 @@ contains
     endif
 
     call compute_momonial(poly, 2)
+
+    if (poly%monomials_sum(0)==0) then
+      der = 0
+      return
+    endif
 
     der = (poly%monomials_sum(2)/2) / poly%monomials_sum(0)
   end function

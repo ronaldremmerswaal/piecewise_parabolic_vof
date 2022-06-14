@@ -405,7 +405,7 @@ contains
     moments = cmpMoments_(cell, parabola, x0, derivative, grad_s)
   end function
 
-  real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, volume) result(shift)
+  real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, volume, intersected) result(shift)
     use m_polygon
     use m_optimization,   only: brent
 
@@ -414,6 +414,7 @@ contains
     real*8, intent(in)    :: normal(2), dx(2), liqVol, kappa0
     real*8, optional, intent(in) :: relTol
     real*8, optional, intent(out) :: volume
+    type(tPolygon), optional, intent(out) :: intersected
 
     ! Local variables
     type(tPolygon)        :: cell
@@ -433,6 +434,7 @@ contains
         shift = kappa0 * max_shift_plane_tau**2 / 2. - max_shift_plane_eta
       endif
       if (present(volume)) volume = 0.0D0
+      if (present(intersected)) intersected%nverts = 0
       return
     elseif (liqVol >= cellVol) then
       if (kappa0 > 0) then
@@ -441,10 +443,9 @@ contains
         shift = max_shift_plane_eta
       endif
       if (present(volume)) volume = cellVol
+      if (present(intersected)) call makeBox(intersected, dx)
       return
     endif
-
-    call makeBox(cell, dx)
 
     ! Use PLIC to get a good initial bracket (one side at least)
     shift_plane = cmpShift2d_plane(normal, dx, liqVol)
@@ -455,6 +456,7 @@ contains
       ! iff kappa0 == 0.0
       shift = shift_plane
       if (present(volume)) volume = volume_
+      if (present(intersected)) call copy(out=intersected, in=cell)
       return
     endif
 
@@ -478,7 +480,7 @@ contains
 
     shift = brent(volume_error_function, shift_l, shift_r, max_shift_plane_eta * relTol_, 30, err_l, err_r)
     if (present(volume)) volume = volume_
-
+    if (present(intersected)) call copy(out=intersected, in=cell)
   contains
 
     real*8 function volume_error_function(shift_tmp) result(err)
@@ -486,12 +488,10 @@ contains
 
       real*8, intent(in)    :: shift_tmp
 
-      type(tPolygon)        :: cell_copy
+      call makeBox(cell, dx)
 
-      call copy(out=cell_copy, in=cell)
-
-      call intersect(cell_copy, makeParabola(normal, kappa0, shift_tmp))
-      volume_ = cmpVolume(cell_copy)
+      call intersect(cell, makeParabola(normal, kappa0, shift_tmp))
+      volume_ = cmpVolume(cell)
 
       err = volume_ - liqVol
     end function
@@ -595,7 +595,7 @@ contains
     sd = sd_1(1) + sd_2(1)
   end
 
-  real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, x0, relTol, volume) result(shift)
+  real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, x0, relTol, volume, intersected) result(shift)
     use m_polygon
     use m_optimization,   only: brent
 
@@ -605,6 +605,7 @@ contains
     type(tPolygon), intent(inout) :: cell
     real*8, optional, intent(in) :: x0(2), relTol
     real*8, optional, intent(out) :: volume
+    type(tPolygon), optional, intent(out) :: intersected
 
     ! Local variables
     real*8                :: volume_, cellVolume, shift0, err0
@@ -612,6 +613,7 @@ contains
     real*8                :: min_eta_dist, max_eta_dist, max_tau_dist_sq
     real*8                :: relTol_, tau(2), pos(2)
     integer               :: vdx
+    type(tPolygon)        :: cell_copy
 
     relTol_ = merge(relTol, 1D-15, present(relTol))
     
@@ -640,6 +642,7 @@ contains
         shift = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
       endif
       if (present(volume)) volume = 0.0D0
+      if (present(intersected)) intersected%nverts = 0
       return
     elseif (liqVol >= cellVolume) then
       if (kappa0 > 0) then
@@ -648,6 +651,7 @@ contains
         shift = max_eta_dist
       endif
       if (present(volume)) volume = cellVolume
+      if (present(intersected)) call copy(out=intersected, in=cell)
       return
     endif
     
@@ -657,6 +661,7 @@ contains
     if (err0 == 0) then
       shift = shift0
       if (present(volume)) volume = volume_
+      if (present(intersected)) call copy(out=intersected, in=cell_copy)
       return
     elseif (err0 > 0) then
       shift_r = shift0
@@ -684,6 +689,7 @@ contains
     shift = brent(volume_error_function, shift_l, shift_r, &
       (max_eta_dist - min_eta_dist) * relTol_, 30, err_l, err_r)
     if (present(volume)) volume = volume_
+    if (present(intersected)) call copy(out=intersected, in=cell_copy)
 
     contains
 
@@ -691,8 +697,6 @@ contains
         implicit none
 
         real*8, intent(in)    :: shift_tmp
-
-        type(tPolygon)        :: cell_copy
 
         call copy(out=cell_copy, in=cell)
         call intersect(cell_copy, makeParabola(normal, kappa0, shift_tmp))

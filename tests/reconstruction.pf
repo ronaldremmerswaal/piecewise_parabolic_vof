@@ -150,15 +150,16 @@ contains
   @Test
   subroutine test_exact_plvira_reconstruction()
     use m_recon_util
-    use m_r2d_parabolic
+    use m_polygon
     use m_recon
 
     implicit none
 
     real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dxs(-1:1,2)
-    real*8                :: refVolumes(-1:1,-1:1), recNormal(2), pi, refMoments(3), recShift
+    real*8                :: refVolumes(-1:1,-1:1), recNormal(2), pi, recShift
     real*8                :: xc_neighbour(2), dx_neighbour(2)
     integer               :: adx, sdx, kdx, i, j
+    type(tPolygon)        :: cell
 
     integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
 
@@ -187,9 +188,10 @@ contains
         xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
         xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
-        ! NOTE: x0 refers to the position relative to which the interface is defined
-        refMoments = cmpMoments(dx_neighbour, makeParabola(normal, kappa0,  shift), x0=-xc_neighbour)
-        refVolumes(i,j) = refMoments(1)
+        call makeBox(cell, xc_neighbour, dx_neighbour)
+        call intersect(cell, makeParabola(normal, kappa0,  shift))
+
+        refVolumes(i,j) = cmpVolume(cell)
       enddo
       enddo
       
