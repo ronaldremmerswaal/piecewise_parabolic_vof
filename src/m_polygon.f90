@@ -928,11 +928,11 @@ contains
     type(tPolygon), intent(out) :: poly
 
     ! Local variables
-    real*8                :: pos(2, MAX_NR_VERTS), pos_skeleton(2, 2*MAX_NR_VERTS), funVals(MAX_NR_VERTS)
+    real*8                :: pos(2, MAX_NR_VERTS), pos_skeleton(2, MAX_NR_VERTS), funVals(MAX_NR_VERTS)
     real*8                :: x0(2), dir(2), step, tDir(2), bbox(2, 2), lengthScale
     integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
     integer               :: verts_per_segment_, phase_
-    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(2*MAX_NR_VERTS)
+    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(MAX_NR_VERTS)
 
     verts_per_segment_ = DEFAULT_VERTS_PER_SEGMENT
     if (present(verts_per_segment)) verts_per_segment_ = min(verts_per_segment_, verts_per_segment)
@@ -990,6 +990,12 @@ contains
     do edx=1,nrPos_skelelton
       vdx_next = merge(1, vdx + 1, vdx == nrPos_skelelton)
 
+      if (nrPos > MAX_NR_VERTS - DEFAULT_VERTS_PER_SEGMENT) then
+        print*, 'ERROR: number of vertices in polyApprox at risk of exceeding max nr vertices'
+        poly%nverts = 0
+        return
+      endif
+
       ! Add (refinement of) the half open interval (pos_skeleton(:,vdx),pos_skeleton(:,vdx_next)]
       if (.not. is_on_interface(vdx) .or. .not. is_on_interface(vdx_next)) then
         nrPos = nrPos + 1
@@ -1019,6 +1025,7 @@ contains
 
       vdx = vdx_next
     enddo
+    
     call init(poly, pos(:,1:nrPos))
   contains
 
