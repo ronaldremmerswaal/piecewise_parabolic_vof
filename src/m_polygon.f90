@@ -2,6 +2,7 @@ module m_polygon
   integer, parameter      :: MAX_NR_VERTS = 2**7
   integer, parameter      :: MAX_NR_PARA_EDGES = 2**2
   integer, parameter      :: MAX_MONOMIAL = 5
+  integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = MAX_NR_VERTS / 3
 
   type tParabola
     real*8                :: normal(2), shift
@@ -58,6 +59,10 @@ module m_polygon
 
   interface makePlane
     module procedure makePlane_def, makePlane_angle
+  end interface
+
+  interface polyApprox
+    module procedure polyApprox_polyIn, polyApprox_dxIn
   end interface
 contains
   function makePlane_def(normal, shift) result(plane)
@@ -749,6 +754,30 @@ contains
 
   end subroutine  
 
+  subroutine bounding_box(box, poly)
+    implicit none
+
+    type(tPolygon), intent(in) :: poly
+    real*8, intent(out)   :: box(2, 2)
+
+    ! Local variables
+    integer               :: v, dim
+
+    if (poly%nverts == 0) then
+      box = 0
+      return
+    endif
+
+    box(:, 1) = poly%verts(:,1)
+    box(:, 2) = poly%verts(:,1)
+    do v=2,poly%nverts
+      do dim=1,2
+        box(dim, 1) = min(box(dim, 1), poly%verts(dim,v))
+        box(dim, 2) = max(box(dim, 2), poly%verts(dim,v))
+      enddo
+    enddo
+  end subroutine
+
   subroutine init(poly, pos)
     implicit none
 
@@ -823,5 +852,148 @@ contains
 
     endif
 
+  end subroutine
+
+  subroutine polyApprox_dxIn(poly, x, dx, levelSet, phase, verts_per_segment)
+    use m_common
+    use m_optimization,   only: brent
+  
+    implicit none
+
+    real*8, intent(in)    :: x(2), dx(2)
+    real*8, external      :: levelSet
+    integer, intent(in), optional :: phase
+    integer, intent(in), optional :: verts_per_segment
+    type(tPolygon), intent(out) :: poly
+    type(tPolygon)        :: cell
+
+    call makeBox(cell, x, dx)
+    call polyApprox_polyIn(poly, cell, levelSet, phase, verts_per_segment)
+  end subroutine
+
+  subroutine polyApprox_polyIn(poly, cell, levelSet, phase, verts_per_segment)
+    use m_common
+    use m_optimization,   only: brent
+  
+    implicit none
+
+    type(tPolygon), intent(in) :: cell
+    real*8, external      :: levelSet
+    integer, intent(in), optional :: phase
+    integer, intent(in), optional :: verts_per_segment
+    type(tPolygon), intent(out) :: poly
+
+    ! Local variables
+    real*8                :: pos(2, MAX_NR_VERTS), pos_skeleton(2, 2*MAX_NR_VERTS), funVals(MAX_NR_VERTS)
+    real*8                :: x0(2), dir(2), step, tDir(2), bbox(2, 2), lengthScale
+    integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
+    integer               :: verts_per_segment_, phase_
+    logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(2*MAX_NR_VERTS)
+
+    verts_per_segment_ = DEFAULT_VERTS_PER_SEGMENT
+    if (present(verts_per_segment)) verts_per_segment_ = min(verts_per_segment_, verts_per_segment)
+
+    phase_ = merge(phase, LIQUID_PHASE, present(phase))
+
+    ! Find out which vertices of the cell are inside the domain
+    vdx_first_inside = 0
+    do vdx=1,cell%nverts
+      funVals(vdx) = interfaceFun(cell%verts(:,vdx))
+      if (funVals(vdx) < 0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
+    enddo
+    if (vdx_first_inside == 0) then
+      poly%nverts = 0
+      return
+    endif
+
+    ! Loop over the edges and construct the polygonal 'skeleton'
+    vdx = vdx_first_inside
+    vdx_is_inside = .true.
+    nrPos_skelelton = 0
+
+    do edx=1,cell%nverts
+      vdx_next = vdx + 1
+      if (vdx_next > cell%nverts) vdx_next = 1
+      vdx_next_is_inside = funVals(vdx_next) < 0.0
+
+      ! TODO so far we assume that an edge has at most one intersection
+      if (vdx_is_inside .neqv. vdx_next_is_inside) then
+        ! Find and add new position
+        x0 = cell%verts(:,vdx)
+        dir = cell%verts(:,vdx_next) - x0
+        step = brent(interfaceFun_step, 0.0D0, 1.0D0, 1D-15, 30, funVals(vdx), funVals(vdx_next))
+        nrPos_skelelton = nrPos_skelelton + 1
+        pos_skeleton(:,nrPos_skelelton) = x0 + step * dir
+        is_on_interface(nrPos_skelelton) = .true.
+      endif
+      if (vdx_next_is_inside) then
+        ! And add next node (corner)
+        nrPos_skelelton = nrPos_skelelton + 1
+        pos_skeleton(:,nrPos_skelelton) = cell%verts(:,vdx_next)
+        is_on_interface(nrPos_skelelton) = .false.
+      endif
+
+      vdx = vdx_next
+      vdx_is_inside = vdx_next_is_inside
+    enddo
+
+    call bounding_box(bbox, cell)
+    lengthScale = norm2(bbox(:,2) - bbox(:,1))
+
+    ! Now we add a refined approximation on edges that are on the interface
+    nrPos = 0
+    vdx = 1
+    do edx=1,nrPos_skelelton
+      vdx_next = merge(1, vdx + 1, vdx == nrPos_skelelton)
+
+      ! Add (refinement of) the half open interval (pos_skeleton(:,vdx),pos_skeleton(:,vdx_next)]
+      if (.not. is_on_interface(vdx) .or. .not. is_on_interface(vdx_next)) then
+        nrPos = nrPos + 1
+        pos(:,nrPos) = pos_skeleton(:,vdx_next)
+      else
+
+        tDir = pos_skeleton(:,vdx_next) - pos_skeleton(:,vdx)
+        if (norm2(tDir) < 1E-15 * lengthScale) then
+          nrPos = nrPos + 1
+          pos(:,nrPos) = pos_skeleton(:,vdx_next)
+        else
+          ! Refine the face
+
+          ! Make dir normal to the face
+          dir = [-tDir(2), tDir(1)]
+          do rdx=1,verts_per_segment_
+            x0 = pos_skeleton(:,vdx) + rdx * tDir / verts_per_segment_
+
+            ! We impose here that the radius of curvature of the interface is bounded from below by half (relative to the mesh spacing)
+            step = brent(interfaceFun_step, -.5D0, .5D0, 1D-15, 30)
+
+            nrPos = nrPos + 1
+            pos(:,nrPos) = x0 + step * dir
+          enddo
+        endif
+      endif
+
+      vdx = vdx_next
+    enddo
+    call init(poly, pos(:,1:nrPos))
+  contains
+
+    real*8 function interfaceFun(x) result(f)
+  
+      implicit none
+
+      real*8, intent(in)  :: x(2)
+
+      f = levelSet(x)
+      if (phase_ == GAS_PHASE) f = -f
+    end
+
+    real*8 function interfaceFun_step(step_) result(f)
+      implicit none
+
+      real*8, intent(in)    :: step_
+
+      f = interfaceFun(x0 + step_ * dir)
+    end
   end subroutine
 end

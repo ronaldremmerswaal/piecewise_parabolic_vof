@@ -335,7 +335,7 @@ contains
 
     real*8 function dcost(angle, err) result(derr)
       use m_recon_util
-      use m_r2d_parabolic
+      use m_polygon
   
       implicit none
 
@@ -343,19 +343,21 @@ contains
       real*8, intent(out), optional :: err
 
       ! Local variables:
-      real*8              :: difference(2), derivative(4), normal_(2), shift, err_
+      real*8              :: difference(2), derivative(2), normal_(2), shift, err_
+      type(tPolygon)      :: poly
 
       normal_ = [dcos(angle), dsin(angle)]
 
-      shift = cmpShift(normal_, dx, refMoments(1), kappa0)
+      shift = cmpShift(normal_, dx, refMoments(1), kappa0, intersected=poly)
       
-      mofMoments_ = cmpMoments(dx, makeParabola(normal_, kappa0, shift), derivative=derivative)
+      mofMoments_ = cmpMoments(poly)
+      derivative = cmpDerivative_firstMomentAngle(poly)
       
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
-      derivative(2:3) = derivative(2:3) / cost_fun_scaling
+      derivative = derivative / cost_fun_scaling
       
       err_ = sum(difference**2)
-      derr = dot_product(derivative(2:3), difference)*2
+      derr = dot_product(derivative, difference)*2
       if (present(err)) err = err_
     end function
 
@@ -364,12 +366,12 @@ contains
   function pmofNormal_poly(refMoments, kappa0, cell, x0, verbose, errTol) result(normal)
     use m_optimization
     use m_recon_util
-    use m_r2d_parabolic
+    use m_polygon
 
     implicit none
 
     real*8, intent(in)    :: refMoments(3), kappa0
-    type(r2d_poly_f)      :: cell
+    type(tPolygon)        :: cell
     logical, optional     :: verbose
     real*8, intent(in), optional :: x0(2), errTol
     real*8                :: normal(2)
@@ -409,19 +411,22 @@ contains
       real*8, intent(out), optional :: err
 
       ! Local variables:
-      real*8              :: difference(2), derivative(4), normal_(2), shift, err_
+      real*8              :: difference(2), derivative(2), normal_(2), shift, err_
+      type(tPolygon)      :: intersected
 
       normal_ = [dcos(angle), dsin(angle)]
 
-      shift = cmpShift(normal_, cell, refMoments(1), kappa0, x0=x0)
+      shift = cmpShift(normal_, cell, refMoments(1), kappa0, intersected=intersected) !x0=x0)
       
-      mofMoments_ = cmpMoments(cell, makeParabola(normal_, kappa0, shift), x0=x0, derivative=derivative)
+      mofMoments_ = cmpMoments(intersected)
+
+      derivative = cmpDerivative_firstMomentAngle(intersected)
       
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
-      derivative(2:3) = derivative(2:3) / cost_fun_scaling
+      derivative = derivative / cost_fun_scaling
       
       err_ = sum(difference**2)
-      derr = dot_product(derivative(2:3), difference)*2
+      derr = dot_product(derivative, difference)*2
 
       if (present(err)) err = err_
     end function

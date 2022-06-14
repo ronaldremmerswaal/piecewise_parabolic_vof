@@ -134,7 +134,8 @@ contains
     ! We pass the optional argoment x0=xc to tell the intersection functions that our
     ! parabola is defined relative to xc, rather than 0, which is the default
     kappa0 = 1.
-    normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
+    print*, 'TODO using m_polygon'
+    ! normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
     parabola = makeParabola(normal, kappa0, cell, refMoments(1), x0=xc)
     errMoments = abs(cmpMoments(cell, parabola, x0=xc) - refMoments)
     errSD = cmpSymmDiff(cell, parabola, exact_interface, x0=xc)
