@@ -10,7 +10,7 @@ contains
 
     implicit none
 
-    integer, parameter    :: NR_METHODS = 7, N = 2**11
+    integer, parameter    :: NR_METHODS = 7, N = 2**9
     integer, parameter    :: LVIRA_IDX = 1, LVIRAP_IDX = 2, PLVIRA_IDX = 3, PROST_IDX = 4, MOF_IDX = 5, PMOF_IDX = 6, PMOFP_IDX = 7
     character*6, parameter :: METHODS(NR_METHODS) = ["LVIRA ", "LVIRAP", "PLVIRA", "PROST ", "MOF   ", "PMOF  ", "PMOFP "]
     ! LVIRAP refers to LVIRA using the PLVIRA implementation
@@ -223,10 +223,82 @@ contains
       err = levelSet(x + lsNormal * s + lsTangent * ldx * h)
     end function
   end function
+
+  subroutine run_intersection_benchmark()
+    use m_recon_util
+    use m_polygon
+
+    implicit none
+
+    ! Local variables
+    integer, parameter      :: NR_REPETITIONS = 10000
+    real*8                  :: dx(2), angle, normal(2), shift, kappa0, moments01(3)
+    real*8                  :: tmp, time_intersect_plane, time_intersect_plane_poly, &
+    time_intersect_parabola, time_intersect_plane_poly_sub
+    integer                 :: rep
+    type(tPolygon)          :: poly
+    type(tParabola)         :: parabola, plane
+
+
+    dx = [0.123D0, 0.3141592D0]
+    angle = 0.4321D0
+    normal = [dcos(angle), dsin(angle)]
+    shift = 0.0123D0
+    kappa0 = -0.05D0
+
+    parabola = makeParabola(normal, kappa0, shift)
+    plane = makePlane(normal, shift)
+
+    ! Test the time needed to intersect and compute the resulting 
+    ! intersection moments (zeroth and first)
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      moments01 = cmpMoments(normal, dx, shift)
+    enddo
+    call cpu_time(time_intersect_plane)
+    time_intersect_plane = time_intersect_plane - tmp
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call makeBox(poly, dx)
+      call intersect(poly, plane)
+      moments01 = cmpMoments(poly)
+    enddo
+    call cpu_time(time_intersect_plane_poly)
+    time_intersect_plane_poly = time_intersect_plane_poly - tmp
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call makeBox(poly, dx)
+      call intersect(poly, parabola)
+      moments01 = cmpMoments(poly)
+    enddo
+    call cpu_time(time_intersect_parabola)
+    time_intersect_parabola = time_intersect_parabola - tmp
+
+    call cpu_time(tmp)
+    do rep=1,NR_REPETITIONS
+      call makeBox(poly, dx)
+      call intersect(poly, plane)
+      call cmpMoments_poly_SUB(moments01, poly)
+    enddo
+    call cpu_time(time_intersect_plane_poly_sub)
+    time_intersect_plane_poly_sub = time_intersect_plane_poly_sub - tmp
+
+    print*, 'INTERSECTION TIMING:'
+    print*, '... PLANE USING UTIL    = ', time_intersect_plane / NR_REPETITIONS
+    print*, '... PLANE USING POLY    = ', time_intersect_plane_poly / NR_REPETITIONS
+    print*, '... PLANE USING POLY SUB= ', time_intersect_plane_poly_sub / NR_REPETITIONS
+    print*, '... PARABOLA USING POLY = ', time_intersect_parabola / NR_REPETITIONS
+
+  end subroutine
+
 end module
 
 program reconstruction_demo
   use m_benchmark
 
+  call run_intersection_benchmark()
   call run_recon_benchmark()
 end program
