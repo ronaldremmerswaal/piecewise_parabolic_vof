@@ -72,47 +72,47 @@ module m_polygon
     module procedure polyApprox_polyIn, polyApprox_dxIn
   end interface
 contains
-  pure function makePlane_def(normal, shift) result(plane)
+  subroutine makePlane_def(plane, normal, shift)
     implicit none
     
     real*8, intent(in)    :: normal(2), shift
-    type(tParabola)       :: plane
+    type(tParabola), intent(out) :: plane
 
     plane%normal = normal
     plane%shift = shift
-  end function
+  end subroutine
 
-  pure function makePlane_angle(angle, shift) result(plane)
+  subroutine makePlane_angle(plane, angle, shift)
     implicit none
     
     real*8, intent(in)    :: angle, shift
-    type(tParabola)       :: plane
+    type(tParabola), intent(out) :: plane
 
     plane%normal = [dcos(angle), dsin(angle)]
     plane%shift = shift
-  end function
+  end subroutine
 
-  pure function makeParabola_poly(normal, kappa0, shift) result(parabola)
+  subroutine makeParabola_poly(parabola, normal, kappa0, shift)
     implicit none
     
     real*8, intent(in)    :: normal(2), kappa0, shift
-    type(tParabola)       :: parabola
+    type(tParabola), intent(out) :: parabola
 
     parabola%normal = normal
     parabola%kappa0 = kappa0
     parabola%shift = shift
-  end function
+  end subroutine
 
-  pure function makeParabola_angle_poly(angle, kappa0, shift) result(parabola)
+  subroutine makeParabola_angle_poly(parabola, angle, kappa0, shift)
     implicit none
     
     real*8, intent(in)    :: angle, kappa0, shift
-    type(tParabola)       :: parabola
+    type(tParabola), intent(out) :: parabola
 
     parabola%normal = [dcos(angle), dsin(angle)]
     parabola%kappa0 = kappa0
     parabola%shift = shift
-  end function
+  end subroutine
 
   pure function complement(parabola) result(c_parabola)
     implicit none

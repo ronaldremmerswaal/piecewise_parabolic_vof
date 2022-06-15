@@ -246,8 +246,8 @@ contains
     shift = 0.0123D0
     kappa0 = -0.05D0
 
-    parabola = makeParabola(normal, kappa0, shift)
-    plane = makePlane(normal, shift)
+    call makeParabola(parabola, normal, kappa0, shift)
+    call makePlane(plane, normal, shift)
 
     ! Test the time needed to intersect and compute the resulting 
     ! intersection moments (zeroth and first)

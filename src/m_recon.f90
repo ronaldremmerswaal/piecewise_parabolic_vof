@@ -262,7 +262,7 @@ contains
     shift_ = cmpShift(normal, dxs(0,:), refVolumes(0,0), kappa0, intersected=cell)
     if (present(shift)) shift = shift_
 
-    parabola = makeParabola(normal, kappa0, shift_)
+    call makeParabola(parabola, normal, kappa0, shift_)
     
     err = 0
     if (present(derivatives)) then 

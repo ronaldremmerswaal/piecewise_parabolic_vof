@@ -35,7 +35,7 @@ contains
     real*8                :: errMoments(3), errSD(3)
 
     ! The reconstructed parabola
-    type(tParabola)       :: parabola
+    type(tParabola)       :: parabola, plane
 
     ! Temporary polygon
     type(tPolygon)        :: poly
@@ -62,7 +62,8 @@ contains
     errMoments = abs(errMoments - refMoments)
 
     ! The symmetric difference between the exact and approximate liquid domain can be approximated as follows
-    errSD = cmpSymmDiffVolume(xc, dx, makePlane(normal, shift), exact_interface)
+    call makePlane(plane, normal, shift)
+    errSD = cmpSymmDiffVolume(xc, dx, plane, exact_interface)
 
     write(*, '(A,1PD10.3,A,1PD10.3,A)') '... yields an interface normal (', normal(1), ', ', normal(2), ')'
     write(*, '(A,1PD10.3,A,1PD10.3,A,1PD10.3,A)') '... and zeroth and first moment error given by ', errMoments(1), &
@@ -73,7 +74,7 @@ contains
     ! We repeat the same steps for the PMOF method, for which we use an exact curvature
     kappa0 = 1.
     normal = pmofNormal(refMoments, kappa0, dx)
-    parabola = makeParabola(normal, kappa0, dx, refMoments(1))
+    call makeParabola(parabola, normal, kappa0, dx, refMoments(1))
     call cmpMoments(errMoments, dx, parabola)
     errMoments = abs(errMoments - refMoments)
     errSD = cmpSymmDiffVolume(xc, dx, parabola, exact_interface)
@@ -143,7 +144,7 @@ contains
     kappa0 = 1.
     print*, 'TODO'
     ! normal = pmofNormal(refMoments, kappa0, cell, x0=xc)
-    ! parabola = makeParabola(normal, kappa0, cell, refMoments(1))
+    ! call makeParabola(parabola, normal, kappa0, cell, refMoments(1))
     ! errMoments = abs(cmpMoments(cell, parabola, x0=xc) - refMoments)
     ! errSD = cmpSymmDiff(cell, parabola, exact_interface, x0=xc)
 

@@ -57,6 +57,7 @@ contains
     real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dx(2)
     real*8                :: refMoments(3), recVolume, recNormal(2), pi, recShift, mofMoments(3)
     integer               :: adx, sdx, kdx
+    type(tParabola)       :: parabola
 
     integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
 
@@ -75,7 +76,8 @@ contains
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      call cmpMoments(refMoments, dx, makeParabola(normal, kappa0, shift))
+      call makeParabola(parabola, normal, kappa0, shift)
+      call cmpMoments(refMoments, dx, parabola)
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
         recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false., shift=recShift, mofMoments=mofMoments)
@@ -165,6 +167,7 @@ contains
     real*8                :: xc_neighbour(2), dx_neighbour(2)
     integer               :: adx, sdx, kdx, i, j
     type(tPolygon)        :: cell
+    type(tParabola)       :: parabola
 
     integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
 
@@ -194,7 +197,8 @@ contains
         xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
         call makeBox(cell, xc_neighbour, dx_neighbour)
-        call intersect(cell, makeParabola(normal, kappa0,  shift))
+        call makeParabola(parabola, normal, kappa0,  shift)
+        call intersect(cell, parabola)
 
         refVolumes(i,j) = cmpVolume(cell)
       enddo
@@ -227,6 +231,7 @@ contains
     real*8                :: xc_neighbour(2), dx_neighbour(2)
     integer               :: adx, sdx, kdx, i, j
     type(tPolygon)        :: cell
+    type(tParabola)       :: parabola
 
     integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
 
@@ -256,7 +261,8 @@ contains
         xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
         call makeBox(cell, xc_neighbour, dx_neighbour)
-        call intersect(cell, makeParabola(normal, kappa0,  shift))
+        call makeParabola(parabola, normal, kappa0,  shift)
+        call intersect(cell, parabola)
 
         refVolumes(i,j) = cmpVolume(cell)
       enddo
@@ -291,6 +297,7 @@ contains
     real*8                :: angle, normal(2), kappa0, shift, shift_recomputed, dx(2)
     real*8                :: volume, volume_recomputed, pi, max_shift_plane
     integer               :: adx, kdx, sdx
+    type(tParabola)       :: parabola
 
     integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 20
 
@@ -325,7 +332,8 @@ contains
       do kdx=1,NR_KAPPA
         kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-        volume = cmpVolume(dx, makeParabola(normal, kappa0, shift))
+        call makeParabola(parabola, normal, kappa0, shift)
+        volume = cmpVolume(dx, parabola)
         shift_recomputed = cmpShift(normal, dx, volume, kappa0, volume=volume_recomputed)
         @assertEqual(volume, volume_recomputed, TOLERANCE)
 
@@ -336,8 +344,9 @@ contains
         else
           @assertEqual(shift, shift_recomputed, TOLERANCE)
         endif
-        
-        volume_recomputed = cmpVolume(dx, makeParabola(normal, kappa0, shift_recomputed))
+
+        call makeParabola(parabola, normal, kappa0, shift_recomputed)
+        volume_recomputed = cmpVolume(dx, parabola)
         @assertEqual(volume, volume_recomputed, TOLERANCE)
       enddo
     enddo
@@ -357,6 +366,7 @@ contains
     real*8                :: x(2), pos(2, 7), radius, cellVolume
     real*8                :: volume, volume_recomputed, pi
     integer               :: adx, kdx, sdx
+    type(tParabola)       :: parabola
 
     integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 20
 
@@ -386,7 +396,8 @@ contains
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
       call copy(out=cell_copy, in=cell)
-      call intersect(cell_copy, makeParabola(normal, kappa0, shift))
+      call makeParabola(parabola, normal, kappa0, shift)
+      call intersect(cell_copy, parabola)
       volume = cmpVolume(cell_copy)
 
       shift_recomputed = cmpShift(normal, cell, volume, kappa0, volume=volume_recomputed)
@@ -401,7 +412,8 @@ contains
       endif
 
       call copy(out=cell_copy, in=cell)
-      call intersect(cell_copy, makeParabola(normal, kappa0, shift_recomputed))
+      call makeParabola(parabola, normal, kappa0, shift_recomputed)
+      call intersect(cell_copy, parabola)
       volume_recomputed = cmpVolume(cell_copy)
       @assertEqual(volume, volume_recomputed, TOLERANCE)
     enddo
@@ -495,7 +507,7 @@ contains
           normals(:,PMOF_IDX) = pmofNormal(refMoments, kappa0(PMOF_IDX), dx, errTol=errTol)
 
           do mdx=1,NR_METHODS
-            parabola = makeParabola(normals(:,mdx), kappa0(mdx), dx, refVolumes(0,0))
+            call makeParabola(parabola, normals(:,mdx), kappa0(mdx), dx, refVolumes(0,0))
             call cmpMoments(reconMoments, dx, parabola)
             firstMoment_lInf(rdx,mdx) = max(firstMoment_lInf(rdx,mdx), norm2(reconMoments(2:3) - refMoments(2:3)))
             symmDiff_vol(rdx,mdx) = symmDiff_vol(rdx,mdx) + cmpSymmDiffVolume(xc, dx, parabola, levelset)

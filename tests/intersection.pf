@@ -18,6 +18,7 @@ contains
     type(tPolygon)         :: poly, cutPoly
     real*8                 :: dx(2), x(2), mom_util(3), mom_poly(3), normal(2), pc, shift
     integer                :: bdx, pdx, SEED(33)
+    type(tParabola)        :: plane
 
     SEED = 1
     call random_seed(put=SEED)
@@ -28,7 +29,8 @@ contains
     shift = 0.0D0
     normal = [0.0D0, 1.0D0]
 
-    call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
+    call makePlane(plane, normal, shift + dot_product(normal, x))
+    call intersect(cutPoly, plane)
     call cmpMoments(mom_poly, cutPoly)
 
     call cmpMoments(mom_util, normal, dx, shift)
@@ -53,7 +55,8 @@ contains
         pc = pc * dot_product(abs(normal), dx)
         shift = pc - dot_product(abs(normal), dx) / 2
 
-        call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
+        call makePlane(plane, normal, shift + dot_product(normal, x))
+        call intersect(cutPoly, plane)
         call cmpMoments(mom_poly, cutPoly)
 
         call cmpMoments(mom_util, normal, dx, shift)
@@ -77,6 +80,7 @@ contains
     real*8                  :: angle, shift, lengthScale, pi, cellVol
     integer                 :: adx, sdx
     type(tPolygon)          :: poly
+    type(tParabola)         :: parabola, plane
 
     pi = 4 * datan(1.0d0)
     dx = [0.1D0, 0.15D0]
@@ -91,11 +95,13 @@ contains
       shift = lengthScale * (sdx - 1.D0) / (NR_SHIFT - 1.D0) - lengthScale/2
 
       call makeBox(poly, dx)
-      call intersect(poly, makePlane(normal, shift))
+      call makePlane(plane, normal, shift)
+      call intersect(poly, plane)
       call cmpMoments(moments_plane_poly, poly)
       
       call makeBox(poly, dx)
-      call intersect(poly, makeParabola(normal, 1D-16, shift))
+      call makeParabola(parabola, normal, 1D-16, shift)
+      call intersect(poly, parabola)
       vol_parabola = cmpVolume(poly)
       call cmpMoments(moments_parabola, poly)
       
@@ -124,6 +130,7 @@ contains
     real*8                  :: A, B, C, xStar, roots(2), root_imag
     type(tPolygon)          :: poly, polys1(1), polys2(2), polys4(4), polys8(8)
     integer                 :: kdx, adx, sdx, ii
+    type(tParabola)         :: parabola, plane
 
     dx = 1.0D0
 
@@ -139,14 +146,15 @@ contains
 
       ! Ensure that |s - κ/8| < 1/2
       kappa0 = -4.0D0 + 8 * (shift + (kdx - 1.D0) / (NR_KAPPA - 1.D0))
-      call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
-      volume_para = cmpVolume(dx, makeParabola(normal, kappa0, shift))
-
+      call makeParabola(parabola, normal, kappa0, shift)
+      call cmpMoments(moments01_para, dx, parabola)
+      volume_para = cmpVolume(dx, parabola)
+      
       moments01_exact(1) = 0.5D0 + shift - kappa0 / 24
       moments01_exact(2) = 0.0D0
       moments01_exact(3) = ((kappa0**2/720) + moments01_exact(1) * (moments01_exact(1) - 1.0D0))/2
-
-
+      
+      
       @assertEqual(moments01_exact, moments01_para, TOLERANCE)
     enddo
     enddo
@@ -155,7 +163,8 @@ contains
     ! #1
     shift = 0.75D0
     kappa0 = 40.0D0
-    call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
+    call makeParabola(parabola, normal, kappa0, shift)
+    call cmpMoments(moments01_para, dx, parabola)
 
     xStar = dsqrt(2 * (shift + dx(2)/2)/kappa0)
     moments01_exact(1) = 2 * ((dx(2)/2 + shift) * xStar - (kappa0/6) * xStar**3)
@@ -169,7 +178,8 @@ contains
     normal = -normal
     shift = -shift
     kappa0 = -kappa0
-    call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
+    call makeParabola(parabola, normal, kappa0, shift)
+    call cmpMoments(moments01_para, dx, parabola)
 
     moments01_exact(1) = 1.0D0 - moments01_exact(1)
     @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
@@ -181,7 +191,8 @@ contains
     kappa0 = 4.D0 / dsqrt(2.0D0)
 
     call makeBox(poly, dx)
-    call intersect(poly, makeParabola(normal, kappa0, shift))
+    call makeParabola(parabola, normal, kappa0, shift)
+    call intersect(poly, parabola)
     call cmpMoments(moments01_para, poly)
 
     A = 1.D0
@@ -199,7 +210,8 @@ contains
     shift = -shift
     kappa0 = -kappa0
 
-    call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
+    call makeParabola(parabola, normal, kappa0, shift)
+    call cmpMoments(moments01_para, dx, parabola)
 
     moments01_exact(1) = 1.0 - moments01_exact(1)
     @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
@@ -208,13 +220,17 @@ contains
     pos(1,1:4) = [0.0D0, dx(1), dx(1), 0.0D0] - dx(1)/2
     pos(2,1:4) = [0.0D0, 0.0D0, dx(2), dx(2)] - dx(2)/2
     call init(polys1(1), pos)
-    call split(polys1, makePlane([2.0D0, 1.0D0] / dsqrt(5.D0), 0.1D0), polys2(1:1), polys2(2:2))
-    call split(polys2, makePlane([-1.0D0, 3.0D0] / dsqrt(10.D0), -0.1D0), polys4(1:2), polys4(3:4))
-    call split(polys4, makePlane([-1.0D0, -1.0D0] / dsqrt(2.D0), 0.3D0), polys8(1:4), polys8(5:8))
+    call makePlane(plane, [2.0D0, 1.0D0] / dsqrt(5.D0), 0.1D0)
+    call split(polys1, plane, polys2(1:1), polys2(2:2))
+    call makePlane(plane, [-1.0D0, 3.0D0] / dsqrt(10.D0), -0.1D0)
+    call split(polys2, plane, polys4(1:2), polys4(3:4))
+    call makePlane(plane, [-1.0D0, -1.0D0] / dsqrt(2.D0), 0.3D0)
+    call split(polys4, plane, polys8(1:4), polys8(5:8))
 
     moments01_parts = 0.0
     do ii=1,2
-      call intersect(polys2(ii), makeParabola(normal, kappa0, shift))
+      call makeParabola(parabola, normal, kappa0, shift)
+      call intersect(polys2(ii), parabola)
       call cmpMoments(tmp, polys2(ii))
       moments01_parts = moments01_parts + tmp
     enddo
@@ -222,7 +238,8 @@ contains
 
     moments01_parts = 0.0
     do ii=1,4
-      call intersect(polys4(ii), makeParabola(normal, kappa0, shift))
+      call makeParabola(parabola, normal, kappa0, shift)
+      call intersect(polys4(ii), parabola)
       call cmpMoments(tmp, polys4(ii))
       moments01_parts = moments01_parts + tmp
     enddo
@@ -230,7 +247,8 @@ contains
 
     moments01_parts = 0.0
     do ii=1,8
-      call intersect(polys8(ii), makeParabola(normal, kappa0, shift))
+      call makeParabola(parabola, normal, kappa0, shift)
+      call intersect(polys8(ii), parabola)
       call cmpMoments(tmp, polys8(ii))
       moments01_parts = moments01_parts + tmp
     enddo
@@ -254,7 +272,8 @@ contains
 
 
     call init(poly, pos)
-    call intersect(poly, makeParabola(normal, kappa0, shift))
+    call makeParabola(parabola, normal, kappa0, shift)
+    call intersect(poly, parabola)
     call cmpMoments(moments01_para, poly)
 
     @assertEqual(moments01_para, moments01_exact, TOLERANCE)
@@ -275,6 +294,7 @@ contains
     integer, parameter      :: NR_STEPS = 100
     integer                 :: sdx
     type(tPolygon)          :: poly
+    type(tParabola)         :: parabola
 
     ! Results from MATLAB (very accurate)
     real*8, parameter       :: sd_MATLAB(NR_STEPS) = [&   
@@ -290,8 +310,9 @@ contains
     shift = -dot_product(abs(normal), dx) / 2
     kappa0 = 0.D0
 
-    ! Analytical:
-    sd = cmpSymmDiffVolume(x, dx, makeParabola(normal, kappa0, shift), levelset)
+    ! Analytical: 
+    call makeParabola(parabola, normal, kappa0, shift)
+    sd = cmpSymmDiffVolume(x, dx, parabola, levelset)
     @assertEqual(pi * radius**2 / 4, sd, APPROX_TOLERANCE)
 
     ! Computed in MATLAB:
@@ -308,14 +329,16 @@ contains
       call polyApprox(poly, x, dx, levelset, LIQUID_PHASE)
       vol_liq = cmpVolume(poly)
 
-      sd = cmpSymmDiffVolume(x, dx, makeParabola(normal, kappa0, shift), levelset)
+      call makeParabola(parabola, normal, kappa0, shift)
+      sd = cmpSymmDiffVolume(x, dx, parabola, levelset)
 
       if (radius <= 1.) then
         @assertEqual(pi * radius**2 / 4, vol_liq, APPROX_TOLERANCE)
       elseif (sdx == NR_STEPS) then
         @assertEqual(product(dx), vol_liq, APPROX_TOLERANCE)
 
-        call cmpMoments(mom01, dx, makeParabola(-normal, kappa0, shift))
+        call makeParabola(parabola, -normal, kappa0, shift)
+        call cmpMoments(mom01, dx, parabola)
         @assertEqual(product(dx) - mom01(1), sd, APPROX_TOLERANCE)
       endif
 
@@ -345,6 +368,7 @@ contains
     real*8                :: refMoments(3), polyMoments(3)
     integer               :: adx, sdx
     type(tPolygon)        :: poly
+    type(tParabola)       :: plane
 
     integer, parameter    :: NR_ANGLE = 30, NR_SHIFT = 30
 
@@ -361,7 +385,8 @@ contains
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
       call makeBox(poly, dx)
-      call intersect(poly, makePlane(normal, shift))
+      call makePlane(plane, normal, shift)
+      call intersect(poly, plane)
       call cmpMoments(polyMoments, poly)
 
       call polyApprox(poly, [0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
@@ -446,7 +471,7 @@ contains
 
       shift = lengthScale * sdx / (NR_SHIFT + 1) - lengthScale/2
 
-      plane = makePlane(normal, shift)
+      call makePlane(plane, normal, shift)
 
       call makeBox(poly, dx)
       call intersect(poly, plane)

@@ -422,6 +422,7 @@ contains
     real*8                :: max_shift_plane_eta, max_shift_plane_tau
     real*8                :: shift_l, shift_r, err_l, err_r
     real*8                :: relTol_
+    type(tParabola)       :: parabola
 
     max_shift_plane_eta = dot_product(abs(normal), dx)/2
     max_shift_plane_tau = dot_product(abs([normal(2), normal(1)]), dx)/2
@@ -449,6 +450,7 @@ contains
 
     ! Use PLIC to get a good initial bracket (one side at least)
     shift_plane = cmpShift2d_plane(normal, dx, liqVol)
+    call makeParabola(parabola, normal, kappa0, shift_plane)
     plane_err = volume_error_function(shift_plane)
 
     relTol_ = merge(relTol, DEFAULT_SHIFT_TOL, present(relTol))
@@ -486,11 +488,12 @@ contains
     real*8 function volume_error_function(shift_tmp) result(err)
       implicit none
 
-      real*8, intent(in)    :: shift_tmp
+      real*8, intent(in)  :: shift_tmp  
 
       call makeBox(cell, dx)
 
-      call intersect(cell, makeParabola(normal, kappa0, shift_tmp))
+      parabola%shift = shift_tmp
+      call intersect(cell, parabola)
       volume_ = cmpVolume(cell)
 
       err = volume_ - liqVol
@@ -498,17 +501,17 @@ contains
   end function
 
 
-  function makeParabola_noshift(normal, kappa0, dx, liqVol) result(parabola)
+  subroutine makeParabola_noshift(parabola, normal, kappa0, dx, liqVol)
     use m_polygon
     implicit none
     
     real*8, intent(in)    :: normal(2), kappa0, dx(2), liqVol
-    type(tParabola)       :: parabola
+    type(tParabola), intent(out) :: parabola
 
     parabola%normal = normal
     parabola%kappa0 = kappa0
     parabola%shift = cmpShift(normal, dx, liqVol, kappa0)
-  end function
+  end subroutine
 
   real*8 function cmpShift2d_poly(normal, cell, liqVol, kappa0, x0, relTol, volume, intersected) result(shift)
     use m_polygon
@@ -529,6 +532,7 @@ contains
     real*8                :: relTol_, tau(2), pos(2)
     integer               :: vdx
     type(tPolygon)        :: cell_copy
+    type(tParabola)       :: parabola
 
     relTol_ = merge(relTol, DEFAULT_SHIFT_TOL, present(relTol))
 
@@ -575,6 +579,7 @@ contains
     endif
     
     shift0 = (min_eta_dist + max_eta_dist) / 2
+    call makeParabola(parabola, normal, kappa0, shift0)
     err0 = volume_error_function(shift0)
     
     if (err0 == 0) then
@@ -618,7 +623,8 @@ contains
         real*8, intent(in)    :: shift_tmp
 
         call copy(out=cell_copy, in=cell)
-        call intersect(cell_copy, makeParabola(normal, kappa0, shift_tmp))
+        parabola%shift = shift_tmp
+        call intersect(cell_copy, parabola)
         volume_ = cmpVolume(cell_copy)!, x0=x0)
         err = volume_ - liqVol
       end function
