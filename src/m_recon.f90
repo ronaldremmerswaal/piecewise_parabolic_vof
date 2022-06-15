@@ -471,13 +471,14 @@ contains
 
   !NB The 2D MoF optimization problem is solved exactly using a direct method
   ! See also "Moment-of-fluid analytic reconstruction on 2D Cartesian grids", JCP 2017
-  function mofNormal(refMoments, dx, mofMoments) result(normal)
+  function mofNormal(refMoments, dx, mofMoments, shift) result(normal)
+    use m_recon_util
 
     implicit none
 
     real*8, intent(in)    :: refMoments(3), dx(2)
     real*8                :: normal(2)
-    real*8, intent(out), optional :: mofMoments(3)
+    real*8, intent(out), optional :: mofMoments(3), shift
 
     ! Local variables
     integer               :: selectedCases(3), cdx
@@ -563,6 +564,7 @@ contains
     endif
 
     if (present(mofMoments)) mofMoments = [refMoments(1), refMoments(1) * mofCentroid_]
+    if (present(shift)) shift = cmpShift(normal, dx, refMoments(1))
 
   end function mofNormal
 

@@ -14,7 +14,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, max_shift_plane, dx(2), pi
-    real*8                :: refMoments(3), mofMoments(3), recNormal(2)
+    real*8                :: refMoments(3), mofMoments(3), recNormal(2), recShift
     integer               :: adx, sdx
 
     integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20
@@ -33,10 +33,11 @@ contains
 
       refMoments = cmpMoments(normal, dx, shift)
       
-      recNormal = mofNormal(refMoments, dx, mofMoments)
+      recNormal = mofNormal(refMoments, dx, mofMoments, shift=recShift)
 
       @assertEqual(normal, recNormal, TOLERANCE)
       @assertEqual(refMoments, mofMoments, TOLERANCE)
+      @assertEqual(shift, recShift, TOLERANCE * sqrt(product(dx)))
       
       recNormal = pmofNormal(refMoments, 0.0D0, dx, errTol=TOLERANCE, verbose=.false.)
 
