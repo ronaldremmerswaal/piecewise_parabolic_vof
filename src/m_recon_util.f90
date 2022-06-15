@@ -405,24 +405,25 @@ contains
     sd = cmpVolume(exact_gas) + cmpVolume(exact_liq)
   end
 
-  real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, volume, intersected) result(shift)
+  real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, volume, intersected, shift0) result(shift)
     use m_polygon
     use m_optimization,   only: brent
 
     implicit none
 
     real*8, intent(in)    :: normal(2), dx(2), liqVol, kappa0
-    real*8, optional, intent(in) :: relTol
+    real*8, optional, intent(in) :: relTol, shift0
     real*8, optional, intent(out) :: volume
     type(tPolygon), optional, intent(out) :: intersected
 
     ! Local variables
     type(tPolygon)        :: cell
-    real*8                :: volume_, cellVol, shift_plane, plane_err
+    real*8                :: volume_, cellVol, shift0_, err0
     real*8                :: max_shift_plane_eta, max_shift_plane_tau
     real*8                :: shift_l, shift_r, err_l, err_r
     real*8                :: relTol_
     type(tParabola)       :: parabola
+    ! integer, save         :: nr_shifts = 0, nr_evals = 0
 
     max_shift_plane_eta = dot_product(abs(normal), dx)/2
     max_shift_plane_tau = dot_product(abs([normal(2), normal(1)]), dx)/2
@@ -448,33 +449,37 @@ contains
       return
     endif
 
-    ! Use PLIC to get a good initial bracket (one side at least)
-    shift_plane = cmpShift2d_plane(normal, dx, liqVol)
-    call makeParabola(parabola, normal, kappa0, shift_plane)
-    plane_err = volume_error_function(shift_plane)
+    shift0_ = merge(shift0, d_qnan, present(shift0))
+
+    if (isnan(shift0_)) then
+      ! Use PLIC to get a good initial bracket (one side at least)
+      shift0_ = cmpShift2d_plane(normal, dx, liqVol)
+    endif
+    call makeParabola(parabola, normal, kappa0, shift0_)
+    err0 = volume_error_function(shift0_)
 
     relTol_ = merge(relTol, DEFAULT_SHIFT_TOL, present(relTol))
 
     ! Try to get a better bracket with an (educated) guess
-    if (abs(plane_err) < cellVol * relTol_) then
+    if (abs(err0) < cellVol * relTol_) then
       ! iff kappa0 == 0.0
-      shift = shift_plane
+      shift = shift0_
       if (present(volume)) volume = volume_
       if (present(intersected)) call copy(out=intersected, in=cell)
       return
     endif
 
-    if (plane_err > 0.0) then
+    if (err0 > 0.0) then
       ! iff kappa0 < 0.0
-      shift_r = shift_plane
-      err_r = plane_err
+      shift_r = shift0_
+      err_r = err0
 
       shift_l = kappa0 * max_shift_plane_tau**2 / 2 - max_shift_plane_eta
       err_l = -liqVol
     else
       ! iff kappa0 > 0.0
-      shift_l = shift_plane
-      err_l = plane_err
+      shift_l = shift0_
+      err_l = err0
 
       shift_r = kappa0 * max_shift_plane_tau**2 / 2 + max_shift_plane_eta
       err_r = cellVol - liqVol

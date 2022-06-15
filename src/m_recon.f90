@@ -317,7 +317,7 @@ contains
 
     ! Local variables:
     real*8                :: cost_fun_scaling, centNorm, mofAngle
-    real*8                :: cellVol, mofMoments_(3), errTol_, shift_
+    real*8                :: cellVol, mofMoments_(3), errTol_, shift_, grad_s, angle_prev
     logical               :: verbose_
 
     verbose_ = merge(verbose, .false., present(verbose))
@@ -333,7 +333,8 @@ contains
     else
       mofAngle = 0
     endif
-    
+
+    angle_prev = d_qnan
     mofAngle =  brent_min(dcost, mofAngle, errTol_, 25, verbose_, maxStep=0.5D0)
 
     normal = [dcos(mofAngle), dsin(mofAngle)]
@@ -351,15 +352,22 @@ contains
       real*8, intent(out), optional :: err
 
       ! Local variables:
-      real*8              :: difference(2), derivative(2), normal_(2), err_
+      real*8              :: difference(2), derivative(2), normal_(2), err_, shift0
       type(tPolygon)      :: poly
 
       normal_ = [dcos(angle), dsin(angle)]
 
-      shift_ = cmpShift(normal_, dx, refMoments(1), kappa0, intersected=poly)
+      if (isnan(angle_prev)) then
+        shift0 = d_qnan
+      else
+        shift0 = shift_ + grad_s * (angle - angle_prev)
+      endif
+      
+      shift_ = cmpShift(normal_, dx, refMoments(1), kappa0, intersected=poly, shift0=shift0)
       
       call cmpMoments(mofMoments_, poly)
-      derivative = cmpDerivative_firstMomentAngle(poly)
+      grad_s = cmpDerivative_shiftAngle(poly)
+      derivative = cmpDerivative_firstMomentAngle(poly, grad_s)
       
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative = derivative / cost_fun_scaling
@@ -367,6 +375,8 @@ contains
       err_ = sum(difference**2)
       derr = dot_product(derivative, difference)*2
       if (present(err)) err = err_
+      
+      angle_prev = angle
     end function
 
   end function
