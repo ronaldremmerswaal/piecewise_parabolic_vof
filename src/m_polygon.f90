@@ -72,7 +72,7 @@ module m_polygon
     module procedure polyApprox_polyIn, polyApprox_dxIn
   end interface
 contains
-  function makePlane_def(normal, shift) result(plane)
+  pure function makePlane_def(normal, shift) result(plane)
     implicit none
     
     real*8, intent(in)    :: normal(2), shift
@@ -82,7 +82,7 @@ contains
     plane%shift = shift
   end function
 
-  function makePlane_angle(angle, shift) result(plane)
+  pure function makePlane_angle(angle, shift) result(plane)
     implicit none
     
     real*8, intent(in)    :: angle, shift
@@ -92,7 +92,7 @@ contains
     plane%shift = shift
   end function
 
-  function makeParabola_poly(normal, kappa0, shift) result(parabola)
+  pure function makeParabola_poly(normal, kappa0, shift) result(parabola)
     implicit none
     
     real*8, intent(in)    :: normal(2), kappa0, shift
@@ -103,7 +103,7 @@ contains
     parabola%shift = shift
   end function
 
-  function makeParabola_angle_poly(angle, kappa0, shift) result(parabola)
+  pure function makeParabola_angle_poly(angle, kappa0, shift) result(parabola)
     implicit none
     
     real*8, intent(in)    :: angle, kappa0, shift
@@ -114,7 +114,7 @@ contains
     parabola%shift = shift
   end function
 
-  function complement(parabola) result(c_parabola)
+  pure function complement(parabola) result(c_parabola)
     implicit none
     
     type(tParabola), intent(in) :: parabola
@@ -607,7 +607,7 @@ contains
         if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
           edx = edx + 1
 
-          dtau = poly%x_tau(2,edx) - poly%x_tau(1,edx)
+          dtau = poly%monomials(0,edx)
           if (dtau==0) cycle
 
           ! in the local coordinates the polygon face is given by
@@ -616,7 +616,7 @@ contains
           coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
       
           vol = vol - (poly%parabola%kappa0/2) * poly%monomials(2,edx) - &
-            coeff(1) * poly%monomials(1,edx) - coeff(2) * poly%monomials(0,edx)
+            coeff(1) * poly%monomials(1,edx) - coeff(2) * dtau
         endif
       enddo
     else
@@ -639,7 +639,7 @@ contains
             monomials(mdx) = (x_tau_power(2) - x_tau_power(1)) / (mdx+1)
           enddo
 
-          dtau = x_tau(2) - x_tau(1)
+          dtau = monomials(0)
           if (dtau==0) cycle
 
           ! in the local coordinates the polygon face is given by
@@ -648,7 +648,7 @@ contains
           coeff(2) = (x_eta(2) + x_eta(1)) / 2 - coeff(1) * (x_tau(1) + x_tau(2)) / 2
       
           vol = vol - (poly%parabola%kappa0/2) * monomials(2) - &
-            coeff(1) * monomials(1) - coeff(2) * monomials(0)
+            coeff(1) * monomials(1) - coeff(2) * dtau
         endif
       enddo
     endif
@@ -680,20 +680,20 @@ contains
 
         ! in the local coordinates the polygon face is given by
         ! x_η = c_1 * x_τ + c_2
-        dtau = poly%x_tau(2,edx) - poly%x_tau(1,edx)
+        dtau = poly%monomials(0,edx)
         if (dtau == 0) cycle
         
         coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / dtau
         coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
     
         vol_corr = -(parabola%kappa0/2) * poly%monomials(2,edx) - &
-          coeff(1) * poly%monomials(1,edx) - coeff(2) * poly%monomials(0,edx)
+          coeff(1) * poly%monomials(1,edx) - coeff(2) * dtau
 
         ! Corrections to first moment in parabola coordinates
         mom_corr(1) = -(parabola%kappa0/2) * poly%monomials(3,edx) - (coeff(1) * poly%monomials(2,edx) + &
           coeff(2) * poly%monomials(1,edx))
         mom_corr(2) = parabola%kappa0**2 * poly%monomials(4,edx)/8 - (coeff(1)**2 * poly%monomials(2,edx) + &
-          2 * coeff(1) * coeff(2) * poly%monomials(1,edx) + coeff(2)**2 * poly%monomials(0,edx))/2 
+          2 * coeff(1) * coeff(2) * poly%monomials(1,edx) + coeff(2)**2 * dtau)/2 
 
         moments(1) = moments(1) + vol_corr
         moments(2) = moments(2) + parabola%normal(1) * (mom_corr(2) + parabola%shift * vol_corr) &
