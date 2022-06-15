@@ -479,7 +479,7 @@ contains
         if (coeffs(2) < coeffs(1)) coeffs = coeffs([2, 1])
         if (nr_coeffs==2) then
           new_vertex = .true.
-        else
+        elseif (nr_coeffs/=-1) then
           if (abs(coeffs(1)) < 1D-14 .and. abs(coeffs(2)-1) < 1D-14) then
             prev_idx = merge(vdx - 1, poly%nverts, vdx>1)
             next_idx = merge(ndx + 1, 1, ndx<poly%nverts)
@@ -488,8 +488,6 @@ contains
             new_vertex(2) = dist(next_idx)<=0 .eqv. dist(ndx)<=0
           endif
         endif
-
-
       endif
 
       do tdx=1,2
@@ -730,10 +728,10 @@ contains
 
     call polynomial_roots_deg2(coeff, roots, imag)
 
-    nr_roots = 0
     if (imag/=0) then
-      roots = d_qnan
+      nr_roots = -1
     else
+      nr_roots = 0
       do rdx=1,2
         root_is_good(rdx) = .not. isnan(roots(rdx)) .and. roots(rdx) >= 0 .and. roots(rdx) <= 1
         if (root_is_good(rdx)) nr_roots = nr_roots + 1
