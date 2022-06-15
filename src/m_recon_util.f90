@@ -474,14 +474,14 @@ contains
       shift_r = shift0_
       err_r = err0
 
-      shift_l = kappa0 * max_shift_plane_tau**2 / 2 - max_shift_plane_eta
+      shift_l = -abs(kappa0) * max_shift_plane_tau**2 / 2 - max_shift_plane_eta
       err_l = -liqVol
     else
       ! iff kappa0 > 0.0
       shift_l = shift0_
       err_l = err0
 
-      shift_r = kappa0 * max_shift_plane_tau**2 / 2 + max_shift_plane_eta
+      shift_r = abs(kappa0) * max_shift_plane_tau**2 / 2 + max_shift_plane_eta
       err_r = cellVol - liqVol
     endif
 

@@ -254,13 +254,23 @@ contains
     ! Local variables
     type(tPolygon)        :: cell
     type(tParabola)       :: parabola
-    real*8                :: normal(2), shift_, volume, derivatives_local(2), err_local
-    real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour, grad_s(2)
+    real*8                :: normal(2), volume, derivatives_local(2), err_local, shift0
+    real*8, save          :: kappa0_prev = 0., angle_prev = 0., grad_s(2) = 0., shift_ = 0.
+    real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour
     integer               :: i, j
 
     normal = [dcos(angle), dsin(angle)]
-    shift_ = cmpShift(normal, dxs(0,:), refVolumes(0,0), kappa0, intersected=cell)
+
+    if (present(derivatives) .and. kappa0==kappa0_prev .and. abs(angle - angle_prev) < 1D-1) then
+      shift0 = shift_ + grad_s(1) * (angle - angle_prev)
+    else
+      shift0 = d_qnan
+    endif
+    shift_ = cmpShift(normal, dxs(0,:), refVolumes(0,0), kappa0, intersected=cell, shift0=shift0)
     if (present(shift)) shift = shift_
+
+    kappa0_prev = kappa0
+    angle_prev = angle
 
     call makeParabola(parabola, normal, kappa0, shift_)
     
