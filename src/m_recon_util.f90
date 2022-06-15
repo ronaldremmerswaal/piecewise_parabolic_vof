@@ -407,7 +407,7 @@ contains
 
   real*8 function cmpShift2d_parabolic(normal, dx, liqVol, kappa0, relTol, volume, intersected, shift0) result(shift)
     use m_polygon
-    use m_optimization,   only: brent
+    use m_oned_rootfinding, only: brent, newton
 
     implicit none
 
@@ -449,16 +449,25 @@ contains
       return
     endif
 
-    shift0_ = merge(shift0, d_qnan, present(shift0))
-
-    if (isnan(shift0_)) then
-      ! Use PLIC to get a good initial bracket (one side at least)
-      shift0_ = cmpShift2d_plane(normal, dx, liqVol)
-    endif
-    call makeParabola(parabola, normal, kappa0, shift0_)
-    err0 = volume_error_function(shift0_)
-
     relTol_ = merge(relTol, DEFAULT_SHIFT_TOL, present(relTol))
+
+    shift0_ = merge(shift0, d_qnan, present(shift0))
+    call makeParabola(parabola, normal, kappa0, shift0_)
+
+    if (.not. isnan(shift0_)) then
+      ! First we try to use Newton
+      shift = newton(dvolume_error_function, shift0_, max_shift_plane_eta * relTol_, 10, verbose=.true.)
+      if (abs(volume_ - liqVol) < max_shift_plane_eta * relTol_) then 
+        if (present(volume)) volume = volume_
+        if (present(intersected)) call copy(out=intersected, in=cell)
+        return
+      endif
+    endif
+
+    ! Use PLIC to get a good initial bracket (one side at least)
+    shift0_ = cmpShift2d_plane(normal, dx, liqVol)
+    parabola%shift = shift0_
+    err0 = volume_error_function(shift0_)
 
     ! Try to get a better bracket with an (educated) guess
     if (abs(err0) < cellVol * relTol_) then
@@ -489,6 +498,22 @@ contains
     if (present(volume)) volume = volume_
     if (present(intersected)) call copy(out=intersected, in=cell)
   contains
+
+    real*8 function dvolume_error_function(shift_tmp, err) result(derr)
+      implicit none
+
+      real*8, intent(in)  :: shift_tmp  
+      real*8, intent(out), optional :: err 
+
+      call makeBox(cell, dx)
+
+      parabola%shift = shift_tmp
+      call intersect(cell, parabola)
+      volume_ = cmpVolume(cell)
+      derr = cmpDerivative_volShift(cell)
+
+      if (present(err)) err = volume_ - liqVol
+    end function
 
     real*8 function volume_error_function(shift_tmp) result(err)
       implicit none
