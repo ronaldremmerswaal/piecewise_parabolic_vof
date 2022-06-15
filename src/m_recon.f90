@@ -357,7 +357,7 @@ contains
 
       normal_ = [dcos(angle), dsin(angle)]
 
-      if (isnan(angle_prev)) then
+      if (isnan(angle_prev) .or. abs(angle - angle_prev) > 1D-1) then
         shift0 = d_qnan
       else
         shift0 = shift_ + grad_s * (angle - angle_prev)
