@@ -456,7 +456,7 @@ contains
 
     if (.not. isnan(shift0_)) then
       ! First we try to use Newton
-      shift = newton(dvolume_error_function, shift0_, max_shift_plane_eta * relTol_, 10, verbose=.true.)
+      shift = newton(dvolume_error_function, shift0_, max_shift_plane_eta * relTol_, 10)
       if (abs(volume_ - liqVol) < max_shift_plane_eta * relTol_) then 
         if (present(volume)) volume = volume_
         if (present(intersected)) call copy(out=intersected, in=cell)
