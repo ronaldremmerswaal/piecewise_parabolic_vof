@@ -19,7 +19,7 @@ contains
     real*8                :: refMoments(3), normal(2), tmp, reconstruction_time(NR_METHODS)
     real*8                :: refVolumes(-1:1,-1:1), reconMoments(3), errTol, kappa0
     real*8                :: volume_grid(N,N), momx_grid(N,N), momy_grid(N,N), kappa0_exact(N,N)
-    integer               :: i, j, mdx
+    integer               :: i, j, mdx, nr_interface_cells
     type(tParabola)       :: parabola
     type(tPolygon)        :: cell
 
@@ -33,6 +33,7 @@ contains
     dxs(:,2) = dx(2)
 
     ! Precompute reference moments
+    nr_interface_cells = 0
     do j=1,N
     do i=1,N
       xc(1) = (i-0.5) * dx(1)
@@ -46,6 +47,7 @@ contains
 
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
         kappa0_exact(i,j) = levelSet_curvature(xc, minval(dx) / 5)
+        nr_interface_cells = nr_interface_cells + 1
       endif
     enddo
     enddo
@@ -164,6 +166,8 @@ contains
     enddo
     call cpu_time(reconstruction_time(PMOFP_IDX))
     reconstruction_time(PMOFP_IDX) = reconstruction_time(PMOFP_IDX) - tmp
+
+    reconstruction_time = reconstruction_time / nr_interface_cells
 
     print*, 'RECONSTRUCTION TIMING:'
     do mdx=1,NR_METHODS
