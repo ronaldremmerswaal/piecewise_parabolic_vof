@@ -55,7 +55,7 @@ contains
     implicit none
 
     real*8                :: angle, normal(2), shift, kappa0, max_shift_plane, dx(2)
-    real*8                :: refMoments(3), recVolume, recNormal(2), pi, recShift
+    real*8                :: refMoments(3), recVolume, recNormal(2), pi, recShift, mofMoments(3)
     integer               :: adx, sdx, kdx
 
     integer, parameter    :: NR_ANGLE = 20, NR_SHIFT = 20, NR_KAPPA = 20
@@ -78,8 +78,9 @@ contains
       refMoments = cmpMoments(dx, makeParabola(normal, kappa0, shift))
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
-        recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false., shift=recShift)
+        recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false., shift=recShift, mofMoments=mofMoments)
         @assertEqual(shift, recShift, TOLERANCE * sqrt(product(dx)))
+        @assertEqual(refMoments, mofMoments, TOLERANCE * sqrt(product(dx)))
         
         recShift = cmpShift(recNormal, dx, refMoments(1), kappa0, volume=recVolume)
         @assertEqual(shift, recShift, TOLERANCE * sqrt(product(dx)))

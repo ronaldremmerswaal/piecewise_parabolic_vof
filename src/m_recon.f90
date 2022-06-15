@@ -302,7 +302,7 @@ contains
     enddo
   end function
 
-  function pmofNormal_rect(refMoments, kappa0, dx, verbose, errTol, shift) result(normal)
+  function pmofNormal_rect(refMoments, kappa0, dx, verbose, errTol, shift, mofMoments) result(normal)
     use m_optimization
     use m_recon_util
 
@@ -312,7 +312,7 @@ contains
     logical, optional     :: verbose
     real*8, intent(in), optional :: errTol
     real*8                :: normal(2)
-    real*8, intent(out), optional :: shift
+    real*8, intent(out), optional :: shift, mofMoments(3)
     
 
     ! Local variables:
@@ -338,6 +338,7 @@ contains
 
     normal = [dcos(mofAngle), dsin(mofAngle)]
     if (present(shift)) shift = shift_
+    if (present(mofMoments)) mofMoments = mofMoments_
   contains 
 
     real*8 function dcost(angle, err) result(derr)
