@@ -45,7 +45,7 @@ contains
 
     ! Compute the reference zeroth and first moment (equivalent to the volume fraction and centroid)
     call polyApprox(poly, xc, dx, exact_interface)
-    refMoments = cmpMoments(poly)
+    call cmpMoments(refMoments, poly)
 
     ! Note that the moments should be relative to xc:
     refMoments(2:3) = refMoments(2:3) - xc * refMoments(1)
@@ -58,7 +58,8 @@ contains
     shift = cmpShift(normal, dx, refMoments(1))
 
     ! ... hence we expect the zeroth moment have zero error
-    errMoments = abs(cmpMoments(normal, dx, shift) - refMoments)
+    call cmpMoments(errMoments, normal, dx, shift)
+    errMoments = abs(errMoments - refMoments)
 
     ! The symmetric difference between the exact and approximate liquid domain can be approximated as follows
     errSD = cmpSymmDiffVolume(xc, dx, makePlane(normal, shift), exact_interface)
@@ -73,7 +74,8 @@ contains
     kappa0 = 1.
     normal = pmofNormal(refMoments, kappa0, dx)
     parabola = makeParabola(normal, kappa0, dx, refMoments(1))
-    errMoments = abs(cmpMoments(dx, parabola) - refMoments)
+    call cmpMoments(errMoments, dx, parabola)
+    errMoments = abs(errMoments - refMoments)
     errSD = cmpSymmDiffVolume(xc, dx, parabola, exact_interface)
 
     write(*, '(A)') ''
@@ -134,7 +136,7 @@ contains
 
     ! Other than the initialisation of the control volume, the rest is the same as before
     call polyApprox(poly, cell, exact_interface)
-    refMoments = cmpMoments(poly)
+    call cmpMoments(refMoments, poly)
 
     ! We pass the optional argoment x0=xc to tell the intersection functions that our
     ! parabola is defined relative to xc, rather than 0, which is the default

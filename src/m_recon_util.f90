@@ -63,11 +63,11 @@ contains
 
   end function
 
-   function cmpMoments2d_plane(normal, dx, shift) result(moments)
+   subroutine cmpMoments2d_plane(moments, normal, dx, shift)
     implicit none
 
     real*8, intent(in)  :: normal(2), dx(2), shift
-    real*8              :: moments(3)
+    real*8, intent(out) :: moments(3)
 
     ! Local variables:
     real*8              :: normal_(2), dx_(2), max_shift_plane
@@ -89,7 +89,7 @@ contains
       moments(2) = 0.
       moments(3) = 0.5 * (((shift + max_shift_plane) / normal_(2) - dx_(2) / 2.0)**2 - (dx_(2)/2.0)**2) * dx_(1)
     else
-      moments = cmpMoments2d_pc_ordered_plane(normal_, dx_, shift + max_shift_plane, max_shift_plane)
+      call cmpMoments2d_pc_ordered_plane(moments, normal_, dx_, shift + max_shift_plane, max_shift_plane)
     endif
 
     if (normal(perm(1)) < 0.0) moments(2) = -moments(2)
@@ -97,7 +97,7 @@ contains
     if (perm(1) /= 1) then 
       moments(2:3) = [moments(3), moments(2)]
     endif
-  end function
+  end subroutine
 
   pure function cmpVolume2d_pc_ordered_plane(normal, dx, pc, max_shift_plane) result(volume)
     implicit none
@@ -128,11 +128,11 @@ contains
     if (largerThanHalf) volume = product(dx) - volume
   end function
 
-  pure function cmpMoments2d_pc_ordered_plane(normal, dx, pc, max_shift_plane) result(moments)
+  subroutine cmpMoments2d_pc_ordered_plane(moments, normal, dx, pc, max_shift_plane)
     implicit none
 
     real*8, intent(in)  :: normal(2), dx(2), pc, max_shift_plane
-    real*8              :: moments(3)
+    real*8, intent(out) :: moments(3)
 
     ! Local variables:
     real*8              :: pcMod
@@ -160,7 +160,7 @@ contains
     endif
 
     if (largerThanHalf) moments(1) = product(dx) - moments(1)
-  end function
+  end subroutine
 
   real*8 function cmpVolume_dx(dx, parabola) result(vol)
     use m_polygon
@@ -178,22 +178,22 @@ contains
 
   end function
 
-  function cmpMoments_dx(dx, parabola) result(mom)
+  subroutine cmpMoments_dx(mom, dx, parabola)
     use m_polygon
     implicit none
     
     real*8, intent(in)    :: dx(2)
     type(tParabola), intent(in) :: parabola
-    real*8                :: mom(3)
+    real*8, intent(out)   :: mom(3)
 
     ! Local variables
     type(tPolygon)        :: poly
 
     call makeBox(poly, dx)
     call intersect(poly, parabola)
-    mom = cmpMoments(poly)
+    call cmpMoments(mom, poly)
 
-  end function
+  end subroutine
 
 
   function cmpInterfaceMoments_plane(normal, dx, shift) result(moments)

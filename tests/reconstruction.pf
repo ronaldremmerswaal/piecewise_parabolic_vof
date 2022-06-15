@@ -31,7 +31,7 @@ contains
       max_shift_plane = dot_product(abs(normal), dx) / 2
       shift = max_shift_plane * (-1.D0 + 2 * sdx / (NR_SHIFT + 1.D0))
 
-      refMoments = cmpMoments(normal, dx, shift)
+      call cmpMoments(refMoments, normal, dx, shift)
       
       recNormal = mofNormal(refMoments, dx, mofMoments, shift=recShift)
 
@@ -75,7 +75,7 @@ contains
 
       kappa0 = -1.D0 + 2 * (kdx - 1.D0) / (NR_KAPPA - 1.D0)
 
-      refMoments = cmpMoments(dx, makeParabola(normal, kappa0, shift))
+      call cmpMoments(refMoments, dx, makeParabola(normal, kappa0, shift))
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
         recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false., shift=recShift, mofMoments=mofMoments)
@@ -132,7 +132,7 @@ contains
         xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
 
         ! NOTE: x0 refers to the position relative to which the interface is defined
-        refMoments = cmpMoments(normal, dx_neighbour, shift - dot_product(xc_neighbour, normal))
+        call cmpMoments(refMoments, normal, dx_neighbour, shift - dot_product(xc_neighbour, normal))
         refVolumes(i,j) = refMoments(1)
 
       enddo
@@ -460,7 +460,7 @@ contains
         xc(2) = (j-0.5) * dx(2)
         
         call polyApprox(cell, xc, dx, levelSet, verts_per_segment=N)
-        refMoments = cmpMoments(cell)
+        call cmpMoments(refMoments, cell)
         volume_grid(i,j) = refMoments(1)
         momx_grid(i,j) = refMoments(2) - refMoments(1) * xc(1)
         momy_grid(i,j) = refMoments(3) - refMoments(1) * xc(2)
@@ -496,7 +496,7 @@ contains
 
           do mdx=1,NR_METHODS
             parabola = makeParabola(normals(:,mdx), kappa0(mdx), dx, refVolumes(0,0))
-            reconMoments = cmpMoments(dx, parabola)
+            call cmpMoments(reconMoments, dx, parabola)
             firstMoment_lInf(rdx,mdx) = max(firstMoment_lInf(rdx,mdx), norm2(reconMoments(2:3) - refMoments(2:3)))
             symmDiff_vol(rdx,mdx) = symmDiff_vol(rdx,mdx) + cmpSymmDiffVolume(xc, dx, parabola, levelset)
           enddo

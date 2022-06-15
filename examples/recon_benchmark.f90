@@ -40,7 +40,7 @@ contains
       xc(2) = (j-0.5) * dx(2)
 
       call polyApprox(cell, xc, dx, levelSet)
-      refMoments = cmpMoments(cell)
+      call cmpMoments(refMoments, cell)
       volume_grid(i,j) = refMoments(1)
       momx_grid(i,j) = refMoments(2) - refMoments(1) * xc(1)
       momy_grid(i,j) = refMoments(3) - refMoments(1) * xc(2)
@@ -254,7 +254,7 @@ contains
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      moments01 = cmpMoments(normal, dx, shift)
+      call cmpMoments(moments01, normal, dx, shift)
     enddo
     call cpu_time(time_intersect_plane)
     time_intersect_plane = time_intersect_plane - tmp
@@ -263,7 +263,7 @@ contains
     do rep=1,NR_REPETITIONS
       call makeBox(poly, dx)
       call intersect(poly, plane)
-      moments01 = cmpMoments(poly)
+      call cmpMoments(moments01, poly)
     enddo
     call cpu_time(time_intersect_plane_poly)
     time_intersect_plane_poly = time_intersect_plane_poly - tmp
@@ -272,24 +272,14 @@ contains
     do rep=1,NR_REPETITIONS
       call makeBox(poly, dx)
       call intersect(poly, parabola)
-      moments01 = cmpMoments(poly)
+      call cmpMoments(moments01, poly)
     enddo
     call cpu_time(time_intersect_parabola)
     time_intersect_parabola = time_intersect_parabola - tmp
 
-    call cpu_time(tmp)
-    do rep=1,NR_REPETITIONS
-      call makeBox(poly, dx)
-      call intersect(poly, plane)
-      call cmpMoments_poly_SUB(moments01, poly)
-    enddo
-    call cpu_time(time_intersect_plane_poly_sub)
-    time_intersect_plane_poly_sub = time_intersect_plane_poly_sub - tmp
-
     print*, 'INTERSECTION TIMING:'
     print*, '... PLANE USING UTIL    = ', time_intersect_plane / NR_REPETITIONS
     print*, '... PLANE USING POLY    = ', time_intersect_plane_poly / NR_REPETITIONS
-    print*, '... PLANE USING POLY SUB= ', time_intersect_plane_poly_sub / NR_REPETITIONS
     print*, '... PARABOLA USING POLY = ', time_intersect_parabola / NR_REPETITIONS
 
   end subroutine

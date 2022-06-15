@@ -152,37 +152,7 @@ contains
     endif
   end function
 
-  function cmpMoments_poly(poly) result(mom)
-    implicit none
-    
-    type(tPolygon), intent(inout) :: poly
-    real*8                :: mom(3), areaTerm
-
-    ! Local variables
-    integer               :: vdx, ndx
-
-    mom = 0
-    do vdx=1,poly%nverts
-      ndx = vdx + 1
-      if (ndx > poly%nverts) ndx = 1
-
-      areaTerm = poly%verts(1,vdx)*poly%verts(2,ndx) - poly%verts(2,vdx)*poly%verts(1,ndx)
-      mom(1) = mom(1) + areaTerm
-      mom(2:3) = mom(2:3) + areaTerm * (poly%verts(:,vdx) + poly%verts(:,ndx))
-    enddo
-
-    mom(1) = mom(1)/2
-    mom(2:3) = mom(2:3)/6
-
-    if (poly%intersected .and. poly%parabolic) then
-      mom = mom + parabola_moments_correction(poly)
-      if (poly%complement) then
-        mom = poly%original_moments - mom
-      endif
-    endif
-  end function
-
-  subroutine cmpMoments_poly_SUB(mom, poly)
+  subroutine cmpMoments_poly(mom, poly)
     implicit none
     
     type(tPolygon), intent(inout) :: poly
@@ -412,7 +382,7 @@ contains
 
     is_parabolic = parabola%kappa0 /= 0
     if (is_parabolic .and. parabola%kappa0 > 0) then 
-      poly%original_moments = cmpMoments(poly)
+      call cmpMoments(poly%original_moments, poly)
       poly%complement = .true.
     endif
 

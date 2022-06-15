@@ -162,7 +162,7 @@ contains
     if (present(dx_cons)) then
       ! Then shift must be altered upon changing angle/kappa to ensure
       ! that the liquid volume in dx_cons is conserved
-      moments_cons = cmpMoments(dx_cons, makeParabola(angle, kappa0, shift))
+      call cmpMoments(moments_cons, dx_cons, makeParabola(angle, kappa0, shift))
     endif
 
     parabola = makeParabola(angle + STEP_SIZE, kappa0, shift)
@@ -171,7 +171,7 @@ contains
     endif
     call copy(out=poly_copy, in=poly)
     call intersect(poly_copy, parabola)
-    moments_pos = cmpMoments(poly_copy)
+    call cmpMoments(moments_pos, poly_copy)
 
     parabola = makeParabola(angle - STEP_SIZE, kappa0, shift)
     if (present(dx_cons)) then
@@ -179,7 +179,7 @@ contains
     endif
     call copy(out=poly_copy, in=poly)
     call intersect(poly_copy, parabola)
-    moments_neg = cmpMoments(poly_copy)
+    call cmpMoments(moments_neg, poly_copy)
     
     derivative(1:3) = (moments_pos - moments_neg) / (2 * STEP_SIZE)
     
@@ -190,7 +190,7 @@ contains
     endif
     call copy(out=poly_copy, in=poly)
     call intersect(poly_copy, parabola)
-    moments_pos = cmpMoments(poly_copy)
+    call cmpMoments(moments_pos, poly_copy)
 
     parabola = makeParabola(angle, kappa0 - STEP_SIZE, shift)
     if (present(dx_cons)) then
@@ -198,7 +198,7 @@ contains
     endif
     call copy(out=poly_copy, in=poly)
     call intersect(poly_copy, parabola)
-    moments_neg = cmpMoments(poly_copy)
+    call cmpMoments(moments_neg, poly_copy)
     
     derivative(4) = (moments_pos(1) - moments_neg(1)) / (2 * STEP_SIZE)
 

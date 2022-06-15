@@ -358,7 +358,7 @@ contains
 
       shift_ = cmpShift(normal_, dx, refMoments(1), kappa0, intersected=poly)
       
-      mofMoments_ = cmpMoments(poly)
+      call cmpMoments(mofMoments_, poly)
       derivative = cmpDerivative_firstMomentAngle(poly)
       
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
@@ -421,7 +421,7 @@ contains
     verbose_ = merge(verbose, .false., present(verbose))
     errTol_ = merge(errTol, 1D-8, present(errTol))
 
-    cellMoments = cmpMoments(cell)
+    call cmpMoments(cellMoments, cell)
     cost_fun_scaling = cellMoments(1)**1.5D0
 
     ! Initial guess based on the reference centroid
@@ -454,7 +454,7 @@ contains
 
       shift = cmpShift(normal_, cell, refMoments(1), kappa0, intersected=intersected)
       
-      mofMoments_ = cmpMoments(intersected)
+      call cmpMoments(mofMoments_, intersected)
 
       derivative = cmpDerivative_firstMomentAngle(intersected)
       

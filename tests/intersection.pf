@@ -29,9 +29,9 @@ contains
     normal = [0.0D0, 1.0D0]
 
     call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
-    mom_poly = cmpMoments(cutPoly)
+    call cmpMoments(mom_poly, cutPoly)
 
-    mom_util = cmpMoments(normal, dx, shift)
+    call cmpMoments(mom_util, normal, dx, shift)
 
     @assertEqual(mom_poly, mom_util, TOLERANCE * product(dx))
 
@@ -54,9 +54,9 @@ contains
         shift = pc - dot_product(abs(normal), dx) / 2
 
         call intersect(cutPoly, makePlane(normal, shift + dot_product(normal, x)))
-        mom_poly = cmpMoments(cutPoly)
+        call cmpMoments(mom_poly, cutPoly)
 
-        mom_util = cmpMoments(normal, dx, shift)
+        call cmpMoments(mom_util, normal, dx, shift)
 
         @assertEqual(mom_poly, mom_util, TOLERANCE * product(dx))
       enddo
@@ -92,14 +92,14 @@ contains
 
       call makeBox(poly, dx)
       call intersect(poly, makePlane(normal, shift))
-      moments_plane_poly = cmpMoments(poly)
+      call cmpMoments(moments_plane_poly, poly)
       
       call makeBox(poly, dx)
       call intersect(poly, makeParabola(normal, 1D-16, shift))
       vol_parabola = cmpVolume(poly)
-      moments_parabola = cmpMoments(poly)
+      call cmpMoments(moments_parabola, poly)
       
-      moments_plane = cmpMoments(normal, dx, shift)
+      call cmpMoments(moments_plane, normal, dx, shift)
 
       @assertEqual(moments_plane(1), vol_parabola, TOLERANCE * cellVol)
       @assertEqual(moments_plane, moments_parabola, TOLERANCE * cellVol)
@@ -139,7 +139,7 @@ contains
 
       ! Ensure that |s - κ/8| < 1/2
       kappa0 = -4.0D0 + 8 * (shift + (kdx - 1.D0) / (NR_KAPPA - 1.D0))
-      moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
+      call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
       volume_para = cmpVolume(dx, makeParabola(normal, kappa0, shift))
 
       moments01_exact(1) = 0.5D0 + shift - kappa0 / 24
@@ -155,7 +155,7 @@ contains
     ! #1
     shift = 0.75D0
     kappa0 = 40.0D0
-    moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
+    call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
 
     xStar = dsqrt(2 * (shift + dx(2)/2)/kappa0)
     moments01_exact(1) = 2 * ((dx(2)/2 + shift) * xStar - (kappa0/6) * xStar**3)
@@ -169,7 +169,7 @@ contains
     normal = -normal
     shift = -shift
     kappa0 = -kappa0
-    moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
+    call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
 
     moments01_exact(1) = 1.0D0 - moments01_exact(1)
     @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
@@ -182,7 +182,7 @@ contains
 
     call makeBox(poly, dx)
     call intersect(poly, makeParabola(normal, kappa0, shift))
-    moments01_para = cmpMoments(poly)
+    call cmpMoments(moments01_para, poly)
 
     A = 1.D0
     B = dsqrt(8.0D0) / kappa0 + dx(1)
@@ -199,7 +199,7 @@ contains
     shift = -shift
     kappa0 = -kappa0
 
-    moments01_para = cmpMoments(dx, makeParabola(normal, kappa0, shift))
+    call cmpMoments(moments01_para, dx, makeParabola(normal, kappa0, shift))
 
     moments01_exact(1) = 1.0 - moments01_exact(1)
     @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
@@ -215,7 +215,7 @@ contains
     moments01_parts = 0.0
     do ii=1,2
       call intersect(polys2(ii), makeParabola(normal, kappa0, shift))
-      tmp = cmpMoments(polys2(ii))
+      call cmpMoments(tmp, polys2(ii))
       moments01_parts = moments01_parts + tmp
     enddo
     @assertEqual(moments01_para, moments01_parts, TOLERANCE)
@@ -223,7 +223,7 @@ contains
     moments01_parts = 0.0
     do ii=1,4
       call intersect(polys4(ii), makeParabola(normal, kappa0, shift))
-      tmp = cmpMoments(polys4(ii))
+      call cmpMoments(tmp, polys4(ii))
       moments01_parts = moments01_parts + tmp
     enddo
     @assertEqual(moments01_para, moments01_parts, TOLERANCE)
@@ -231,7 +231,7 @@ contains
     moments01_parts = 0.0
     do ii=1,8
       call intersect(polys8(ii), makeParabola(normal, kappa0, shift))
-      tmp = cmpMoments(polys8(ii))
+      call cmpMoments(tmp, polys8(ii))
       moments01_parts = moments01_parts + tmp
     enddo
     @assertEqual(moments01_para, moments01_parts, TOLERANCE)
@@ -255,7 +255,7 @@ contains
 
     call init(poly, pos)
     call intersect(poly, makeParabola(normal, kappa0, shift))
-    moments01_para = cmpMoments(poly)
+    call cmpMoments(moments01_para, poly)
 
     @assertEqual(moments01_para, moments01_exact, TOLERANCE)
 
@@ -315,7 +315,7 @@ contains
       elseif (sdx == NR_STEPS) then
         @assertEqual(product(dx), vol_liq, APPROX_TOLERANCE)
 
-        mom01 = cmpMoments(dx, makeParabola(-normal, kappa0, shift))
+        call cmpMoments(mom01, dx, makeParabola(-normal, kappa0, shift))
         @assertEqual(product(dx) - mom01(1), sd, APPROX_TOLERANCE)
       endif
 
@@ -362,10 +362,10 @@ contains
 
       call makeBox(poly, dx)
       call intersect(poly, makePlane(normal, shift))
-      polyMoments = cmpMoments(poly)
+      call cmpMoments(polyMoments, poly)
 
       call polyApprox(poly, [0.D0, 0.D0], dx, levelSet, verts_per_segment=2)
-      refMoments = cmpMoments(poly)
+      call cmpMoments(refMoments, poly)
 
       @assertEqual(polyMoments, refMoments, TOLERANCE)
       @assertLessThanOrEqual(abs(refMoments(2:3)/refMoments(1)), dx/2)
@@ -400,7 +400,7 @@ contains
 
   !   do rdx=1,NR_REFINE
   !     nr_verts = 2**rdx
-  !     refMoments = cmpMoments([0.5D0, 0.5D0], [1.D0, 1.D0], levelSet, verts_per_segment=nr_verts)
+  !     call cmpMoments(refMoments, [0.5D0, 0.5D0], [1.D0, 1.D0], levelSet, verts_per_segment=nr_verts)
   !     errors(rdx) = refMoments(1) - pi*RADIUS**2/4
   !     if (rdx > 1) then
   !       order = -log(errors(rdx) / errors(1)) / ((rdx-1)*log(2.0D0))
