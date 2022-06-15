@@ -3,7 +3,7 @@ module linearisation
   use m_common
   use m_polygon
 
-  real*8, parameter       :: TOLERANCE = 1E-7, STEP_SIZE = 1E-6, IS_INTERFACE_TOL = 1E-8
+  real*8, parameter       :: TOLERANCE = 1E-7, STEP_SIZE = 2E-6, IS_INTERFACE_TOL = 1E-8
 
 contains
   

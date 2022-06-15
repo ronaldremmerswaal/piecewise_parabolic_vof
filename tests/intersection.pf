@@ -189,8 +189,8 @@ contains
     C = dx(1) * (dx(1) / 4 - dsqrt(2.0D0) / kappa0)
     call polynomial_roots_deg2([A, B, C], roots, root_imag)
 
-    xStar = norm2([roots(2), -dx(2)/2] - [-dx(1)/2, roots(2)]) / 2
-    moments01_exact(1) = ((roots(2) + dx(1)/2)**2)/2 + 2 * xStar * (kappa0/2 * xStar**2) - (kappa0 * xStar**3) / 3
+    xStar = norm2([roots(1), -dx(2)/2] - [-dx(1)/2, roots(1)]) / 2
+    moments01_exact(1) = ((roots(1) + dx(1)/2)**2)/2 + 2 * xStar * (kappa0/2 * xStar**2) - (kappa0 * xStar**3) / 3
 
     @assertEqual(moments01_exact(1), moments01_para(1), TOLERANCE)
 
