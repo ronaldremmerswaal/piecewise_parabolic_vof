@@ -15,7 +15,7 @@ contains
     type(tParabola)       :: parabola
     real*8                :: angle, kappa0, pos(2, 7), radius
     real*8                :: derivative_cmp(4), derivative_fd(4), volume, pi, grad_s(2)
-    real*8                :: grad_s_cmp(2), grad_s_fd(2), shift
+    real*8                :: grad_s_cmp(2), grad_s_fd(2), shift, dvolds_cmp, dvolds_fd 
     integer               :: adx, kdx, sdx
 
     integer, parameter    :: NR_ANGLE = 20, NR_KAPPA = 20, NR_SHIFT = 20
@@ -54,6 +54,7 @@ contains
 
       grad_s_cmp(1) = cmpDerivative_shiftAngle(poly)
       grad_s_cmp(2) = cmpDerivative_shiftKappa(poly)
+      dvolds_cmp = cmpDerivative_volShift(poly)
 
       volume = cmpVolume(poly)
       
@@ -65,6 +66,9 @@ contains
       call approximate_shift_derivatives(poly, volume, angle, kappa0, shift, grad_s_fd)
       
       @assertEqual(grad_s_fd, grad_s_cmp, TOLERANCE)
+      
+      call approximate_vol_shift_derivative(poly, angle, kappa0, shift, dvolds_fd)
+      @assertEqual(dvolds_fd, dvolds_cmp, TOLERANCE)
     enddo
     enddo
     enddo
@@ -219,5 +223,30 @@ contains
     grad_s(2) = (cmpShift([dcos(angle), dsin(angle)], poly, volume, kappa0 + STEP_SIZE) - &
                  cmpShift([dcos(angle), dsin(angle)], poly, volume, kappa0 - STEP_SIZE)) / (2*STEP_SIZE)
 
+  end
+
+  subroutine approximate_vol_shift_derivative(poly, angle, kappa0, shift, der)
+    use m_recon_util
+
+    implicit none
+    
+    type(tPolygon), intent(inout) :: poly
+    real*8, intent(in)    :: angle, kappa0, shift
+    real*8, intent(out)   :: der
+
+    ! Local variables
+    type(tPolygon)        :: poly_copy
+    type(tParabola)       :: parabola
+
+    call copy(out=poly_copy, in=poly)
+    call makeParabola(parabola, angle, kappa0, shift+STEP_SIZE)
+    call intersect(poly_copy, parabola)
+    
+    der = cmpVolume(poly_copy)
+    
+    call copy(out=poly_copy, in=poly)
+    call makeParabola(parabola, angle, kappa0, shift-STEP_SIZE)
+    call intersect(poly_copy, parabola)
+    der = (der - cmpVolume(poly_copy)) / (2 * STEP_SIZE)
   end
 end module

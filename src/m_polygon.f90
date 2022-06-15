@@ -247,6 +247,23 @@ contains
     der = poly%monomials_sum(0) * shiftKappaDerivative - poly%monomials_sum(2)/2
     
   end function
+
+  real*8 function cmpDerivative_volShift(poly) result(der)
+    implicit none
+
+    type(tPolygon), intent(inout) :: poly
+
+    if (.not. poly%intersected) then
+      der = 0
+      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
+      return
+    endif
+    
+    call compute_momonial(poly, 0)
+
+    der = poly%monomials_sum(0)
+    
+  end function
   
   function cmpDerivative_firstMomentAngle(poly, shiftAngleDerivative) result(der)
     implicit none
