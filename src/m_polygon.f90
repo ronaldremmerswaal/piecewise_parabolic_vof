@@ -420,7 +420,7 @@ contains
     inside_count = 0
     first_inside = 0
     do vdx=1,poly%nverts
-      x_eta = dot_product(poly%verts(:,vdx), parabola%normal) - parabola%shift
+      x_eta = mydot(poly%verts(:,vdx), parabola%normal) - parabola%shift
       dist(vdx) = x_eta
       if (is_parabolic) then
         x_tau = dot_rotate(poly%verts(:,vdx), parabola%normal)
@@ -567,8 +567,8 @@ contains
             poly%x_tau(1,edx) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
             poly%x_tau(2,edx) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
 
-            poly%x_eta(1,edx) = dot_product(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
-            poly%x_eta(2,edx) = dot_product(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
+            poly%x_eta(1,edx) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
+            poly%x_eta(2,edx) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
 
             poly%x_tau_power(1,edx) = poly%x_tau(1,edx)
             poly%x_tau_power(2,edx) = poly%x_tau(2,edx)
@@ -630,8 +630,8 @@ contains
           x_tau(1) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
           x_tau(2) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
 
-          x_eta(1) = dot_product(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
-          x_eta(2) = dot_product(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
+          x_eta(1) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
+          x_eta(2) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
 
           x_tau_power = 1
           do mdx=0,2
@@ -724,7 +724,7 @@ contains
     coeff(1) = (parabola%kappa0/2) * dot_relative_rotate(pos2, parabola%normal, pos1)**2
     coeff(2) = parabola%kappa0 * dot_rotate(pos1, parabola%normal) * dot_relative_rotate(pos2, parabola%normal, pos1) &
       + dot_relative(pos2, parabola%normal, pos1)
-    coeff(3) = dot_product(pos1, parabola%normal) - parabola%shift + (parabola%kappa0/2) * dot_rotate(pos1, parabola%normal)**2
+    coeff(3) = mydot(pos1, parabola%normal) - parabola%shift + (parabola%kappa0/2) * dot_rotate(pos1, parabola%normal)**2
 
     call polynomial_roots_deg2(coeff, roots, imag)
 
@@ -757,6 +757,14 @@ contains
     real*8, intent(in)    :: va(2), vb(2)
 
     dr = va(2)*vb(1) - va(1)*vb(2)
+  end function
+
+  pure real*8 function mydot(va, vb) result(dr)
+    implicit none
+    
+    real*8, intent(in)    :: va(2), vb(2)
+
+    dr = va(1)*vb(1) + va(2)*vb(2)
   end function
 
   pure real*8 function dot_relative(va, vb, vr) result(dr)
@@ -845,7 +853,7 @@ contains
       difference = edge(:,2) - edge(:,1)
       nrm = norm2(difference)
       if (nrm > 0) then
-        if (abs(dot_product([difference(2), -difference(1)]/nrm, normal) - 1) < 1D-12) return
+        if (abs(mydot([difference(2), -difference(1)]/nrm, normal) - 1) < 1D-12) return
       endif
     enddo
     edge = 0
