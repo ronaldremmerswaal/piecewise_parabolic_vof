@@ -77,12 +77,14 @@ contains
       refMoments = cmpMoments(dx, makeParabola(normal, kappa0, shift))
       
       if (refMoments(1) > IS_INTERFACE_TOLERANCE .and. product(dx) - refMoments(1) > IS_INTERFACE_TOLERANCE) then
-        recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false.)
+        recNormal = pmofNormal(refMoments, kappa0, dx, errTol=TOLERANCE, verbose=.false., shift=recShift)
+        @assertEqual(shift, recShift, TOLERANCE * sqrt(product(dx)))
+        
         recShift = cmpShift(recNormal, dx, refMoments(1), kappa0, volume=recVolume)
+        @assertEqual(shift, recShift, TOLERANCE * sqrt(product(dx)))
 
         @assertEqual(normal, recNormal, TOLERANCE)
         @assertEqual(refMoments(1), recVolume, TOLERANCE * product(dx))
-        @assertEqual(shift, recShift, TOLERANCE * sqrt(product(dx)))
       endif
     enddo
     enddo
@@ -135,9 +137,10 @@ contains
       enddo
       
       if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
-        recNormal = lviraNormal(refVolumes, dxs, errTol=TOLERANCE, verbose=.false.)
-
+        recNormal = lviraNormal(refVolumes, dxs, errTol=TOLERANCE, verbose=.false., shift=recShift)
+        
         @assertEqual(normal, recNormal, TOLERANCE)
+        @assertEqual(shift, recShift, TOLERANCE)
         
         recShift = cmpShift(recNormal, dxs(0,:), refVolumes(0,0))
         @assertEqual(shift, recShift, TOLERANCE)
@@ -196,8 +199,9 @@ contains
       enddo
       
       if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
-        recNormal = plviraNormal(refVolumes, kappa0, dxs, errTol=TOLERANCE, verbose=.false.)
+        recNormal = plviraNormal(refVolumes, kappa0, dxs, errTol=TOLERANCE, verbose=.false., shift=recShift)
         @assertEqual(normal, recNormal, TOLERANCE)
+        @assertEqual(shift, recShift, TOLERANCE)
         
         recShift = cmpShift(recNormal, dxs(0,:), refVolumes(0,0), kappa0)
         @assertEqual(shift, recShift, TOLERANCE)
@@ -259,10 +263,11 @@ contains
       if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
         ! Make sure the initial guess is bad (but the sign is correct!)
         recKappa0 = kappa0 * 1.5
-        recNormal = prostNormal(refVolumes, recKappa0, dxs, errTol=TOLERANCE/10, verbose=.false.)
+        recNormal = prostNormal(refVolumes, recKappa0, dxs, errTol=TOLERANCE/10, verbose=.false., shift=recShift)
 
         @assertEqual(normal, recNormal, TOLERANCE)
         @assertEqual(kappa0, recKappa0, TOLERANCE)
+        @assertEqual(shift, recShift, TOLERANCE)
         
         recShift = cmpShift(recNormal, dxs(0,:), refVolumes(0,0), kappa0)
         @assertEqual(shift, recShift, TOLERANCE)
