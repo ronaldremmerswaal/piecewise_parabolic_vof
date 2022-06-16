@@ -256,7 +256,8 @@ contains
     type(tParabola)       :: parabola
     real*8                :: normal(2), volume, derivatives_local(2), err_local, shift0
     real*8, save          :: kappa0_prev = 0., angle_prev = 0., grad_s(2) = 0., shift_ = 0.
-    real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour
+    real*8                :: xc_neighbour(2), dx_neighbour(2), cellVol_neighbour, shift_neigh, shift_tau_neigh
+    real*8                :: max_shift_plane_eta, max_shift_plane_tau, absNormal(2)
     integer               :: i, j
 
     normal = [dcos(angle), dsin(angle)]
@@ -283,31 +284,48 @@ contains
       grad_s(2) = cmpDerivative_shiftKappa(cell)
 
     endif
+    
+    absNormal = abs(normal)
     do j=-1,1
     do i=-1,1
       if (i==0 .and. j==0) cycle
-
+      
       dx_neighbour(1) = dxs(i, 1)
       dx_neighbour(2) = dxs(j, 2)
-      cellVol_neighbour = product(dx_neighbour)
 
       xc_neighbour(1) = i * (dxs(0,1) + dx_neighbour(1))/2
       xc_neighbour(2) = j * (dxs(0,2) + dx_neighbour(2))/2
+      cellVol_neighbour = product(dx_neighbour)
 
-      call makeBox(cell, xc_neighbour, dx_neighbour)
-      call intersect(cell, parabola)
+      max_shift_plane_eta = dot_product(absNormal, dx_neighbour)/2
+      max_shift_plane_tau = dot_product([absNormal(2), absNormal(1)], dx_neighbour)/2 + &
+        abs(dot_product(xc_neighbour, [-normal(2), normal(1)]))
+      shift_neigh = shift_ - dot_product(xc_neighbour, normal)
 
-      volume = cmpVolume(cell)
-      err_local = (volume - refVolumes(i,j)) / cellVol_neighbour
+      if ((kappa0 >= 0 .and. shift_neigh <= -max_shift_plane_eta) .or. &
+          (kappa0 < 0 .and. shift_neigh <= kappa0 * max_shift_plane_tau**2 / 2. - max_shift_plane_eta)) then
+        err_local = (0. - refVolumes(i,j)) / cellVol_neighbour
+      elseif ((kappa0 <= 0 .and. shift_neigh >= max_shift_plane_eta) .or. &
+              (kappa0 > 0 .and. shift_neigh >= kappa0 * max_shift_plane_tau**2 / 2. + max_shift_plane_eta)) then
+        err_local = (cellVol_neighbour - refVolumes(i,j)) / cellVol_neighbour
+      else
+        call makeBox(cell, xc_neighbour, dx_neighbour)
+        call intersect(cell, parabola)
+  
+        volume = cmpVolume(cell)
+
+        err_local = (volume - refVolumes(i,j)) / cellVol_neighbour
+
+        if (present(derivatives) .and. volume > 0 .and. volume < cellVol_neighbour) then
+          derivatives_local(1) = cmpDerivative_volAngle(cell, shiftAngleDerivative=grad_s(1))
+          derivatives_local(2) = cmpDerivative_volKappa(cell, shiftKappaDerivative=grad_s(2))
+          
+          derivatives(1) = derivatives(1) + 2 * err_local * derivatives_local(1) / cellVol_neighbour
+          derivatives(2) = derivatives(2) + 2 * err_local * derivatives_local(2) / cellVol_neighbour
+        endif
+      endif
 
       err = err + err_local**2
-      if (present(derivatives) .and. volume > 0 .and. volume < cellVol_neighbour) then
-        derivatives_local(1) = cmpDerivative_volAngle(cell, shiftAngleDerivative=grad_s(1))
-        derivatives_local(2) = cmpDerivative_volKappa(cell, shiftKappaDerivative=grad_s(2))
-
-        derivatives(1) = derivatives(1) + 2 * err_local * derivatives_local(1) / cellVol_neighbour
-        derivatives(2) = derivatives(2) + 2 * err_local * derivatives_local(2) / cellVol_neighbour
-      endif
     enddo
     enddo
   end function
