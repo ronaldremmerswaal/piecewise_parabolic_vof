@@ -39,6 +39,9 @@ module m_polygon
     real*8                :: x_tau_power(2,MAX_NR_PARA_EDGES)
     real*8                :: monomials(0:MAX_MONOMIAL,MAX_NR_PARA_EDGES)
     real*8                :: monomials_sum(0:MAX_MONOMIAL)
+
+  contains
+    procedure             :: reset
   end type
 
   abstract interface
@@ -72,6 +75,19 @@ module m_polygon
     module procedure polyApprox_polyIn, polyApprox_dxIn
   end interface
 contains
+  subroutine reset(this)
+    implicit none
+    
+    class(tPolygon)       :: this
+
+    this%nverts = 0
+    this%nedges = 0
+    this%intersected = .false.
+    this%parabolic = .false.
+    this%complement = .false.
+    this%avail_monomial = -1
+  end subroutine
+
   subroutine makePlane_def(plane, normal, shift)
     implicit none
     
@@ -422,7 +438,7 @@ contains
 
     if (.not. is_parabolic) then
       if (inside_count==0) then
-        poly%nverts = 0
+        call poly%reset
         return
       elseif (inside_count==poly%nverts) then
         return
@@ -499,6 +515,7 @@ contains
 
     poly%parabolic = is_parabolic
     poly%intersected = .true.
+    poly%avail_monomial = -1
     if (.not. poly%complement) then
       poly%parabola = parabola
     else
@@ -766,7 +783,9 @@ contains
     implicit none
 
     real*8, intent(in)    :: dx(2)
-    type(tPolygon), intent(out) :: poly
+    type(tPolygon), intent(inout) :: poly ! NOTE: we use inout to prevent unnecessary initialisation
+
+    call poly%reset
 
     poly%verts(:,1) = [-dx(1)/2, -dx(2)/2]
     poly%verts(:,2) = [dx(1)/2, -dx(2)/2]
@@ -781,7 +800,9 @@ contains
     implicit none
     
     real*8, intent(in)    :: x(2), dx(2)
-    type(tPolygon), intent(out) :: poly
+    type(tPolygon), intent(inout) :: poly
+
+    call poly%reset
 
     poly%verts(:,1) = x + [-dx(1)/2, -dx(2)/2]
     poly%verts(:,2) = x + [dx(1)/2, -dx(2)/2]
@@ -849,15 +870,16 @@ contains
   subroutine init(poly, pos)
     implicit none
 
-    type(tPolygon), intent(out) :: poly
+    type(tPolygon), intent(inout) :: poly
     real*8, intent(in)    :: pos(1:, 1:)
 
     ! Local variables
     integer               :: nverts
 
+    call poly%reset
+
     nverts = size(pos, 2)
     if (nverts > MAX_NR_VERTS .or. size(pos, 1) /= 2) then
-      poly%nverts = 0
       print*, 'ERROR: cannot initialise polygon, wrong input'
       return
     endif
@@ -890,7 +912,7 @@ contains
 
     type(tPolygon), intent(in) :: polys(1:)
     type(tParabola), intent(in) :: parabola
-    type(tPolygon), intent(out) :: out_pos(1:), out_neg(1:)
+    type(tPolygon), intent(inout) :: out_pos(1:), out_neg(1:)
 
     ! Local variables
     integer               :: vdx
@@ -912,8 +934,10 @@ contains
     implicit none
     
     type(tPolygon), intent(in) :: in
-    type(tPolygon), intent(out):: out
+    type(tPolygon), intent(inout):: out
 
+    call out%reset
+    
     out%nverts = in%nverts
     out%verts(:,1:out%nverts) = in%verts(:,1:out%nverts)
     
@@ -952,7 +976,7 @@ contains
   
     implicit none
 
-    type(tPolygon), intent(out) :: poly
+    type(tPolygon), intent(inout) :: poly
     real*8, intent(in)    :: x(2), dx(2)
     procedure(levelset_fun) :: levelSet
     integer, intent(in), optional :: phase
@@ -974,7 +998,7 @@ contains
     procedure(levelset_fun) :: levelSet
     integer, intent(in), optional :: phase
     integer, intent(in), optional :: verts_per_segment
-    type(tPolygon), intent(out) :: poly
+    type(tPolygon), intent(inout) :: poly
 
     ! Local variables
     real*8                :: pos(2, MAX_NR_VERTS), pos_skeleton(2, MAX_NR_VERTS), funVals(MAX_NR_VERTS)
@@ -982,6 +1006,8 @@ contains
     integer               :: edx, vdx, vdx_first_inside, nrPos, vdx_next, nrPos_skelelton, rdx
     integer               :: verts_per_segment_, phase_, tmp
     logical               :: vdx_is_inside, vdx_next_is_inside, is_on_interface(MAX_NR_VERTS)
+
+    call poly%reset
 
     verts_per_segment_ = DEFAULT_VERTS_PER_SEGMENT
     if (present(verts_per_segment)) verts_per_segment_ = min(verts_per_segment_, verts_per_segment)
@@ -994,10 +1020,7 @@ contains
       funVals(vdx) = interfaceFun(cell%verts(:,vdx))
       if (funVals(vdx) < 0 .and. vdx_first_inside == 0) vdx_first_inside = vdx
     enddo
-    if (vdx_first_inside == 0) then
-      poly%nverts = 0
-      return
-    endif
+    if (vdx_first_inside == 0) return
 
     ! Loop over the edges and construct the polygonal 'skeleton'
     vdx = vdx_first_inside

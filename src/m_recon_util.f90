@@ -414,7 +414,7 @@ contains
     real*8, intent(in)    :: normal(2), dx(2), liqVol, kappa0
     real*8, optional, intent(in) :: relTol, shift0
     real*8, optional, intent(out) :: volume
-    type(tPolygon), optional, intent(out) :: intersected
+    type(tPolygon), optional, intent(inout) :: intersected
 
     ! Local variables
     type(tPolygon)        :: cell
@@ -436,7 +436,7 @@ contains
         shift = kappa0 * max_shift_plane_tau**2 / 2. - max_shift_plane_eta
       endif
       if (present(volume)) volume = 0.0D0
-      if (present(intersected)) intersected%nverts = 0
+      if (present(intersected)) call intersected%reset
       return
     elseif (liqVol >= cellVol) then
       if (kappa0 > 0) then
@@ -595,7 +595,7 @@ contains
         shift = kappa0 * max_tau_dist_sq / 2 + min_eta_dist
       endif
       if (present(volume)) volume = 0.0D0
-      if (present(intersected)) intersected%nverts = 0
+      if (present(intersected)) call intersected%reset
       return
     elseif (liqVol >= cellVolume) then
       if (kappa0 > 0) then
