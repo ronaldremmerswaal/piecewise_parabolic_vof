@@ -178,7 +178,7 @@ contains
 
     ! Local variables
     integer               :: vdx, ndx
-    real*8                :: areaTerm
+    real*8                :: areaTerm, moms_corr(3)
 
     mom = 0
     do vdx=1,poly%nverts
@@ -194,7 +194,8 @@ contains
     mom(2:3) = mom(2:3)/6
 
     if (poly%intersected .and. poly%parabolic) then
-      mom = mom + parabola_moments_correction(poly)
+      call parabola_moments_correction(moms_corr, poly)
+      mom = mom + moms_corr
       if (poly%complement) then
         mom = poly%original_moments - mom
       endif
@@ -600,115 +601,100 @@ contains
     ! Local variables
     real*8                :: coeff(2), dtau, x_tau(2), x_eta(2), monomials(0:2), x_tau_power(2)
     integer               :: edx, vdx, ndx, mdx
+    integer, parameter    :: TAU_POWER_VOL = 2
 
     vol = 0
-    if (poly%nedges <= MAX_NR_PARA_EDGES) then
-      call compute_momonial(poly, 2)
 
-      edx = 0 ! Parabolic edge index
-      do vdx=1,poly%nverts
-        ndx = vdx + 1
-        if (vdx==poly%nverts) ndx = 1
-        
-        if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
-          edx = edx + 1
-
-          dtau = poly%monomials(0,edx)
-          if (dtau==0) cycle
-
-          ! in the local coordinates the polygon face is given by
-          ! x_η = c_1 * x_τ + c_2
-          coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / dtau
-          coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
-      
-          vol = vol - (poly%parabola%kappa0/2) * poly%monomials(2,edx) - &
-            coeff(1) * poly%monomials(1,edx) - coeff(2) * dtau
-        endif
-      enddo
-    else
-      ! Symmetric difference may yield many parabolic edges, so we accomodate for this (volume only)
-      edx = 0 ! Parabolic edge index
-      do vdx=1,poly%nverts
-        ndx = vdx + 1
-        if (vdx==poly%nverts) ndx = 1
-        
-        if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
-          x_tau(1) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
-          x_tau(2) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
-
-          x_eta(1) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
-          x_eta(2) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
-
-          x_tau_power = 1
-          do mdx=0,2
-            x_tau_power = x_tau_power * x_tau
-            monomials(mdx) = (x_tau_power(2) - x_tau_power(1)) / (mdx+1)
-          enddo
-
-          dtau = monomials(0)
-          if (dtau==0) cycle
-
-          ! in the local coordinates the polygon face is given by
-          ! x_η = c_1 * x_τ + c_2
-          coeff(1) = (x_eta(2) - x_eta(1)) / dtau
-          coeff(2) = (x_eta(2) + x_eta(1)) / 2 - coeff(1) * (x_tau(1) + x_tau(2)) / 2
-      
-          vol = vol - (poly%parabola%kappa0/2) * monomials(2) - &
-            coeff(1) * monomials(1) - coeff(2) * dtau
-        endif
-      enddo
-    endif
-  end function
-
-  function parabola_moments_correction(poly) result(moments)
-    implicit none
-    
-    type(tPolygon), target, intent(inout) :: poly
-    real*8                :: moments(3)
-
-    ! Local variables
-    real*8                :: coeff(2), vol_corr, mom_corr(2), dtau
-    integer               :: edx, vdx, ndx
-    type(tParabola), pointer :: parabola
-
-    call compute_momonial(poly, 4)
-
-    parabola => poly%parabola
-
-    moments = 0
+    ! Symmetric difference may yield many parabolic edges, so we accomodate for this (volume only)
     edx = 0 ! Parabolic edge index
     do vdx=1,poly%nverts
       ndx = vdx + 1
       if (vdx==poly%nverts) ndx = 1
       
       if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
-        edx = edx + 1
+        x_tau(1) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
+        x_tau(2) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
+
+        x_eta(1) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
+        x_eta(2) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
+
+        x_tau_power = 1
+        do mdx=0,TAU_POWER_VOL
+          x_tau_power = x_tau_power * x_tau
+          monomials(mdx) = (x_tau_power(2) - x_tau_power(1)) / (mdx+1)
+        enddo
+
+        dtau = monomials(0)
+        if (dtau==0) cycle
 
         ! in the local coordinates the polygon face is given by
         ! x_η = c_1 * x_τ + c_2
-        dtau = poly%monomials(0,edx)
-        if (dtau == 0) cycle
-        
-        coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / dtau
-        coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
+        coeff(1) = (x_eta(2) - x_eta(1)) / dtau
+        coeff(2) = (x_eta(2) + x_eta(1)) / 2 - coeff(1) * (x_tau(1) + x_tau(2)) / 2
     
-        vol_corr = -(parabola%kappa0/2) * poly%monomials(2,edx) - &
-          coeff(1) * poly%monomials(1,edx) - coeff(2) * dtau
-
-        ! Corrections to first moment in parabola coordinates
-        mom_corr(1) = -(parabola%kappa0/2) * poly%monomials(3,edx) - (coeff(1) * poly%monomials(2,edx) + &
-          coeff(2) * poly%monomials(1,edx))
-        mom_corr(2) = parabola%kappa0**2 * poly%monomials(4,edx)/8 - (coeff(1)**2 * poly%monomials(2,edx) + &
-          2 * coeff(1) * coeff(2) * poly%monomials(1,edx) + coeff(2)**2 * dtau)/2 
-
-        moments(1) = moments(1) + vol_corr
-        moments(2) = moments(2) + parabola%normal(1) * (mom_corr(2) + parabola%shift * vol_corr) &
-          - parabola%normal(2) * mom_corr(1);
-        moments(3) = moments(3) + parabola%normal(2) * (mom_corr(2) + parabola%shift * vol_corr) &
-          + parabola%normal(1) * mom_corr(1);
+        vol = vol - (poly%parabola%kappa0/2) * monomials(2) - &
+          coeff(1) * monomials(1) - coeff(2) * dtau
       endif
     enddo
   end function
+
+  subroutine parabola_moments_correction(moments, poly)
+    implicit none
+    
+    type(tPolygon), intent(inout) :: poly
+    real*8, intent(out)   :: moments(3)
+
+    ! Local variables
+    real*8                :: coeff(2), dtau, x_tau(2), x_eta(2), monomials(0:2), x_tau_power(2)
+    real*8                :: vol_corr, mom_corr(2)
+    integer               :: vdx, ndx, mdx
+    integer, parameter    :: TAU_POWER_MOM = 4
+
+    moments = 0
+
+    ! Symmetric difference may yield many parabolic edges, so we accomodate for this (volume only)
+    do vdx=1,poly%nverts
+      ndx = vdx + 1
+      if (vdx==poly%nverts) ndx = 1
+      
+      if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
+        x_tau(1) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
+        x_tau(2) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
+
+        x_eta(1) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
+        x_eta(2) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
+
+        x_tau_power = 1
+        do mdx=0,TAU_POWER_MOM
+          x_tau_power = x_tau_power * x_tau
+          monomials(mdx) = (x_tau_power(2) - x_tau_power(1)) / (mdx+1)
+        enddo
+
+        dtau = monomials(0)
+        if (dtau==0) cycle
+
+        ! in the local coordinates the polygon face is given by
+        ! x_η = c_1 * x_τ + c_2
+        coeff(1) = (x_eta(2) - x_eta(1)) / dtau
+        coeff(2) = (x_eta(2) + x_eta(1)) / 2 - coeff(1) * (x_tau(1) + x_tau(2)) / 2
+    
+        vol_corr = -(poly%parabola%kappa0/2) * monomials(2) - &
+          coeff(1) * monomials(1) - coeff(2) * dtau
+
+        ! Corrections to first moment in parabola coordinates
+        mom_corr(1) = -(poly%parabola%kappa0/2) * monomials(3) - (coeff(1) * monomials(2) + &
+          coeff(2) * monomials(1))
+        mom_corr(2) = poly%parabola%kappa0**2 * monomials(4)/8 - (coeff(1)**2 * monomials(2) + &
+          2 * coeff(1) * coeff(2) * monomials(1) + coeff(2)**2 * dtau)/2 
+
+        moments(1) = moments(1) + vol_corr
+        moments(2) = moments(2) + poly%parabola%normal(1) * (mom_corr(2) + poly%parabola%shift * vol_corr) &
+          - poly%parabola%normal(2) * mom_corr(1)
+        moments(3) = moments(3) + poly%parabola%normal(2) * (mom_corr(2) + poly%parabola%shift * vol_corr) &
+          + poly%parabola%normal(1) * mom_corr(1)
+      endif
+    enddo
+  end subroutine
 
   ! Given a parabola and a line connecting the points pos1, pos2; find the intersection
   integer function parabola_line_intersection(roots, parabola, pos1, pos2) result(nr_roots)

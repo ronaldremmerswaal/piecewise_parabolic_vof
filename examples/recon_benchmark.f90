@@ -244,7 +244,7 @@ contains
     angle = 0.4321D0
     normal = [dcos(angle), dsin(angle)]
     shift = 0.0123D0
-    kappa0 = -0.05D0
+    kappa0 = 0.05D0
 
     call makeParabola(parabola, normal, kappa0, shift)
     call makePlane(plane, normal, shift)
