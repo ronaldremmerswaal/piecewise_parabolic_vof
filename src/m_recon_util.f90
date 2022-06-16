@@ -387,6 +387,7 @@ contains
 
     ! Local variables
     type(tPolygon)        :: exact_gas, exact_liq
+    type(tParabola)       :: c_parabola
 
 
     ! Construct polygonal approximation of exact gas & liquid domains
@@ -400,7 +401,8 @@ contains
 
     ! Compute symmetric difference
     call intersect(exact_gas, parabola)
-    call intersect(exact_liq, complement(parabola))
+    call complement(out=c_parabola, in=parabola)
+    call intersect(exact_liq, c_parabola)
     
     sd = cmpVolume(exact_gas) + cmpVolume(exact_liq)
   end

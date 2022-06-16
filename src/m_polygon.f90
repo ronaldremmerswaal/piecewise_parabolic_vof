@@ -132,16 +132,16 @@ contains
     parabola%shift = shift
   end subroutine
 
-  pure function complement(parabola) result(c_parabola)
+  subroutine complement(out, in)
     implicit none
     
-    type(tParabola), intent(in) :: parabola
-    type(tParabola)       :: c_parabola
+    type(tParabola), intent(in) :: in
+    type(tParabola), intent(inout) :: out
 
-    c_parabola%normal = -parabola%normal
-    c_parabola%kappa0 = -parabola%kappa0
-    c_parabola%shift = -parabola%shift
-  end function
+    out%normal = -in%normal
+    out%kappa0 = -in%kappa0
+    out%shift = -in%shift
+  end subroutine
     
 
   real*8 function cmpVolume_poly(poly) result(vol)
@@ -521,7 +521,7 @@ contains
     if (.not. poly%complement) then
       poly%parabola = parabola
     else
-      poly%parabola = complement(parabola)
+      call complement(out=poly%parabola, in=parabola)
     endif
 
     poly%nedges = 0
@@ -920,7 +920,7 @@ contains
     integer               :: vdx
     type(tParabola)       :: c_parabola
 
-    c_parabola = complement(parabola)
+    call complement(out=c_parabola, in=parabola)
 
     do vdx=1,size(polys, 1)
       call copy(out=out_pos(vdx), in=polys(vdx))
