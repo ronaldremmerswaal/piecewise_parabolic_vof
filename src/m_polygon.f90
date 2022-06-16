@@ -92,27 +92,29 @@ contains
     implicit none
     
     real*8, intent(in)    :: normal(2), shift
-    type(tParabola), intent(out) :: plane
+    type(tParabola), intent(inout) :: plane
 
     plane%normal = normal
     plane%shift = shift
+    plane%kappa0 = 0.
   end subroutine
 
   subroutine makePlane_angle(plane, angle, shift)
     implicit none
     
     real*8, intent(in)    :: angle, shift
-    type(tParabola), intent(out) :: plane
+    type(tParabola), intent(inout) :: plane
 
     plane%normal = [dcos(angle), dsin(angle)]
     plane%shift = shift
+    plane%kappa0 = 0.
   end subroutine
 
   subroutine makeParabola_poly(parabola, normal, kappa0, shift)
     implicit none
     
     real*8, intent(in)    :: normal(2), kappa0, shift
-    type(tParabola), intent(out) :: parabola
+    type(tParabola), intent(inout) :: parabola
 
     parabola%normal = normal
     parabola%kappa0 = kappa0
@@ -123,7 +125,7 @@ contains
     implicit none
     
     real*8, intent(in)    :: angle, kappa0, shift
-    type(tParabola), intent(out) :: parabola
+    type(tParabola), intent(inout) :: parabola
 
     parabola%normal = [dcos(angle), dsin(angle)]
     parabola%kappa0 = kappa0

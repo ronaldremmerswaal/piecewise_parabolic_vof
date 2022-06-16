@@ -536,7 +536,7 @@ contains
     implicit none
     
     real*8, intent(in)    :: normal(2), kappa0, dx(2), liqVol
-    type(tParabola), intent(out) :: parabola
+    type(tParabola), intent(inout) :: parabola
 
     parabola%normal = normal
     parabola%kappa0 = kappa0
