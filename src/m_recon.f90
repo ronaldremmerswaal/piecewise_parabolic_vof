@@ -280,9 +280,7 @@ contains
       derivatives = 0
        
       ! Compute derivatives which ensure that the centred volume is conserved
-      grad_s(1) = cmpDerivative_shiftAngle(cell)
-      grad_s(2) = cmpDerivative_shiftKappa(cell)
-
+      call cmpDerivatives(cell, shiftAngle=grad_s(1), shiftKappa=grad_s(2))
     endif
     
     absNormal = abs(normal)
@@ -317,8 +315,8 @@ contains
         err_local = (volume - refVolumes(i,j)) / cellVol_neighbour
 
         if (present(derivatives) .and. volume > 0 .and. volume < cellVol_neighbour) then
-          derivatives_local(1) = cmpDerivative_volAngle(cell, shiftAngleDerivative=grad_s(1))
-          derivatives_local(2) = cmpDerivative_volKappa(cell, shiftKappaDerivative=grad_s(2))
+          call cmpDerivatives(cell, volAngle=derivatives_local(1), volKappa=derivatives_local(2), &
+            shiftAngle=grad_s(1), shiftKappa=grad_s(2))
           
           derivatives(1) = derivatives(1) + 2 * err_local * derivatives_local(1) / cellVol_neighbour
           derivatives(2) = derivatives(2) + 2 * err_local * derivatives_local(2) / cellVol_neighbour
@@ -394,8 +392,8 @@ contains
       shift_ = cmpShift(normal_, dx, refMoments(1), kappa0, intersected=poly, shift0=shift0)
       
       call cmpMoments(mofMoments_, poly)
-      grad_s = cmpDerivative_shiftAngle(poly)
-      derivative = cmpDerivative_firstMomentAngle(poly, grad_s)
+      grad_s = d_qnan
+      call cmpDerivatives(poly, shiftAngle=grad_s, momAngle=derivative)
       
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative = derivative / cost_fun_scaling
@@ -494,7 +492,7 @@ contains
       
       call cmpMoments(mofMoments_, intersected)
 
-      derivative = cmpDerivative_firstMomentAngle(intersected)
+      call cmpDerivatives(intersected, momAngle=derivative)
       
       difference = (mofMoments_(2:3) - refMoments(2:3)) / cost_fun_scaling
       derivative = derivative / cost_fun_scaling

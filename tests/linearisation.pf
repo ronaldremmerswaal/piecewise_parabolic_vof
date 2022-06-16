@@ -48,13 +48,13 @@ contains
       grad_s = 0.D0
       call init(poly, pos)
       call intersect(poly, parabola)
-      derivative_cmp(1) = cmpDerivative_volAngle(poly, shiftAngleDerivative=grad_s(1))
-      derivative_cmp(2:3) = cmpDerivative_firstMomentAngle(poly, shiftAngleDerivative=grad_s(1))
-      derivative_cmp(4) = cmpDerivative_volKappa(poly, shiftKappaDerivative=grad_s(2))
 
-      grad_s_cmp(1) = cmpDerivative_shiftAngle(poly)
-      grad_s_cmp(2) = cmpDerivative_shiftKappa(poly)
-      dvolds_cmp = cmpDerivative_volShift(poly)
+      grad_s_cmp = 0.D0
+      call cmpDerivatives(poly, volAngle=derivative_cmp(1), volKappa=derivative_cmp(4), &
+        volShift=dvolds_cmp, momAngle=derivative_cmp(2:3), shiftAngle=grad_s_cmp(1), shiftKappa=grad_s_cmp(2))
+      
+      grad_s_cmp = d_qnan
+      call cmpDerivatives(poly, shiftAngle=grad_s_cmp(1), shiftKappa=grad_s_cmp(2))
 
       volume = cmpVolume(poly)
       
@@ -113,8 +113,9 @@ contains
       call intersect(cell, parabola)
 
       volume = cmpVolume(cell)
-      grad_s(1) = cmpDerivative_shiftAngle(cell)
-      grad_s(2) = cmpDerivative_shiftKappa(cell)
+      grad_s = d_qnan
+      
+      call cmpDerivatives(cell, shiftAngle=grad_s(1), shiftKappa=grad_s(2))
 
       if (volume > IS_INTERFACE_TOL .and. product(dxs(0,:)) - volume > IS_INTERFACE_TOL) then
 
@@ -130,9 +131,8 @@ contains
           
           call makeBox(cell_nb, xc_nb, dx_nb)
           call intersect(cell_nb, parabola)
-          derivative_cmp(1) = cmpDerivative_volAngle(cell_nb, shiftAngleDerivative=grad_s(1))
-          derivative_cmp(2:3) = cmpDerivative_firstMomentAngle(cell_nb, shiftAngleDerivative=grad_s(1))
-          derivative_cmp(4) = cmpDerivative_volKappa(cell_nb, shiftKappaDerivative=grad_s(2))
+          call cmpDerivatives(cell_nb, volAngle=derivative_cmp(1), momAngle=derivative_cmp(2:3), volKappa=derivative_cmp(4), &
+            shiftAngle=grad_s(1), shiftKappa=grad_s(2))
 
           call makeBox(cell_nb, xc_nb, dx_nb)
           call approximate_moment_derivatives(cell_nb, angle, kappa0, shift, derivative_fd, dxs(0,:))

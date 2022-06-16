@@ -271,7 +271,7 @@ contains
       if (refVolumes(0,0) > IS_INTERFACE_TOLERANCE .and. product(dxs(0,:)) - refVolumes(0,0) > IS_INTERFACE_TOLERANCE) then
         ! Make sure the initial guess is bad (but the sign is correct!)
         recKappa0 = kappa0 * 1.5
-        recNormal = prostNormal(refVolumes, recKappa0, dxs, errTol=TOLERANCE/10, verbose=.false., shift=recShift)
+        recNormal = prostNormal(refVolumes, recKappa0, dxs, errTol=TOLERANCE/10, verbose=.true., shift=recShift)
 
         @assertEqual(normal, recNormal, TOLERANCE)
         @assertEqual(kappa0, recKappa0, TOLERANCE)

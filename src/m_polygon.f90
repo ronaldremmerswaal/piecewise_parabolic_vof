@@ -1,6 +1,5 @@
 module m_polygon
   integer, parameter      :: MAX_NR_VERTS = 2**8
-  integer, parameter      :: MAX_NR_PARA_EDGES = 2**2
   integer, parameter      :: MAX_MONOMIAL = 5
   integer, parameter      :: DEFAULT_VERTS_PER_SEGMENT = int(MAX_NR_VERTS / 3)
 
@@ -17,7 +16,6 @@ module m_polygon
     ! When a polygon is intersected with a parabola we store the corresponding parabola
     ! which is needed for computing moments/derivatives
     logical               :: intersected = .false.
-    logical               :: parabolic = .false.
     type(tParabola)       :: parabola
 
     ! For each vertex we store whether or not it was part of the original polygon
@@ -27,19 +25,6 @@ module m_polygon
     ! of the original polygon must be stored
     logical               :: complement = .false. 
     real*8                :: original_moments(3)
-
-    ! The tangential and normal coordinates of the vertices which lie on the parabola
-    ! (needed for computation of moments/derivatives)
-    integer               :: nedges = 0
-    real*8                :: x_tau(2,MAX_NR_PARA_EDGES)
-    real*8                :: x_eta(2,MAX_NR_PARA_EDGES)
-    
-    ! Integrated powers of x_tau, which are needed for computation of moments/derivatives
-    integer               :: avail_monomial = -1
-    real*8                :: x_tau_power(2,MAX_NR_PARA_EDGES)
-    real*8                :: monomials(0:MAX_MONOMIAL,MAX_NR_PARA_EDGES)
-    real*8                :: monomials_sum(0:MAX_MONOMIAL)
-
   contains
     procedure             :: reset
   end type
@@ -81,11 +66,8 @@ contains
     class(tPolygon)       :: this
 
     this%nverts = 0
-    this%nedges = 0
     this%intersected = .false.
-    this%parabolic = .false.
     this%complement = .false.
-    this%avail_monomial = -1
   end subroutine
 
   subroutine makePlane_def(plane, normal, shift)
@@ -162,7 +144,7 @@ contains
 
     vol = vol/2
 
-    if (poly%intersected .and. poly%parabolic) then
+    if (poly%intersected .and. poly%parabola%kappa0/=0) then
       vol = vol + parabola_volume_correction(poly)
       if (poly%complement) then
         vol = poly%original_moments(1) - vol
@@ -193,7 +175,7 @@ contains
     mom(1) = mom(1)/2
     mom(2:3) = mom(2:3)/6
 
-    if (poly%intersected .and. poly%parabolic) then
+    if (poly%intersected .and. poly%parabola%kappa0/=0) then
       call parabola_moments_correction(moms_corr, poly)
       mom = mom + moms_corr
       if (poly%complement) then
@@ -202,200 +184,158 @@ contains
     endif
   end subroutine
 
-  real*8 function cmpDerivative_volAngle(poly, shiftAngleDerivative) result(der)
+  subroutine cmpDerivatives(poly, volAngle, volKappa, volShift, momAngle, shiftAngle, shiftKappa)
+    use m_common
     implicit none
-
-    type(tPolygon), intent(inout) :: poly
-    real*8, intent(in), optional :: shiftAngleDerivative
+    
+    type(tPolygon), intent(in) :: poly
+    real*8, intent(out), optional :: volAngle, volKappa, volShift, momAngle(2)
+    real*8, intent(inout), optional :: shiftAngle, shiftKappa
 
     ! Local variables
-    real*8                :: shiftAngleDerivative_    
+    real*8                :: x_tau(2), monomials_sum(0:MAX_MONOMIAL), x_tau_power(2)
+    real*8                :: shiftAngle_, shiftKappa_, der1_eta, der1_tau
+    integer               :: vdx, ndx, mdx
+    integer, parameter    :: TAU_POWER_MOMANGLE = MAX_MONOMIAL
+    integer, parameter    :: TAU_POWER_ANYOTHER = 3
+    integer               :: TAU_POWER_MAX
 
     if (.not. poly%intersected) then
-      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
-      der = 0
+      if (present(volAngle)) volAngle = 0
+      if (present(volKappa)) volKappa = 0
+      if (present(volShift)) volShift = 0
+      if (present(momAngle)) momAngle = 0
+      if (present(shiftAngle) .and. isnan(shiftAngle)) shiftAngle = 0
+      if (present(shiftKappa) .and. isnan(shiftKappa)) shiftKappa = 0
+      
       return
     endif
+
+    TAU_POWER_MAX = TAU_POWER_ANYOTHER
+    if (present(momAngle)) TAU_POWER_MAX = TAU_POWER_MOMANGLE
+
+    monomials_sum(0:TAU_POWER_MAX) = 0
+    do vdx=1,poly%nverts
+      ndx = vdx + 1
+      if (vdx==poly%nverts) ndx = 1
+      
+      if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
+        x_tau(1) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
+        x_tau(2) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
+
+        if (x_tau(1)==x_tau(2)) cycle
+
+        x_tau_power = 1
+        do mdx=0,TAU_POWER_MAX
+          x_tau_power = x_tau_power * x_tau
+          monomials_sum(mdx) = monomials_sum(mdx) + (x_tau_power(2) - x_tau_power(1)) / (mdx+1)
+        enddo
+      endif
+    enddo
+
+    shiftAngle_ = d_qnan
+    if (present(shiftAngle)) shiftAngle_ = shiftAngle
     
-    if (.not. present(shiftAngleDerivative)) then 
-      der = 0
-      ! Force zero volume, so derivative is always zero
-      return
-      ! shiftAngleDerivative_ = cmpDerivative_shiftAngle(poly)
+    if (isnan(shiftAngle_) .and. (present(shiftAngle) .or. present(volAngle) .or. present(momAngle))) then
+      ! shiftAngle such that volume is conserved
+
+      shiftAngle_ = monomials_sum(1)&
+        - monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 &
+        + (monomials_sum(3) * poly%parabola%kappa0**2) / 2
+    
+      shiftAngle_ = shiftAngle_ / monomials_sum(0)
+
+      if (poly%complement) shiftAngle_ = -shiftAngle_
+      if (present(shiftAngle)) shiftAngle = shiftAngle_
+    endif
+    
+    if (poly%complement) shiftAngle_ = -shiftAngle_
+
+    if (present(volAngle)) then
+      volAngle = monomials_sum(0) * shiftAngle_ - monomials_sum(1)&
+        + monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 &
+        - (monomials_sum(3) * poly%parabola%kappa0**2) / 2
+      
+      if (poly%complement) volAngle = -volAngle
     endif
 
-    shiftAngleDerivative_ = shiftAngleDerivative
-    if (poly%complement) shiftAngleDerivative_ = -shiftAngleDerivative_
-    
-    if (poly%parabolic) then
-      call compute_momonial(poly, 3)
-    else
-      call compute_momonial(poly, 1)
+    if (present(momAngle)) then
+      ! we write the derivative in terms of its normal and tangential components
+      ! the normal component is given by
+      ! 	int [grad_s - τ + κ τ(s - κ/2 τ^2)][s - κ/2 τ^2] dτ
+      der1_eta = poly%parabola%shift * shiftAngle_ * monomials_sum(0) - poly%parabola%shift * monomials_sum(1)
+      if (poly%parabola%kappa0/=0) then
+        der1_eta = der1_eta + monomials_sum(3) * poly%parabola%kappa0 / 2 - &
+          monomials_sum(2) * shiftAngle_ * poly%parabola%kappa0 / 2 + &
+          poly%parabola%kappa0 * (monomials_sum(1) * poly%parabola%shift**2 + &
+          monomials_sum(5) * poly%parabola%kappa0**2 / 4 - &
+          poly%parabola%shift * poly%parabola%kappa0 * monomials_sum(3))
+      endif
+
+      ! and the tangential component
+      ! 	int [grad_s - τ + κ τ(s - κ/2 τ^2)]τ dτ
+      der1_tau = shiftAngle_ * monomials_sum(1) - monomials_sum(2)
+      if (poly%parabola%kappa0/=0) then
+        der1_tau = der1_tau + poly%parabola%kappa0 * poly%parabola%shift * monomials_sum(2) -&
+          monomials_sum(4) * poly%parabola%kappa0**2 / 2
+      endif
+      
+      momAngle(1) = poly%parabola%normal(1) * der1_eta - poly%parabola%normal(2) * der1_tau
+      momAngle(2) = poly%parabola%normal(2) * der1_eta + poly%parabola%normal(1) * der1_tau
+
+      if (poly%complement) momAngle = -momAngle
     endif
 
-    der = poly%monomials_sum(0) * shiftAngleDerivative_ - poly%monomials_sum(1)
-    if (poly%parabolic) then
-      der = der + poly%monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 - &
-        (poly%monomials_sum(3) * poly%parabola%kappa0**2) / 2
+    if (present(volShift)) then
+      volShift = monomials_sum(0)
+    endif
+
+
+    shiftKappa_ = d_qnan
+    if (present(shiftKappa)) shiftKappa_ = shiftKappa
+    
+    if (isnan(shiftKappa_) .and. (present(shiftKappa) .or. present(volKappa))) then
+      ! shiftKappa such that volume is conserved
+      shiftKappa_ = (monomials_sum(2)/2) / monomials_sum(0)
+      if (present(shiftKappa)) shiftKappa = shiftKappa_
     endif
     
-    if (poly%complement) der = -der
-  end function
-  
-  real*8 function cmpDerivative_volKappa(poly, shiftKappaDerivative) result(der)
+    if (present(volKappa)) then
+      volKappa = monomials_sum(0) * shiftKappa_ - monomials_sum(2)/2
+    endif
+
+
+  end subroutine
+
+  real*8 function cmpDerivative_volShift(poly) result(volShift)
+    use m_common
     implicit none
-
-    type(tPolygon), intent(inout) :: poly
-    real*8, intent(in), optional :: shiftKappaDerivative
-
-    if (.not. poly%intersected) then
-      der = 0
-      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
-      return
-    endif
     
-    if (.not. present(shiftKappaDerivative)) then 
-      ! Force zero volume
-      der = 0
-      return
-      ! shiftKappaDerivative = cmpDerivative_shiftKappa(poly)
-    endif
-    
-    call compute_momonial(poly, 2)
-
-    der = poly%monomials_sum(0) * shiftKappaDerivative - poly%monomials_sum(2)/2
-    
-  end function
-
-  real*8 function cmpDerivative_volShift(poly) result(der)
-    implicit none
-
-    type(tPolygon), intent(inout) :: poly
-
-    if (.not. poly%intersected) then
-      der = 0
-      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
-      return
-    endif
-    
-    call compute_momonial(poly, 0)
-
-    der = poly%monomials_sum(0)
-    
-  end function
-  
-  function cmpDerivative_firstMomentAngle(poly, shiftAngleDerivative) result(der)
-    implicit none
-
-    type(tPolygon), intent(inout) :: poly
-    real*8, intent(in), optional :: shiftAngleDerivative
-    real*8                :: der(2)
+    type(tPolygon), intent(in) :: poly
 
     ! Local variables
-    real*8                :: shiftAngleDerivative_, der1_eta, der1_tau
+    real*8                :: x_tau(2), dtau
+    real*8                :: shiftAngle_, shiftKappa_, der1_eta, der1_tau
+    integer               :: vdx, ndx, mdx
+    integer, parameter    :: TAU_POWER_MOMANGLE = MAX_MONOMIAL
+    integer, parameter    :: TAU_POWER_ANYOTHER = 3
+    integer               :: TAU_POWER_MAX
 
-    if (.not. poly%intersected) then
-      der = 0
-      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
-      return
-    endif
-    
-    if (present(shiftAngleDerivative)) then 
-      shiftAngleDerivative_ = shiftAngleDerivative
-    else
-      ! Force zero volume
-      shiftAngleDerivative_ = cmpDerivative_shiftAngle(poly)
-    endif
-    
-    if (poly%parabolic) then
-      call compute_momonial(poly, 5)
-    else
-      call compute_momonial(poly, 2)
-    endif
+    volShift = 0
+    if (.not. poly%intersected) return
 
-    if (poly%complement) shiftAngleDerivative_ = -shiftAngleDerivative_
+    do vdx=1,poly%nverts
+      ndx = vdx + 1
+      if (vdx==poly%nverts) ndx = 1
+      
+      if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
+        x_tau(1) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
+        x_tau(2) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
 
-    ! we write the derivative in terms of its normal and tangential components
-	  ! the normal component is given by
-	  ! 	int [grad_s - τ + κ τ(s - κ/2 τ^2)][s - κ/2 τ^2] dτ
-    der1_eta = poly%parabola%shift * shiftAngleDerivative_ * poly%monomials_sum(0) - poly%parabola%shift * poly%monomials_sum(1)
-    if (poly%parabolic) then
-      der1_eta = der1_eta + poly%monomials_sum(3) * poly%parabola%kappa0 / 2 - &
-        poly%monomials_sum(2) * shiftAngleDerivative_ * poly%parabola%kappa0 / 2 + &
-        poly%parabola%kappa0 * (poly%monomials_sum(1) * poly%parabola%shift**2 + &
-        poly%monomials_sum(5) * poly%parabola%kappa0**2 / 4 - &
-        poly%parabola%shift * poly%parabola%kappa0 * poly%monomials_sum(3))
-    endif
-
-    ! and the tangential component
-    ! 	int [grad_s - τ + κ τ(s - κ/2 τ^2)]τ dτ
-    der1_tau = shiftAngleDerivative_ * poly%monomials_sum(1) - poly%monomials_sum(2)
-    if (poly%parabolic) then
-      der1_tau = der1_tau + poly%parabola%kappa0 * poly%parabola%shift * poly%monomials_sum(2) -&
-        poly%monomials_sum(4) * poly%parabola%kappa0**2 / 2
-    endif
-    
-    der(1) = poly%parabola%normal(1) * der1_eta - poly%parabola%normal(2) * der1_tau
-    der(2) = poly%parabola%normal(2) * der1_eta + poly%parabola%normal(1) * der1_tau
-
-    if (poly%complement) der = -der
-  end function
-
-    ! The derivative of the shift w.r.t. to the normal angle is given by
-	! 	-int [(s - κ/2 τ^2) κ τ - τ] dτ / int 1 dτ
-  real*8 function cmpDerivative_shiftAngle(poly) result(der)
-    implicit none
-
-    type(tPolygon), intent(inout) :: poly
-
-    if (.not. poly%intersected) then
-      der = 0
-      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
-      return
-    endif
-
-    if (poly%parabolic) then
-      call compute_momonial(poly, 3)
-    else
-      call compute_momonial(poly, 1)
-    endif
-
-    if (poly%monomials_sum(0)==0) then
-      der = 0
-      return
-    endif
-
-    der = poly%monomials_sum(1)
-    if (poly%parabolic) then
-      der = der - poly%monomials_sum(1) * poly%parabola%shift * poly%parabola%kappa0 &
-        + (poly%monomials_sum(3) * poly%parabola%kappa0**2) / 2
-    endif
-    der = der / poly%monomials_sum(0)
-
-    if (poly%complement) der = -der
-  end function
-
-  ! The derivative of the shift w.r.t. to the curvature is given by
-	! 	int [τ^2/2] dτ / int 1 dτ
-  real*8 function cmpDerivative_shiftKappa(poly) result(der)
-    implicit none
-
-    type(tPolygon), intent(inout) :: poly
-
-    if (.not. poly%intersected) then
-      der = 0
-      ! print*, 'ERROR: derivative cannot be computed because polygon was not yet intersected'
-      return
-    endif
-
-    call compute_momonial(poly, 2)
-
-    if (poly%monomials_sum(0)==0) then
-      der = 0
-      return
-    endif
-
-    der = (poly%monomials_sum(2)/2) / poly%monomials_sum(0)
+        if (x_tau(1)==x_tau(2)) cycle
+        dtau = dtau + (x_tau(2) - x_tau(1))
+      endif
+    enddo
   end function
 
   subroutine intersect(poly, parabola)
@@ -411,7 +351,7 @@ contains
     logical               :: is_parabolic, edge_is_bisected, edge_could_be_trisected, new_vertex(2)
     real*8                :: x_eta, x_tau
 
-    if (poly%intersected .and. poly%parabolic) then
+    if (poly%intersected .and. poly%parabola%kappa0/=0) then
       print*, 'ERROR: a polygon cannot be intersected if it was previously intersected by a parabola'
       return
     endif
@@ -516,81 +456,12 @@ contains
 
     poly%nverts = new_count
 
-    poly%parabolic = is_parabolic
     poly%intersected = .true.
-    poly%avail_monomial = -1
     if (.not. poly%complement) then
       poly%parabola = parabola
     else
       call complement(out=poly%parabola, in=parabola)
-    endif
-
-    poly%nedges = 0
-    do vdx=1,poly%nverts
-      ndx = vdx + 1
-      if (ndx > poly%nverts) ndx = 1
-      if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
-        poly%nedges = poly%nedges + 1
-      endif
-    enddo
-   
-  end subroutine
-
-  subroutine compute_momonial(poly, nr)
-    implicit none
-    
-    type(tPolygon), intent(inout) :: poly
-    integer, intent(in)   :: nr
-
-    ! Local variables
-    integer               :: mdx, vdx, ndx, old_nr, edx
-    
-    old_nr = poly%avail_monomial
-    if (nr <= old_nr) return
-    if (nr > MAX_MONOMIAL) then
-      print*, 'ERROR in compute_momonial: too many monomials requested'
-    endif
-
-    if (poly%nedges > MAX_NR_PARA_EDGES) then
-      print*, 'ERROR: cannot store monomial integral, too many edges'
-      return
-    endif
-
-    if (old_nr<0) old_nr = -1
-
-    ! We compute integral of x_tau^mdx over edges which are parabola
-    do mdx=old_nr+1,nr
-      edx = 0 ! Parabolic edge index
-
-      poly%monomials_sum(mdx) = 0
-      do vdx=1,poly%nverts
-        ndx = vdx + 1
-        if (vdx==poly%nverts) ndx = 1
-        
-        if (poly%on_parabola(vdx) .and. poly%on_parabola(ndx)) then
-          edx = edx + 1
-
-          if (mdx==0) then
-            poly%x_tau(1,edx) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
-            poly%x_tau(2,edx) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
-
-            poly%x_eta(1,edx) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
-            poly%x_eta(2,edx) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
-
-            poly%x_tau_power(1,edx) = poly%x_tau(1,edx)
-            poly%x_tau_power(2,edx) = poly%x_tau(2,edx)
-          else
-            poly%x_tau_power(1,edx) = poly%x_tau_power(1,edx) * poly%x_tau(1,edx)
-            poly%x_tau_power(2,edx) = poly%x_tau_power(2,edx) * poly%x_tau(2,edx)
-          endif
-          
-          poly%monomials(mdx,edx) = (poly%x_tau_power(2,edx) - poly%x_tau_power(1,edx)) / (mdx+1)
-          poly%monomials_sum(mdx) = poly%monomials_sum(mdx) + poly%monomials(mdx,edx)
-        endif
-      enddo
-    enddo
-
-    poly%avail_monomial = nr
+    endif   
   end subroutine
 
   real*8 function parabola_volume_correction(poly) result(vol)
@@ -935,25 +806,9 @@ contains
       out%parabola%shift = in%parabola%shift
       out%parabola%kappa0 = in%parabola%kappa0
 
-      out%parabolic = in%parabolic
       out%on_parabola(1:out%nverts) = in%on_parabola(1:out%nverts)
-      out%nedges = in%nedges
-
-      if (out%parabolic) then
-        out%complement = in%complement
-        if (in%complement) out%original_moments = in%original_moments
-  
-        out%avail_monomial = in%avail_monomial
-        if (out%avail_monomial>=0) then 
-          out%x_tau(:,1:out%nedges) = in%x_tau(:,1:out%nedges)
-          out%x_eta(:,1:out%nedges) = in%x_eta(:,1:out%nedges)
-
-          out%x_tau_power = in%x_tau_power
-          out%monomials = in%monomials
-          out%monomials_sum = in%monomials_sum
-        endif
-      endif
-
+      out%complement = in%complement
+      if (in%complement) out%original_moments = in%original_moments
     endif
 
   end subroutine
