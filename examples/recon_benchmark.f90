@@ -254,7 +254,8 @@ contains
 
     call cpu_time(tmp)
     do rep=1,NR_REPETITIONS
-      call cmpMoments(moments01, normal, dx, shift)
+      ! NOTE: the -ipo flag requires the repetitions to really be different, to prevent further optimisation
+      call cmpMoments(moments01, normal, dx, shift+1D-12*rep)
     enddo
     call cpu_time(time_intersect_plane)
     time_intersect_plane = time_intersect_plane - tmp

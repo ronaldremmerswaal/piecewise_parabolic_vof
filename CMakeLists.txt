@@ -35,7 +35,7 @@ message("-- Using ${CMAKE_Fortran_COMPILER_ID} Fortran compiler")
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
   set(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -fPIC")
   set(CMAKE_Fortran_FLAGS_DEBUG   "-g -traceback -check bounds -debug all")
-  set(CMAKE_Fortran_FLAGS_RELEASE "-Ofast")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -xHost -ipo")
   set(CMAKE_Fortran_FLAGS_PROFILE "-Ofast -p")
 endif()
 

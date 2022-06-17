@@ -576,11 +576,9 @@ contains
             poly%x_eta(1,edx) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
             poly%x_eta(2,edx) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
 
-            poly%x_tau_power(1,edx) = poly%x_tau(1,edx)
-            poly%x_tau_power(2,edx) = poly%x_tau(2,edx)
+            poly%x_tau_power(:,edx) = poly%x_tau(:,edx)
           else
-            poly%x_tau_power(1,edx) = poly%x_tau_power(1,edx) * poly%x_tau(1,edx)
-            poly%x_tau_power(2,edx) = poly%x_tau_power(2,edx) * poly%x_tau(2,edx)
+            poly%x_tau_power(:,edx) = poly%x_tau_power(:,edx) * poly%x_tau(:,edx)
           endif
           
           poly%monomials(mdx,edx) = (poly%x_tau_power(2,edx) - poly%x_tau_power(1,edx)) / (mdx+1)
