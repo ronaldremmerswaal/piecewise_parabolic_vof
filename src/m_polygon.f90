@@ -657,7 +657,8 @@ contains
 
     parabola => poly%parabola
 
-    moments = 0
+    vol_corr = 0
+    mom_corr = 0
     do edx=1,poly%nedges
       ! in the local coordinates the polygon face is given by
       ! x_η = c_1 * x_τ + c_2
@@ -667,21 +668,21 @@ contains
       coeff(1) = (poly%x_eta(2,edx) - poly%x_eta(1,edx)) / dtau
       coeff(2) = (poly%x_eta(2,edx) + poly%x_eta(1,edx)) / 2 - coeff(1) * (poly%x_tau(1,edx) + poly%x_tau(2,edx)) / 2
   
-      vol_corr = -(parabola%kappa0/2) * poly%monomials(2,edx) - &
+      vol_corr = vol_corr - (parabola%kappa0/2) * poly%monomials(2,edx) - &
         coeff(1) * poly%monomials(1,edx) - coeff(2) * dtau
 
       ! Corrections to first moment in parabola coordinates
-      mom_corr(1) = -(parabola%kappa0/2) * poly%monomials(3,edx) - (coeff(1) * poly%monomials(2,edx) + &
+      mom_corr(1) = mom_corr(1) - (parabola%kappa0/2) * poly%monomials(3,edx) - (coeff(1) * poly%monomials(2,edx) + &
         coeff(2) * poly%monomials(1,edx))
-      mom_corr(2) = parabola%kappa0**2 * poly%monomials(4,edx)/8 - (coeff(1)**2 * poly%monomials(2,edx) + &
+      mom_corr(2) = mom_corr(2) + parabola%kappa0**2 * poly%monomials(4,edx)/8 - (coeff(1)**2 * poly%monomials(2,edx) + &
         2 * coeff(1) * coeff(2) * poly%monomials(1,edx) + coeff(2)**2 * dtau)/2 
-
-      moments(1) = moments(1) + vol_corr
-      moments(2) = moments(2) + parabola%normal(1) * (mom_corr(2) + parabola%shift * vol_corr) &
+      enddo
+      
+      moments(1) = vol_corr
+      moments(2) = parabola%normal(1) * (mom_corr(2) + parabola%shift * vol_corr) &
         - parabola%normal(2) * mom_corr(1);
-      moments(3) = moments(3) + parabola%normal(2) * (mom_corr(2) + parabola%shift * vol_corr) &
+      moments(3) = parabola%normal(2) * (mom_corr(2) + parabola%shift * vol_corr) &
         + parabola%normal(1) * mom_corr(1);
-    enddo
   end function
 
   ! Given a parabola and a line connecting the points pos1, pos2; find the intersection
