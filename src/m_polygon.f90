@@ -557,26 +557,24 @@ contains
     if (old_nr<0) old_nr = -1
 
     ! We compute integral of x_tau^mdx over edges which are parabola
-    do mdx=old_nr+1,nr
+    poly%monomials_sum(old_nr+1:nr) = 0
+    do edx=1,poly%nedges
+      vdx = poly%first_index(edx)
+      ndx = vdx + 1
+      if (vdx==poly%nverts) ndx = 1
 
-      poly%monomials_sum(mdx) = 0
-      do edx=1,poly%nedges
-        vdx = poly%first_index(edx)
-        ndx = vdx + 1
-        if (vdx==poly%nverts) ndx = 1
-
-        if (mdx==0) then
-          poly%x_tau(1,edx) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
-          poly%x_tau(2,edx) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
-
-          poly%x_eta(1,edx) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
-          poly%x_eta(2,edx) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
-
-          poly%x_tau_power(:,edx) = poly%x_tau(:,edx)
-        else
-          poly%x_tau_power(:,edx) = poly%x_tau_power(:,edx) * poly%x_tau(:,edx)
-        endif
+      if (old_nr==-1) then 
+        poly%x_tau_power(:,edx) = 1
+        poly%x_tau(1,edx) = dot_rotate(poly%verts(:,vdx), poly%parabola%normal)
+        poly%x_tau(2,edx) = dot_rotate(poly%verts(:,ndx), poly%parabola%normal)
         
+        poly%x_eta(1,edx) = mydot(poly%verts(:,vdx), poly%parabola%normal) - poly%parabola%shift
+        poly%x_eta(2,edx) = mydot(poly%verts(:,ndx), poly%parabola%normal) - poly%parabola%shift
+      endif
+      
+      do mdx=old_nr+1,nr
+        poly%x_tau_power(:,edx) = poly%x_tau_power(:,edx) * poly%x_tau(:,edx)
+
         poly%monomials(mdx,edx) = (poly%x_tau_power(2,edx) - poly%x_tau_power(1,edx)) / (mdx+1)
         poly%monomials_sum(mdx) = poly%monomials_sum(mdx) + poly%monomials(mdx,edx)
       enddo
